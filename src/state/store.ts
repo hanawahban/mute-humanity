@@ -18,7 +18,7 @@ export interface Settings {
   highContrast: boolean;
   reducedMotion: boolean;
   vibration: number; // 0-1
-  mono: boolean;
+  captions: boolean;
 }
 
 export interface AppState {
@@ -46,6 +46,8 @@ export interface AppState {
   announcement: string;
   listening: boolean;
   settings: Settings;
+  controller: string | null; // connected controller name
+  helpOpen: boolean;
 }
 
 const allOff = Object.fromEntries(RECORDS.map((r) => [r.id, false])) as Record<RecordId, boolean>;
@@ -74,7 +76,14 @@ export const useStore = create<AppState>(() => ({
   caption: '',
   announcement: '',
   listening: false,
-  settings: { highContrast: false, reducedMotion: false, vibration: 0.8, mono: false },
+  settings: {
+    highContrast: false,
+    reducedMotion: typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches,
+    vibration: 0.8,
+    captions: true,
+  },
+  controller: null,
+  helpOpen: false,
 }));
 
 export const getState = useStore.getState;

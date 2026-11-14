@@ -8,7 +8,7 @@ import { gridAt, listenRadius, regionValue } from '../data/sample';
 import { describeNow } from '../state/actions';
 import { getState, setState, type MixEntry } from '../state/store';
 import { updateLevels } from './engine';
-import { updateHaptics } from '../input/gamepad';
+import { hapticTick } from '../input/haptics';
 
 const TICK_MS = 50;
 export const MONTH_SECONDS = 5; // the plan says about 15 s per month; shorter while developing
@@ -89,7 +89,7 @@ export function startMixer() {
     const levels: Partial<Record<RecordId, number | null>> = {};
     for (const rec of RECORDS) levels[rec.id] = mix[rec.id]?.value ?? 0;
     updateLevels(levels);
-    updateHaptics(mix, now);
+    hapticTick(mix, now);
     if (now - lastCaptionAt > 1500) {
       lastCaptionAt = now;
       const caption = describeNow();

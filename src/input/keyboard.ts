@@ -5,14 +5,15 @@
 //   M             mute / unmute humanity      P       play/pause the 75-year timeline
 //   + / -         zoom in / out               Shift + arrows  move around the map
 //   D             "what am I hearing?"        V (hold) talk: voice command
+//   0             whole planet                C captions, H help
 //
 // When a slider or text field has focus, it keeps its own arrow keys.
 
 import { RECORDS } from '../config/records';
 import {
-  describe, flipRecord, nudgeYear, panBy, setAutoplay, setHumanity, toggleMuteHumanity, toggleRecord, zoomBy,
+  announce, describe, flipRecord, nudgeYear, panBy, resetView, setAutoplay, setHumanity, toggleMuteHumanity, toggleRecord, zoomBy,
 } from '../state/actions';
-import { getState } from '../state/store';
+import { getState, setState } from '../state/store';
 import { startListening, stopListening } from './voice';
 
 function ownsArrows(el: EventTarget | null): boolean {
@@ -28,6 +29,7 @@ export function initKeyboard() {
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const s = getState();
+    if (s.helpOpen) return; // the dialog has its own keys (Tab, Escape)
     const arrowsTaken = ownsArrows(e.target);
 
     if (/^[1-6]$/.test(e.key)) {
@@ -72,6 +74,17 @@ export function initKeyboard() {
         break;
       case 'd':
         describe('screen-reader');
+        break;
+      case '0':
+        resetView();
+        break;
+      case 'c':
+        setState({ settings: { ...s.settings, captions: !s.settings.captions } });
+        announce(`Captions ${s.settings.captions ? 'off' : 'on'}`);
+        break;
+      case 'h':
+      case '?':
+        setState({ helpOpen: true });
         break;
       case 'v':
         if (!e.repeat) startListening();

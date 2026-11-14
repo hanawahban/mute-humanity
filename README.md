@@ -42,14 +42,16 @@ VITE_DATA_BASE=/data
 ```
 scripts/make-mock-data.mjs   Fake data in the agreed format, until the pipeline delivers
 public/data/                 Pipeline output (see "Data contract")
+public/basemap/              NASA Blue Marble base map (see CREDITS.txt)
 public/eic/<record>/         EIC clips for side A (see "EIC clips")
 public/audio/<record>/       Sound files from GarageBand (see "Sound files")
 src/config/                  Records, places, key and tempo
 src/data/                    Data contract types, loader, sampling (fractional years, regions)
 src/state/                   Shared state (zustand) and actions used by every input
 src/audio/                   Tone.js engine (placeholder synths) and the mixer loop
-src/input/                   Keyboard, Xbox controller (input and vibration), voice
-src/components/              Jukebox, map (side B), side A player, captions, settings
+src/input/                   Keyboard, Xbox controller input, vibration patterns (haptics.ts), voice
+src/map/                     Map colours and legends per record (styles.ts), smooth zoom (camera.ts)
+src/components/              Jukebox dock, map (side B), side A panel, overlays, help dialog
 ```
 
 Every input (buttons, keyboard, voice, controller) calls the same actions in `src/state/actions.ts`, so adding an input never touches the audio or UI code.
@@ -68,6 +70,23 @@ All data is from NASA. Values are sampled at the map position and the slider yea
 | Ocean plastic | Human | [CYGNSS microplastics v3.2](https://podaac.jpl.nasa.gov/dataset/CYGNSS_L3_MICROPLASTIC_V3.2) | 2018-now | [SVS 5425](https://svs.gsfc.nasa.gov/5425/) (currents, not plastic) |
 
 Prologue layer (no button): `temperature` from [NASA GISTEMP v4](https://data.giss.nasa.gov/gistemp/), 1950-now. It draws the warming stripes on the timeline. Land use (LUH2) and pollution (MERRA-2) are planned prologue layers.
+
+## The map
+
+NASA Blue Marble underneath; each playing record's data on top, drawn the way NASA maps usually show it (`src/map/styles.ts`):
+
+| Record | How it looks |
+| --- | --- |
+| Ocean | sea surface temperature, blue (cold) to red (warm), ocean only |
+| Plants | NDVI, tan (bare) to deep green (lush), land only |
+| Rain | light blue to purple and pink for the heaviest rain |
+| NO2 | transparent (clean) to yellow, orange, red, dark mahogany (polluted) |
+| Fires | glowing dots, more dots where FIRMS counts more fires |
+| Ocean plastic | white specks gathering in the gyres |
+
+Coastlines come from vector outlines (world-atlas 50m), so the 2-degree data still has sharp coasts at any zoom. Layer images are cached, so panning and zooming are cheap. Zoom with the scroll wheel or trackpad pinch (toward the pointer), double-click (Shift + double-click to zoom out), the +/− buttons, `+`/`-`/`0`, or the controller's right stick.
+
+`npm run mock-data` makes fake data shaped like the real products (where things are, the seasons, known events such as the 2015 El Niño, the 2019-20 Australian fires and the 2020 lockdown dip in NO2). It is still made up, and the app shows a "Mock data" badge while it is in use.
 
 ## Data contract (pipeline to app)
 
@@ -101,7 +120,7 @@ public/data/<layer>/monthly_<year>.bin
       "min": 0,
       "max": 20,
       "years": [1990, 1991, "...", 2026],
-      "monthlyYears": [2004, 2005, "...", 2026],
+      "monthlyYears": [2005, 2006, "...", 2026],
       "source": "OMI OMNO2d v003, doi:10.5067/Aura/OMI/DATA3007"
     }
   ]
@@ -146,11 +165,16 @@ public/audio/ui/<name>.mp3               record press, lever, decade tick, voice
 | Flip side A/B | `F` | `Y` | "flip ocean" |
 | Humanity lever | Up/Down, `M` mute | D-pad up/down | "mute humanity", "humanity to 50 percent" |
 | Year | Left/Right | `LT` / `RT` (harder = faster) | "go to 1985", "play the 1990s" |
-| Map | Shift + arrows, `+` / `-` | Left stick, `LB` / `RB` | "go to Bahrain", "zoom in" |
+| Map | Shift + arrows, `+` / `-` / `0`, mouse | Left stick, right stick or `LB` / `RB` to zoom | "go to Bahrain", "zoom in" |
 | What am I hearing? | `D` | `B` | "what am I hearing?" |
 | Play 75 years | `P` | `Start` | "play 75 years" |
+| Captions, help | `C`, `H` | | "help" |
 
-**Controller on Mac:** Chrome, USB cable, press any button once after the page loads. Vibration uses `vibrationActuator.playEffect('dual-rumble')`; strong motor for Ocean, Plants and NO2, weak motor for Rain, Fires and plastic.
+**Controller on Mac:** Chrome, USB cable, press any button once after the page loads.
+
+**Vibration** (`src/input/haptics.ts`): the controller feels one record at a time, the one chosen with the D-pad (or the loudest one playing). Each record has its own pattern: ocean swells, plants breathe on the beat, rain patters, NO2 clicks like a Geiger counter, fires crackle in bursts, plastic rattles. Faster and stronger means more, where you are listening. Short cues confirm actions: two taps for a record on, one for off, a notch at every decade while scrubbing, a double bump where a dataset begins, a long fade when humanity is muted.
+
+**Controller lights:** browsers can't set the LEDs on Xbox-style controllers. The Gamepad API has no light control (a 2019 proposal never shipped), and WebHID only works with controllers whose protocol is public, such as the PlayStation DualShock 4.
 
 **Voice:** Web Speech API (Chrome). It needs internet unless on-device recognition is available. The music ducks while listening.
 
@@ -158,8 +182,8 @@ public/audio/ui/<name>.mp3               record press, lever, decade tick, voice
 
 - Real buttons and range inputs: full keyboard control and screen reader labels (test with VoiceOver: Cmd+F5).
 - A polite live region announces actions. The caption line describes the music continuously for deaf users; it is not a live region, so screen readers aren't flooded (press `D` instead).
-- Volume meter on every record button.
-- Settings: high contrast, reduced motion, vibration strength.
+- Volume ring around every record.
+- Help and settings behind the `?` button (`H`): captions, high contrast, reduced motion (also follows the system setting), vibration strength.
 - No flashing faster than 3 times per second.
 
 ## Status
@@ -168,13 +192,13 @@ Working with mock data and placeholder synths:
 
 - [x] Jukebox with six records, stacking, Mute Humanity lever
 - [x] Timeline 1950-today, live while dragging, monthly loop when it rests on a year
-- [x] Shared 2D map with zoom, pan and a local listening area
+- [x] Shared 2D map on NASA Blue Marble, realistic colours per record, smooth zoom, pan and a local listening area
 - [x] Side A player sampling EIC video frames (needs the clips)
 - [x] Xbox controller input and vibration, keyboard, voice commands, captions
 
 To do:
 
-- [ ] Real pipeline output in `public/data/`
+- [ ] Real pipeline output in `public/data/`. Note: `pipeline/build.py` currently writes `manifest.json` + `<record>.json` (annual JSON grids, several layers per record), not the binary layout above. Either the pipeline writes this layout, or the app gets a small adapter for the JSON.
 - [ ] EIC clips and colour keys in `public/eic/`
 - [ ] GarageBand samples replacing the placeholder synths
 - [ ] Jukebox artwork from multimedia

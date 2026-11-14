@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { RECORD_BY_ID } from '../config/records';
 import { getState, setState, useStore } from '../state/store';
+import { flipRecord } from '../state/actions';
 
 const SWEEP_SECONDS = 8;
 const SAMPLE_W = 96;
@@ -88,16 +89,17 @@ export function SideA() {
     return () => window.clearInterval(timer);
   }, [sideA]);
 
-  if (!rec) {
-    return (
-      <div className="side-a empty">
-        <p>Flip a record to side A to hear its NASA Earth Information Center visualization.</p>
-      </div>
-    );
-  }
+  if (!rec) return null;
 
   return (
-    <figure className="side-a">
+    <figure className="side-a" aria-label={`Side A: ${rec.name}`}>
+      <div className="side-a-head">
+        <span className="side-a-tag" style={{ background: rec.colour }}>Side A</span>
+        <strong>{rec.name}</strong>
+        <button type="button" className="side-a-back" onClick={() => void flipRecord(rec.id)}>
+          Back to the map
+        </button>
+      </div>
       <div className="side-a-screen">
         <video
           key={rec.id}
@@ -113,12 +115,15 @@ export function SideA() {
         {!reducedMotion && !missing && <div className="sweep" style={{ left: `${sweep * 100}%` }} aria-hidden="true" />}
         {missing && (
           <p className="side-a-missing">
-            Add the clip at <code>public{rec.eic.clip}</code> (SVS {rec.eic.svsId}).
+            <span>The NASA visualization isn't added yet.</span>
+            <span>
+              Put SVS {rec.eic.svsId} at <code>public{rec.eic.clip}</code>
+            </span>
           </p>
         )}
       </div>
       <figcaption>
-        <strong>Side A:</strong> {rec.eic.title} (NASA SVS {rec.eic.svsId}), turned into sound frame by frame.
+        {rec.eic.title} (NASA SVS {rec.eic.svsId}), turned into sound frame by frame.
         {rec.eic.note && <span className="note"> {rec.eic.note}.</span>}
       </figcaption>
     </figure>
