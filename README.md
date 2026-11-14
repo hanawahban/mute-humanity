@@ -4,8 +4,6 @@ NASA Space Apps 2026 entry for the **Earth Information Jukebox** challenge.
 
 An interactive Earth map where NASA Earth Information Center (EIC) visualizations become sound. Moving a cursor over the map plays the data under it. A **humanity slider** fades human-caused sound layers in and out over the natural ones, so you can hear what Earth sounds like with and without us.
 
-> Status: planning. This repository currently contains only this README. There is no visual design yet; the first UI will be plain placeholder controls.
-
 ## Contents
 
 - [Stack](#stack)
