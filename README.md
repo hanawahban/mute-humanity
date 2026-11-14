@@ -2,7 +2,7 @@
 
 NASA Space Apps 2026, challenge "Earth Information Jukebox". Team from Bahrain.
 
-Six NASA Earth Information Center (EIC) visualizations, all flat maps of the whole Earth, are the six records of a jukebox. Turn records on and they play together on one shared map; zoom anywhere to hear just that place. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.
+Six NASA Earth Information Center (EIC) visualizations, all flat maps of the whole Earth, are the six records of a jukebox. Turn records on and they stack on one shared map and play together; zoom anywhere to hear just that place. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.
 
 Every sound comes from the pixels of the EIC frames, read through each visualization's colour key.
 
@@ -10,7 +10,7 @@ Every sound comes from the pixels of the EIC frames, read through each visualiza
 
 ```bash
 npm install
-npm run eic        # download the six EIC clips from NASA SVS (needs curl + ffmpeg; re-run if it times out)
+npm run eic        # only if public/eic/<record>/clip.mp4 are missing: downloads the six EIC visualizations from NASA SVS (needs curl + ffmpeg)
 npm run dev        # http://localhost:5173 in Chrome
 ```
 
@@ -29,14 +29,19 @@ Without the clips, the site uses placeholder layers from `public/eic-placeholder
 
 The layers line up in place, not in time: each keeps its real dates, shown on the map. The team's other instruments: `all.mp3` is the welcome chord; Viola and Synth 2 are spares.
 
+## How the map stacks six visualizations
+
+The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equirectangular world map, so one shader places them all. Each layer's background is made transparent in the shader (black space for lights, lightning and CO₂; grey land under the ocean flows; the base map under rain and clouds; light green "clean air" for NOx), so all six can be layered while the data stays visible. NASA logos and date stamps burned into the frames are masked out of both the picture and the sound.
+
 ## How it's sonified
 
 1. **Pixels to numbers.** Each frame is drawn into a 360 × 180 grid (1° cells). Each pixel's colour is matched to the visualization's colour key (`src/eic/layers.ts`), giving a value from 0 to 1, or "no data" (land under the ocean layer).
 2. **Three ways to listen** (`src/audio/conductor.ts`), all on a 16th-note grid at 80 BPM:
    - **Listen**: the view's average, hotspot strength and coverage drive each instrument while its video plays.
-   - **Scan**: the videos pause and a needle sweeps the view in one bar. Each strong point it crosses plays a note: higher on screen = higher pitch, stronger = louder, left/right = stereo.
+   - **Scan**: the videos pause and a needle sweeps the view in one bar, driven by the audio clock so it moves smoothly. Each strong point plays exactly when the needle reaches it, and flashes on the map: higher on screen = higher pitch, stronger = louder, left/right = stereo.
    - **Probe**: the value under the probe plays on every beat.
-3. **Mix rules.** Earth records use A major pentatonic, the key the instruments were recorded in, with reverb. Humanity records use notes that clash with it (A#, D#, F, G), dry with a little grit. The humanity lever scales their volume; Mute Humanity fades them out.
+3. **Harmony.** Under the Earth records, a slow A major progression (A, F#m, D, E) on viola with a deep synth root changes every two bars. When humanity is muted, it swells and the hall opens up.
+4. **Mix rules.** Earth records use A major pentatonic, the key the instruments were recorded in, with reverb. Humanity records use notes that clash with it (A#, D#, F, G), dry with a little grit. The humanity lever scales their volume; Mute Humanity fades them out.
 
 ## For the pipeline: what the app expects
 
@@ -49,6 +54,10 @@ public/eic/<record>/colorbar.png   optional: the NASA colour key, shown in the m
 Record ids: `ocean`, `rain`, `lightning`, `lights`, `co2`, `nox`. `scripts/download_eic.py` produces the clips and fetches colour key images. If a clip has titles or a colour bar inside the frame, set its `area` (the part that is the map, as fractions) in `src/config/records.ts`.
 
 Built-in decoding until `colorbar.json` exists: ocean uses the SVS colour bar description; lights, lightning and CO₂ use brightness; NOx uses warm colours; rain separates grey clouds from coloured rain.
+
+## Voice
+
+The story and key moments are narrated with **Kokoro**, an open neural text-to-speech model (voice `af_heart`), pre-rendered to `public/voice/` by `scripts/make_voice.py` from the text in `src/config/narration.json`. Live descriptions ("what am I hearing?") use the most natural voice installed on the computer; on a Mac, download a Premium or Enhanced voice in System Settings → Accessibility → Spoken Content for the best result.
 
 ## Controls
 

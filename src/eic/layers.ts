@@ -8,8 +8,10 @@
 import { RECORDS, type Decode, type RecordDef, type RecordId } from '../config/records';
 import { setState, getState } from '../state/store';
 
-export const GRID_W = 360;
-export const GRID_H = 180;
+/** Cells per degree: 2 = half-degree grid, fine enough to catch single cities and lightning flashes. */
+export const PER_DEG = 2;
+export const GRID_W = 360 * PER_DEG;
+export const GRID_H = 180 * PER_DEG;
 const CELLS = GRID_W * GRID_H;
 
 export interface Layer {
@@ -107,7 +109,7 @@ async function loadLayer(rec: RecordDef): Promise<Layer> {
     if (await exists(`${base}/colorbar.png`, 'image')) layer.colorbarUrl = `${base}/colorbar.png`;
     else if ('colorbarPng' in src && src.colorbarPng) layer.colorbarUrl = src.colorbarPng;
   }
-  if (layer.decode.kind === 'colorbar') layer.lut = buildLut(layer.decode.stops, layer.decode.maxDistance ?? 70);
+  if (layer.decode.kind === 'colorbar') layer.lut = buildLut(layer.decode.stops, layer.decode.maxDistance ?? 70, rec.matchHue);
 
   const open = async (url: string) => {
     if (rec.kind === 'movie') {
@@ -158,7 +160,7 @@ export async function loadLayers() {
 // ---------- decoding ----------
 
 /** Colour key -> lookup table over a 32x32x32 colour cube. Colours far from the key are "no data". */
-function buildLut(stops: Array<[number, number, number, number]>, maxDistance: number): Float32Array {
+function buildLut(stops: Array<[number, number, number, number]>, maxDistance: number, hueOnly = false): Float32Array {
   const sorted = [...stops].sort((a, b) => a[3] - b[3]);
   const samples: Array<[number, number, number, number]> = [];
   for (let i = 0; i < sorted.length - 1; i++) {
@@ -175,12 +177,27 @@ function buildLut(stops: Array<[number, number, number, number]>, maxDistance: n
   for (let r = 0; r < 32; r++) {
     for (let g = 0; g < 32; g++) {
       for (let b = 0; b < 32; b++) {
-        const R = r * 8 + 4;
-        const G = g * 8 + 4;
-        const B = b * 8 + 4;
+        let R = r * 8 + 4;
+        let G = g * 8 + 4;
+        let B = b * 8 + 4;
+        const m = Math.max(R, G, B);
+        if (hueOnly) {
+          // compare colour, not brightness: a dim orange flow line is still orange
+          if (m < 40 || (m - Math.min(R, G, B)) / m < 0.25) {
+            lut[(r << 10) | (g << 5) | b] = NaN;
+            continue;
+          }
+          R = (R / m) * 255;
+          G = (G / m) * 255;
+          B = (B / m) * 255;
+        }
         let best = Infinity;
         let val = NaN;
-        for (const [sr, sg, sb, sv] of samples) {
+        for (const [sr0, sg0, sb0, sv] of samples) {
+          const sm = hueOnly ? Math.max(sr0, sg0, sb0, 1) / 255 : 1;
+          const sr = sr0 / sm;
+          const sg = sg0 / sm;
+          const sb = sb0 / sm;
           const d = (R - sr) ** 2 + (G - sg) ** 2 + (B - sb) ** 2;
           if (d < best) {
             best = d;
@@ -212,6 +229,11 @@ function decodeFrame(layer: Layer) {
       case 'bright':
         out[i] = Math.max(0, (mx / 255 - d.floor) / (1 - d.floor));
         break;
+      case 'colourful': {
+        const sat = mx ? (mx - Math.min(r, g, b)) / mx : 0;
+        out[i] = Math.min(1, Math.max(0, (sat - 0.35) / 0.5) * (mx / 255) * 1.6);
+        break;
+      }
       case 'warm': {
         const warm = (r - b) / 255;
         out[i] = Math.max(0, Math.min(1, (warm - 0.28) / 0.55)) * (r / 255);
@@ -220,7 +242,7 @@ function decodeFrame(layer: Layer) {
       case 'precip': {
         const mn = Math.min(r, g, b);
         const sat = mx ? (mx - mn) / mx : 0;
-        const lat = 90 - Math.floor(i / GRID_W) - 0.5;
+        const lat = 90 - (Math.floor(i / GRID_W) + 0.5) / PER_DEG;
         // clouds: bright and grey (ice sheets look the same, so skip the polar caps)
         layer.second![i] = sat < 0.2 && mx > 140 && Math.abs(lat) < 66 ? (mx - 140) / 115 : 0;
         // rain: the colour key if we have one, otherwise bright saturated blue-to-pink
@@ -245,14 +267,24 @@ export function sample(id: RecordId, minMs = 90) {
   const [x0, y0, x1, y1] = layer.rec.area;
   layer.ctx.drawImage(el, x0 * w, y0 * h, (x1 - x0) * w, (y1 - y0) * h, 0, 0, GRID_W, GRID_H);
   decodeFrame(layer);
+  if (!layer.placeholder) {
+    for (const [mx0, my0, mx1, my1] of layer.rec.masks ?? []) {
+      // mask rectangles are in frame fractions; convert to grid cells inside the map area
+      const gx0 = Math.max(0, Math.floor(((mx0 - x0) / (x1 - x0)) * GRID_W));
+      const gx1 = Math.min(GRID_W, Math.ceil(((mx1 - x0) / (x1 - x0)) * GRID_W));
+      const gy0 = Math.max(0, Math.floor(((my0 - y0) / (y1 - y0)) * GRID_H));
+      const gy1 = Math.min(GRID_H, Math.ceil(((my1 - y0) / (y1 - y0)) * GRID_H));
+      for (let yy = gy0; yy < gy1; yy++) for (let xx = gx0; xx < gx1; xx++) layer.grid[yy * GRID_W + xx] = NaN;
+    }
+  }
   layer.sampledAt = now;
   return layer;
 }
 
 // ---------- questions about the grid ----------
 
-const col = (lon: number) => ((Math.floor(lon + 180) % GRID_W) + GRID_W) % GRID_W;
-const row = (lat: number) => Math.max(0, Math.min(GRID_H - 1, Math.floor(90 - lat)));
+const col = (lon: number) => ((Math.floor((lon + 180) * PER_DEG) % GRID_W) + GRID_W) % GRID_W;
+const row = (lat: number) => Math.max(0, Math.min(GRID_H - 1, Math.floor((90 - lat) * PER_DEG)));
 
 export interface Bounds {
   west: number;
@@ -272,11 +304,11 @@ export interface ViewStats {
 
 /** What's in the view. Steps through big views so a whole-planet view stays cheap. */
 export function viewStats(grid: Float32Array, b: Bounds, second?: Float32Array | null): ViewStats {
-  const c0 = Math.floor(b.west + 180);
-  const cols = Math.max(1, Math.ceil(b.lonSpan));
+  const c0 = Math.floor((b.west + 180) * PER_DEG);
+  const cols = Math.max(1, Math.ceil(b.lonSpan * PER_DEG));
   const r0 = row(b.north);
   const r1 = row(b.south);
-  const step = cols * (r1 - r0 + 1) > 20000 ? 2 : 1;
+  const step = Math.max(1, Math.round(Math.sqrt((cols * (r1 - r0 + 1)) / 40000)));
   let sum = 0;
   let n = 0;
   let cov = 0;
@@ -340,7 +372,7 @@ export function columnPeaks(grid: Float32Array, lon: number, b: Bounds, max = 3)
 }
 
 /** Value at a point (average of a small neighbourhood, so a single pixel doesn't decide). */
-export function valueAt(grid: Float32Array, lat: number, lon: number, radius = 1): number | null {
+export function valueAt(grid: Float32Array, lat: number, lon: number, radius = PER_DEG): number | null {
   let sum = 0;
   let n = 0;
   const r = row(lat);

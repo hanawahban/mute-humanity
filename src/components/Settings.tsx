@@ -26,10 +26,10 @@ export function HelpDialog() {
       <div className="help-grid">
         <section>
           <h3>The idea</h3>
-          <p>Six records, each a NASA Earth Information Center visualization of the whole Earth. Turn records on and they play together on one map. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.</p>
+          <p>Six records, each a NASA Earth Information Center map of the whole Earth, each with its own instrument. Turn records on and they stack on one map and play together. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.</p>
           <p>Every layer keeps its real dates: they line up in place, not in time. The sound comes from the pixels, read through each visualization's colour key.</p>
           <h3>Three ways to listen</h3>
-          <p><strong>Listen</strong>: you hear everything in view. Zoom in to hear one place. <strong>Scan</strong>: a needle sweeps the view; higher on screen is a higher note. <strong>Probe</strong>: you hear the spot under the cursor.</p>
+          <p><strong>Listen</strong>: you hear everything on screen. Zoom in to hear one place. <strong>Scan</strong>: a needle sweeps the map; every bright point it crosses flashes and plays a note, higher on screen is higher in pitch. <strong>Probe</strong>: you hear the spot under the cursor.</p>
         </section>
 
         <section>
@@ -38,7 +38,7 @@ export function HelpDialog() {
             <input type="checkbox" checked={settings.captions} onChange={(e) => set({ captions: e.target.checked })} /> Captions of the music
           </label>
           <label className="check">
-            <input type="checkbox" checked={settings.narrate} onChange={(e) => set({ narrate: e.target.checked })} /> Speak the story aloud
+            <input type="checkbox" checked={settings.narrate} onChange={(e) => set({ narrate: e.target.checked })} /> Spoken narration
           </label>
           <label className="check">
             <input type="checkbox" checked={settings.highContrast} onChange={(e) => set({ highContrast: e.target.checked })} /> High contrast

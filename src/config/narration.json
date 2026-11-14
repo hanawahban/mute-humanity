@@ -1,0 +1,19 @@
+{
+  "voice": "af_heart",
+  "lines": {
+    "story-0": "Welcome to the Earth Jukebox. Every sound you'll hear is played by a NASA Earth Information Center map.",
+    "story-1": "The ocean plays the cello. Warm water sings high, and cold water sings low. Here is the Gulf Stream, carrying the tropics north.",
+    "story-2": "Rain is a flute, and clouds are a soft pad. Listen to the rain over India.",
+    "story-3": "Lightning is a violin. Watch the needle sweep across the map. Every flash it crosses becomes a note.",
+    "story-4": "Now, humanity. City lights play a clarinet, deliberately out of key with the planet.",
+    "story-5": "Carbon emissions are a low, heavy drone. Traffic and industry are an oboe.",
+    "story-6": "Here at home, in the Gulf, everything plays at once.",
+    "story-7": "Now, let's mute humanity, and listen to the planet without us.",
+    "story-8": "This is the Earth, in tune. Use the humanity lever to bring us back. Now it's your turn. Pick a record, zoom anywhere, and listen.",
+    "mode-listen": "Listen. You hear everything on the screen. Zoom in to hear one place.",
+    "mode-scan": "Scan. A needle sweeps across the map. Higher on the screen is a higher note.",
+    "mode-probe": "Probe. Point anywhere, and hear just that spot.",
+    "mute": "Humanity muted. This is the planet without us.",
+    "unmute": "Humanity is back."
+  }
+}

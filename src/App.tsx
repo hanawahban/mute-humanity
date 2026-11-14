@@ -70,7 +70,12 @@ export function App() {
                 Explore on my own
               </button>
             </div>
-            <p className="start-hint">The story is a 90-second guided tour, spoken aloud. Play with the mouse, keyboard, your voice (hold V) or an Xbox controller. Press H for help.</p>
+            <ol className="start-steps">
+              <li><strong>Turn on records.</strong> Each one is a NASA map with its own instrument.</li>
+              <li><strong>Choose how to listen.</strong> Hear the whole screen, sweep a needle across it, or point at one spot.</li>
+              <li><strong>Mute humanity.</strong> Hear the planet without us.</li>
+            </ol>
+            <p className="start-hint">The story is a 90-second guided tour, spoken aloud. Works with a mouse, keyboard, screen reader, your voice (hold V) or an Xbox controller. Press H any time for help.</p>
           </div>
         </div>
       )}

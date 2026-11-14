@@ -36,7 +36,7 @@ RECORDS = {
     "ocean":     {"svs": 3912, "side": "earth", "prefer": ["flat_global_ecco2_2028x1024_comp_p30.mp4", "ecco2_sst_flow.mp4"]},
     "rain":      {"svs": 5149, "side": "earth", "prefer": ["MC03_stage3_GMAO_precipitation_2048x1024_en.mp4"]},
     "lightning": {"svs": 5011, "side": "earth", "prefer": ["iss_lightning_sos_yearly_07312023_2048p60.mp4"]},
-    "lights":    {"svs": 5475, "side": "human", "prefer": ["nightlights_2012-2024_KSC_04_plus2_4096x2048_30p_sos.mp4", "2048x1024_30p_sos"]},
+    "lights":    {"svs": 5475, "side": "human", "prefer": ["nightlights_2012-2024_KSC_04_plus2_2048x1024_30p_sos.mp4", "4096x2048_30p_h264"]},
     "co2":       {"svs": 5121, "side": "human", "kind": "still", "prefer": ["emissionsGlobe_12_2021.png"]},
     "nox":       {"svs": 5154, "side": "human", "prefer": ["MC04_stage4_GMAO_NO2_2048x1024_en.mp4"]},
 }
@@ -62,6 +62,7 @@ def media(page):
         for item in group.get("items", []):
             inst = item.get("instance") or {}
             if inst.get("url") and inst.get("filename"):
+                inst["url"] = inst["url"].replace("http://", "https://", 1)
                 yield inst
 
 
@@ -99,11 +100,16 @@ def curl(url, dest):
     return False
 
 
-def transcode(src, dest):
+# Busy animations (the ocean's moving particles) compress badly: give them a higher CRF so
+# every clip stays well under GitHub's 100 MB file limit.
+CRF = {"ocean": "33"}
+
+
+def transcode(src, dest, crf="27"):
     dest.parent.mkdir(parents=True, exist_ok=True)
     subprocess.check_call([
         "ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
-        "-vf", "scale=2048:-2", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+        "-vf", "scale=2048:-2,fps=30", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", crf,
         "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(dest),
     ])
 
@@ -143,10 +149,11 @@ def main():
         if still:
             # one image: make a 4096 px wide web copy (the map reads its pixels directly)
             if have_ffmpeg:
+                (OUT / rid).mkdir(parents=True, exist_ok=True)
                 subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-vf", "scale=4096:-2", str(OUT / rid / "still.png")])
                 print(f"  wrote public/eic/{rid}/still.png")
         elif have_ffmpeg:
-            transcode(raw, OUT / rid / "clip.mp4")
+            transcode(raw, OUT / rid / "clip.mp4", CRF.get(rid, "27"))
             print(f"  wrote public/eic/{rid}/clip.mp4")
         manifest[rid] = {
             "svs": cfg["svs"], "side": cfg["side"], "title": page.get("title"),

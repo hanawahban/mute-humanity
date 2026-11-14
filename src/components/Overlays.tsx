@@ -1,11 +1,12 @@
 // Pieces on top of the map: the top bar, the key for the layers on the map, the probe
 // readout and the caption line.
 
+import { useState } from 'react';
 import { RECORDS, RECORD_BY_ID } from '../config/records';
 import { layers } from '../eic/layers';
 import { hapticPatternName } from '../input/haptics';
 import { describeValue } from '../state/actions';
-import { audible, setState, useStore, visible } from '../state/store';
+import { setState, useStore } from '../state/store';
 
 export function TopBar() {
   const sources = useStore((s) => s.sources);
@@ -43,41 +44,42 @@ export function TopBar() {
   );
 }
 
-/** What's on the map: title, real time period, one-line explanation and NASA colour key. */
+/** What's on the map: one compact row per layer (name, real period, NASA colour key). Details for the last one chosen. */
 export function Legend() {
-  const order = useStore((s) => s.order);
   const playing = useStore((s) => s.playing);
   const solo = useStore((s) => s.solo);
+  const selected = useStore((s) => s.selected);
   const humanity = useStore((s) => s.humanity);
-  const s = { order, playing, solo } as Parameters<typeof visible>[0];
-  const shown = visible(s);
-  const soundOnly = audible(s).filter((id) => !shown.includes(id));
-  if (!shown.length && !soundOnly.length) return null;
+  const [open, setOpen] = useState(true);
+  const on = RECORDS.filter((r) => playing[r.id] && (!solo || solo === r.id));
+  if (!on.length) return null;
+  const detail = on.find((r) => r.id === selected) ?? on[on.length - 1];
   return (
     <div className="legend" aria-label="On the map">
-      {[...shown].reverse().map((id, i) => {
-        const r = RECORD_BY_ID[id];
-        const cb = layers.get(id)?.colorbarUrl;
-        return (
-          <div className="legend-item" key={id}>
-            <div className="legend-title">
-              <span className="dot" style={{ background: r.colour }} aria-hidden="true" />
-              {r.name}
-            </div>
-            <span className="legend-period">{r.period}</span>
-            {i === 0 && <p className="legend-shows">{r.shows}</p>}
-            {cb && <img className="legend-key" src={cb} alt={`Colour key for ${r.name}`} />}
-            <p className="legend-source">
-              EIC: {r.eicTitle} · <a href={`https://svs.gsfc.nasa.gov/${r.svs}/`} target="_blank" rel="noreferrer">SVS {r.svs}</a>
-              {r.side === 'human' && humanity < 1 ? ` · humanity ${Math.round(humanity * 100)}%` : ''}
-            </p>
-          </div>
-        );
-      })}
-      {soundOnly.length > 0 && (
-        <p className="legend-sound">
-          Sound only: {soundOnly.map((id) => RECORD_BY_ID[id].short).join(', ')}
-        </p>
+      <button type="button" className="legend-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+        On the map ({on.length}) <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+      </button>
+      {open && (
+        <>
+          <ul>
+            {on.map((r) => {
+              const cb = layers.get(r.id)?.colorbarUrl;
+              const muted = r.side === 'human' && humanity === 0;
+              return (
+                <li key={r.id} className={muted ? 'muted' : ''}>
+                  <span className="dot" style={{ background: r.colour }} aria-hidden="true" />
+                  <span className="legend-name">{r.short}</span>
+                  <span className="legend-period">{r.period.replace(/\s*\(.*\)/, '')}</span>
+                  {cb && <img className="legend-key" src={cb} alt={`${r.name} colour key`} />}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="legend-shows">
+            <strong>{detail.name}:</strong> {detail.shows}{' '}
+            <a href={`https://svs.gsfc.nasa.gov/${detail.svs}/`} target="_blank" rel="noreferrer">NASA SVS {detail.svs}</a>
+          </p>
+        </>
       )}
     </div>
   );
