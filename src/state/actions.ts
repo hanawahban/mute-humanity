@@ -1,10 +1,10 @@
-// One shared set of actions. The jukebox buttons, keyboard, voice and Xbox controller
-// all call these, so a new input never needs to touch the audio or UI code.
+// One shared set of actions. The dock buttons, keyboard, voice and Xbox controller all call
+// these, so a new input never needs to touch the audio or UI code.
 
-import { findPlace, nameRegion } from '../config/places';
-import { RECORDS, RECORD_BY_ID, YEAR_MAX, YEAR_MIN, type RecordId } from '../config/records';
-import { getState, setState } from './store';
-import { startAudio } from '../audio/engine';
+import { HOTSPOTS, PLACES, findPlace, nameRegion } from '../config/places';
+import { RECORDS, RECORD_BY_ID, type RecordId } from '../config/records';
+import { getState, setState, visible, type Mode } from './store';
+import { playIntro, startAudio } from '../audio/engine';
 import { flyTo, moveBy, zoomAt } from '../map/camera';
 import { cue } from '../input/haptics';
 
@@ -20,31 +20,25 @@ export async function ensureAudio() {
   if (!getState().audioOn) {
     await startAudio();
     setState({ audioOn: true });
+    playIntro();
   }
 }
 
 export async function toggleRecord(id: RecordId, on?: boolean) {
   await ensureAudio();
-  const { playing, sideA } = getState();
+  const { playing, order, solo } = getState();
   const next = on ?? !playing[id];
+  if (next === playing[id]) return;
   setState({
     playing: { ...playing, [id]: next },
+    order: next ? [...order.filter((x) => x !== id), id] : order.filter((x) => x !== id),
     selected: id,
-    sideA: next ? sideA : sideA === id ? null : sideA,
+    solo: solo === id && !next ? null : solo,
   });
-  announce(`${RECORD_BY_ID[id].name} ${next ? 'playing' : 'stopped'}`);
-  cue(next ? 'on' : 'off');
-}
-
-/** Flip a record between side A (its EIC visualization) and side B (the NASA data on the map). */
-export async function flipRecord(id: RecordId) {
-  await ensureAudio();
-  const { sideA, playing } = getState();
-  const toA = sideA !== id;
-  setState({ sideA: toA ? id : null, playing: { ...playing, [id]: true }, selected: id });
   const rec = RECORD_BY_ID[id];
-  announce(toA ? `${rec.name}, side A: ${rec.eic.title}` : `${rec.name}, side B: NASA data on the map`);
-  cue('flip');
+  const shown = visible().includes(id);
+  announce(next ? `${rec.name} playing. ${rec.hear}${shown ? '' : ' Sound only: two layers are already on the map.'}` : `${rec.name} stopped`);
+  cue(next ? 'on' : 'off');
 }
 
 export function selectRecord(delta: number) {
@@ -53,35 +47,44 @@ export function selectRecord(delta: number) {
   const next = ids[(i + delta + ids.length) % ids.length];
   setState({ selected: next });
   cue('select');
-  announce(`${RECORD_BY_ID[next].name} selected, ${getState().playing[next] ? 'playing' : 'stopped'}`);
+  announce(`${RECORD_BY_ID[next].name}, ${getState().playing[next] ? 'playing' : 'stopped'}`);
 }
 
-export function setYear(year: number, opts: { dragging?: boolean; quiet?: boolean } = {}) {
-  const y = clamp(year, YEAR_MIN, YEAR_MAX);
-  const prev = getState().year;
-  if (opts.dragging && y !== prev) timeCues(prev, y);
-  setState({ year: y, dragging: opts.dragging ?? false, month: null });
-  if (!opts.quiet && !opts.dragging) announce(`Year ${Math.round(y)}`);
-}
-
-/** Vibration notches while scrubbing: each decade, the ends, and where a dataset begins. */
-function timeCues(prev: number, y: number) {
-  const { data, playing } = getState();
-  const lo = Math.min(prev, y);
-  const hi = Math.max(prev, y);
-  if ((y === YEAR_MIN || y === YEAR_MAX) && prev !== y) return cue('edge');
-  for (const rec of RECORDS) {
-    const first = data?.layers.get(rec.layer)?.meta.years[0];
-    if (playing[rec.id] && first != null && first > lo && first <= hi) {
-      announce(`${rec.name} data ${y > prev ? 'begins' : 'ends'}, ${first}`);
-      return cue('dataStarts');
-    }
+/** Hear (and see) only one record. */
+export function toggleSolo(id: RecordId = getState().selected) {
+  const { solo, playing } = getState();
+  if (solo === id) {
+    setState({ solo: null });
+    announce('Solo off, all records back');
+    return;
   }
-  if (Math.floor(prev / 10) !== Math.floor(y / 10)) cue('decade');
+  if (!playing[id]) void toggleRecord(id, true);
+  setState({ solo: id });
+  announce(`Solo: ${RECORD_BY_ID[id].name}`);
 }
 
-export function nudgeYear(delta: number) {
-  setYear(Math.round(getState().year) + delta);
+/** Put a record on top of the map (it becomes one of the two drawn layers). */
+export function bringToTop(id: RecordId) {
+  const { order, playing } = getState();
+  if (!playing[id]) return;
+  setState({ order: [...order.filter((x) => x !== id), id], selected: id });
+}
+
+const MODE_TEXT: Record<Mode, string> = {
+  listen: 'Listen: you hear everything in view.',
+  scan: 'Scan: a needle sweeps across the view. Higher on screen is a higher note.',
+  probe: 'Probe: you hear the spot under the cursor. Move it with the mouse or arrow keys.',
+};
+
+export function setMode(mode: Mode) {
+  setState({ mode, scanX: mode === 'scan' ? 0 : null });
+  announce(MODE_TEXT[mode]);
+  cue('flip');
+}
+
+export function cycleMode() {
+  const order: Mode[] = ['listen', 'scan', 'probe'];
+  setMode(order[(order.indexOf(getState().mode) + 1) % order.length]);
 }
 
 export function setHumanity(v: number, quiet = false) {
@@ -90,15 +93,29 @@ export function setHumanity(v: number, quiet = false) {
   if (!quiet) announce(`Humanity ${Math.round(h * 100)} percent`);
 }
 
+let fadeTimer = 0;
+/** Fade humanity to a value over a few seconds: the lever moves on its own. */
+export function fadeHumanity(to: number, ms = 3000) {
+  window.clearInterval(fadeTimer);
+  const from = getState().humanity;
+  const t0 = performance.now();
+  fadeTimer = window.setInterval(() => {
+    const t = Math.min(1, (performance.now() - t0) / ms);
+    setHumanity(from + (to - from) * t, true);
+    if (t >= 1) window.clearInterval(fadeTimer);
+  }, 50);
+}
+
 export function muteHumanity() {
   const { humanity } = getState();
-  setState({ lastHumanity: humanity > 0 ? humanity : getState().lastHumanity, humanity: 0 });
+  setState({ lastHumanity: humanity > 0 ? humanity : getState().lastHumanity });
+  fadeHumanity(0, 2500);
   announce('Humanity muted. Listen to the planet without us.');
   cue('mute');
 }
 
 export function unmuteHumanity() {
-  setState({ humanity: getState().lastHumanity || 1 });
+  fadeHumanity(getState().lastHumanity || 1, 1500);
   announce('Humanity is back.');
   cue('unmute');
 }
@@ -108,14 +125,21 @@ export function toggleMuteHumanity() {
   else unmuteHumanity();
 }
 
-export function setAutoplay(on: boolean) {
-  setState({ autoplay: on });
-  if (on && getState().year >= YEAR_MAX - 0.5) setYear(YEAR_MIN, { quiet: true });
-  announce(on ? 'Playing 75 years, from 1950 to today' : 'Timeline paused');
-}
-
 export function panBy(dLat: number, dLon: number) {
   moveBy(dLat, dLon);
+}
+
+/** Move the probe (Probe mode), in degrees. */
+export function moveProbe(dLat: number, dLon: number) {
+  const p = getState().probe;
+  let lon = p.lon + dLon;
+  if (lon > 180) lon -= 360;
+  if (lon < -180) lon += 360;
+  setState({ probe: { lat: clamp(p.lat + dLat, -85, 85), lon } });
+}
+
+export function setProbe(lat: number, lon: number) {
+  setState({ probe: { lat: clamp(lat, -85, 85), lon } });
 }
 
 /** Zoom by a factor, optionally keeping a point (under the cursor) fixed. */
@@ -124,7 +148,7 @@ export function zoomBy(factor: number, anchor?: { lat: number; lon: number }) {
 }
 
 export function resetView() {
-  flyTo({ lat: 10, lon: 0, zoom: 1 });
+  flyTo({ lat: 15, lon: 20, zoom: 1 });
   announce('Whole planet');
 }
 
@@ -132,38 +156,54 @@ export function goToPlace(text: string): boolean {
   const place = findPlace(text);
   if (!place) return false;
   flyTo({ lat: place.lat, lon: place.lon, zoom: place.zoom });
+  setState({ probe: { lat: place.lat, lon: place.lon } });
   announce(`Flying to ${place.name}`);
   return true;
 }
 
-const level = (v: number) => (v > 0.66 ? 'strong' : v > 0.33 ? 'medium' : v > 0.05 ? 'weak' : 'silent');
+let hotspotIndex = -1;
+/** Jump through the selected record's curated places. */
+export function nextHotspot(delta = 1) {
+  const names = HOTSPOTS[getState().selected] ?? [];
+  if (!names.length) return;
+  hotspotIndex = (hotspotIndex + delta + names.length) % names.length;
+  goToPlace(names[hotspotIndex]);
+}
 
-/** The text for "what am I hearing?", and for the live caption line. */
+const WORDS: Record<RecordId, [string, string, string]> = {
+  ocean: ['cold', 'mild', 'warm'],
+  rain: ['dry', 'light rain', 'heavy rain'],
+  lightning: ['no lightning', 'some lightning', 'lots of lightning'],
+  lights: ['dark', 'some lights', 'bright lights'],
+  co2: ['low emissions', 'medium emissions', 'high emissions'],
+  nox: ['clean air', 'some pollution', 'heavy pollution'],
+};
+export const describeValue = (id: RecordId, v: number) => WORDS[id][v > 0.6 ? 2 : v > 0.25 ? 1 : 0];
+
+/** The text for "what am I hearing?", and for the caption line. */
 export function describeNow(): string {
-  const { mix, focus, year, month, playing, sideA, humanity } = getState();
-  const place = nameRegion(focus.lat, focus.lon, focus.zoom);
-  const when = month != null
-    ? `${new Date(2000, month, 1).toLocaleString('en', { month: 'long' })} ${Math.floor(year)}`
-    : `${Math.round(year)}`;
-  const parts = RECORDS.filter((r) => playing[r.id])
-    .map((r) => {
-      if (sideA === r.id) return { r, text: `${r.instrument} from the EIC visualization ${r.eic.title}`, v: 1 };
-      const m = mix[r.id];
-      if (!m) return { r, text: `${r.instrument}, no data for this year`, v: -1 };
-      return { r, text: `${r.instrument}, ${level(m.value)}`, v: m.value };
-    })
-    .sort((a, b) => b.v - a.v);
-  if (parts.length === 0) return `Nothing playing. ${place.charAt(0).toUpperCase() + place.slice(1)}, ${when}. Press a record to start.`;
-  const muted = humanity === 0 ? ' Humanity is muted.' : '';
-  const text = `${place}, ${when}: ${parts.map((p) => p.text).join('. ')}.${muted}`;
-  return text.charAt(0).toUpperCase() + text.slice(1);
+  const s = getState();
+  const place = s.mode === 'probe'
+    ? `At ${nameRegion(s.probe.lat, s.probe.lon, 4)}`
+    : `${s.mode === 'scan' ? 'Scanning' : 'Listening to'} ${nameRegion(s.focus.lat, s.focus.lon, s.focus.zoom)}`;
+  const on = RECORDS.filter((r) => s.playing[r.id] && (!s.solo || s.solo === r.id));
+  if (!on.length) return `${place}. Nothing playing: pick a record.`;
+  const parts = on.map((r) => {
+    const l = s.levels[r.id];
+    const v = s.mode === 'probe' ? s.probeValues[r.id] ?? null : l?.raw ?? null;
+    const muted = r.side === 'human' && s.humanity === 0 ? ' (muted)' : '';
+    if (v == null) return `${r.short}: no data here${muted}`;
+    const clouds = r.id === 'rain' && (l?.second ?? 0) > 0.08 ? ', cloudy' : '';
+    return `${r.short}: ${describeValue(r.id, v)}${clouds}${muted}`;
+  });
+  return `${place}. ${parts.join(' · ')}`;
 }
 
 export function speak(text: string) {
   if (!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.rate = 1.05;
+  u.rate = 1.02;
   window.speechSynthesis.speak(u);
 }
 
@@ -172,7 +212,9 @@ export function speak(text: string) {
  * Voice and controller users get it spoken by the browser. Never both, so it isn't read twice.
  */
 export function describe(via: 'screen-reader' | 'speech') {
-  const text = describeNow();
+  const text = describeNow().replace(/·/g, '.');
   if (via === 'speech') speak(text);
   else announce(text);
 }
+
+export const placeNames = () => PLACES.map((p) => p.name);

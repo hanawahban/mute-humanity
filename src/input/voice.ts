@@ -3,12 +3,12 @@
 // listening so the microphone doesn't hear it. Chrome sends speech to a server by
 // default, so this needs internet unless on-device recognition is available.
 
-import { RECORDS, YEAR_MAX, YEAR_MIN, type RecordId } from '../config/records';
+import { RECORDS, type RecordId } from '../config/records';
 import { duck } from '../audio/engine';
 import {
-  announce, describe, flipRecord, goToPlace, muteHumanity, setAutoplay, setHumanity, setYear, speak,
-  toggleRecord, unmuteHumanity, zoomBy,
+  announce, describe, goToPlace, muteHumanity, setHumanity, setMode, speak, toggleRecord, toggleSolo, unmuteHumanity, zoomBy,
 } from '../state/actions';
+import { startStory, stopStory } from '../state/story';
 import { nameRegion } from '../config/places';
 import { getState, setState } from '../state/store';
 
@@ -77,12 +77,12 @@ export function stopListening() {
 }
 
 const RECORD_WORDS: Array<[RegExp, RecordId]> = [
-  [/\bocean(s)?\b|\bsea\b|\bstrings?\b/, 'ocean'],
-  [/\bplants?\b|\bforests?\b|\bgreen\b|\bchoir\b/, 'plants'],
-  [/\brain\b|\bpiano\b/, 'rain'],
-  [/\bno ?2\b|\bn o 2\b|\bnitrogen\b|\btraffic\b|\bindustry\b|\bdrone\b/, 'no2'],
-  [/\bfires?\b|\bburning\b/, 'fires'],
-  [/\bplastics?\b/, 'plastic'],
+  [/\bocean(s)?\b|\bsea\b|\bcello\b|\bcurrents?\b/, 'ocean'],
+  [/\brain\b|\bclouds?\b|\bflute\b|\bweather\b/, 'rain'],
+  [/\blightning\b|\bstorms?\b|\bviolin\b/, 'lightning'],
+  [/\b(city |night )?lights\b|\bcities\b|\bclarinet\b/, 'lights'],
+  [/\bco ?2\b|\bc o 2\b|\bcarbon\b|\bemissions?\b/, 'co2'],
+  [/\bno ?x\b|\bnox\b|\bnitrogen\b|\btraffic\b|\bindustry\b|\boboe\b|\bpollution\b/, 'nox'],
 ];
 
 function findRecords(t: string): RecordId[] {
@@ -92,8 +92,8 @@ function findRecords(t: string): RecordId[] {
 const NUMBER_WORDS: Record<string, number> = { zero: 0, ten: 10, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100 };
 
 const HELP =
-  'Say: play ocean, add fires, stop rain, flip ocean, mute humanity, bring humanity back, humanity to 50 percent, ' +
-  'go to Bahrain, go to 1985, play the 1990s, zoom in, zoom out, what am I hearing, where am I, play 75 years, or pause.';
+  'Say: play ocean, add lightning, stop rain, solo NOx, scan, probe, listen, mute humanity, bring humanity back, ' +
+  'humanity to 50 percent, go to Bahrain, zoom in, zoom out, play the story, what am I hearing, or where am I.';
 
 export function runCommand(raw: string) {
   const t = raw.toLowerCase().replace(/[.,!?]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -103,7 +103,7 @@ export function runCommand(raw: string) {
   if (/what am i hearing|what's playing|what is playing|describe/.test(t)) return describe('speech');
   if (/where am i/.test(t)) {
     const { focus } = getState();
-    return speak(`You are listening to ${nameRegion(focus.lat, focus.lon, focus.zoom)}, year ${Math.round(getState().year)}.`);
+    return speak(`You are listening to ${nameRegion(focus.lat, focus.lon, focus.zoom)}.`);
   }
   if (/\b(un ?mute|bring) (humanity|us|people)( back)?\b|\bunmute\b/.test(t)) return unmuteHumanity();
   if (/\bmute (humanity|us|people)\b|\bmute\b/.test(t)) return muteHumanity();
@@ -114,29 +114,16 @@ export function runCommand(raw: string) {
     if (n != null) return setHumanity(n / 100);
   }
 
-  const decade = t.match(/\b(?:the )?(19[5-9]0|20[0-2]0)s\b/);
-  if (decade) {
-    setYear(Number(decade[1]));
-    return setAutoplay(true);
-  }
-  const year = t.match(/\b(19[5-9]\d|20[0-2]\d)\b/);
-  if (year) {
-    const y = Math.min(YEAR_MAX, Math.max(YEAR_MIN, Number(year[1])));
-    setYear(y);
-    return speak(`Year ${y}`);
-  }
-
-  if (/75 years|seventy five years|whole timeline|play everything in time/.test(t)) {
-    setYear(YEAR_MIN, { quiet: true });
-    return setAutoplay(true);
-  }
-  if (/\b(pause|stop the timeline|stop time)\b/.test(t)) return setAutoplay(false);
+  if (/\b(story|tour)\b/.test(t)) return /\bstop\b/.test(t) ? stopStory() : void startStory();
+  if (/\bscan\b|\bneedle\b/.test(t)) return setMode('scan');
+  if (/\bprobe\b|\bpoint\b/.test(t)) return setMode('probe');
+  if (/^listen\b|\blisten mode\b/.test(t)) return setMode('listen');
   if (/zoom in|closer/.test(t)) return zoomBy(1.8);
   if (/zoom out|further|farther/.test(t)) return zoomBy(1 / 1.8);
 
   const recs = findRecords(t);
   if (recs.length) {
-    if (/\b(flip|side a|side b|visuali[sz]ation)\b/.test(t)) return void flipRecord(recs[0]);
+    if (/\bsolo\b|\bonly\b/.test(t)) return toggleSolo(recs[0]);
     const off = /\b(stop|remove|turn off|silence|off)\b/.test(t);
     recs.forEach((id) => void toggleRecord(id, !off));
     return;
