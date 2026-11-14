@@ -1,0 +1,109 @@
+# All dataset settings live here. Values marked TODO_verify must be confirmed
+# against a real granule (see `python -m pipeline.inspect <reader>`) before use.
+grid: {rows: 90, cols: 180, res: 2, lat0: 90, lon0: -180}
+
+sampling_defaults:
+  min_sample_fraction: 0.5      # years with fewer samples than this are null
+  current_year_partial: true    # include the current year, flagged partial
+
+limits:
+  record_json_max_bytes: 2000000
+
+records:
+  ocean:
+    title: Ocean
+    group: nature
+    cover_svs: 3912
+    layers:
+      - {id: sst,     group: nature, units: "degC", rawMin: -2, rawMax: 32, scale: linear}
+      - {id: current, group: nature, units: "m/s",  rawMin: 0,  rawMax: 1.2, scale: linear}
+    datasets:
+      - {reader: mur,   short_name: MUR25-JPL-L4-GLOB-v04.2, version: null, variable: analysed_sst,
+         years: [2002, null], sampling: {days_per_month: 2, days: [5, 20]}}
+      - {reader: oscar, short_name: OSCAR_L4_OC_FINAL_V2.0, fallback_short_name: OSCAR_L4_OC_NRT_V2.0,
+         variables: [u, v], years: [1993, null], sampling: {days_per_month: 2, days: [5, 20]}}
+    splice: []   # OSCAR FINAL until its last date, NRT after; no adjustment
+    sanity:
+      - {region: arabian_gulf,   layer: sst,     expect: above_global}
+      - {region: southern_ocean, layer: current, expect: above_global}
+
+  plants:
+    title: Plants
+    group: nature
+    cover_svs: 4950
+    layers:
+      - {id: ndvi, group: nature, units: "NDVI", rawMin: 0, rawMax: 0.9, scale: linear}
+    datasets:
+      - {reader: mod13c2, short_name: MOD13C2, version: "061", variable: "CMG 0.05 Deg Monthly NDVI",
+         scale_factor: 0.0001, fill: -3000, years: [2000, null], sampling: {months: [1, 4, 7, 10]}}
+    splice: []
+    sanity:
+      - {region: sahara, layer: ndvi, expect: below_global}
+      - {region: amazon, layer: ndvi, expect: above_global}
+
+  rain:
+    title: Rain
+    group: nature
+    cover_svs: 4960
+    layers:
+      - {id: precip, group: nature, units: "mm/day", rawMin: 0.05, rawMax: 15, scale: log}
+    datasets:
+      - {reader: gpcp, short_name: TODO_verify, version: TODO_verify, variable: TODO_verify,
+         years: [1979, 2010], sampling: {months: all}}      # check version / start year (1979 or 1983)
+      - {reader: imerg, short_name: GPM_3IMERGM, version: "07", variable: precipitation,
+         years: [2001, null], sampling: {months: all}}      # confirm variable name; mm/hr -> mm/day
+    splice:
+      - {from: gpcp, to: imerg, year: 2001, method: ratio_of_means, overlap: [2001, 2010], clip: [0.5, 2.0], smooth: 3}
+    sanity:
+      - {region: amazon, layer: precip, expect: above_global}
+      - {region: sahara, layer: precip, expect: below_global}
+
+  no2:
+    title: NO2
+    group: human
+    cover_svs: 5533
+    layers:
+      - {id: no2, group: human, units: "molec/cm2", rawMin: 1.0e14, rawMax: 1.0e16, scale: log}
+    datasets:
+      - {reader: sfc_no2, short_name: SFC_NITROGEN_DIOXIDE_CONC, variable: TODO_verify,
+         years: [1990, 2010], sampling: {annual: true}}     # read through 2010 for the overlap; used < 2004
+      - {reader: omno2d, short_name: OMNO2d, version: "003",
+         variable: ColumnAmountNO2TropCloudScreened,
+         hdfeos_path: "HDFEOS/GRIDS/ColumnAmountNO2/Data Fields/ColumnAmountNO2TropCloudScreened",
+         years: [2004, null], sampling: {days_per_month: 2, days: [5, 20]}}
+    splice:
+      - {from: sfc_no2, to: omno2d, year: 2004, method: ratio_median, overlap: [2005, 2010], smooth: 3}
+    sanity:
+      - {region: eastern_china, layer: no2, expect: above_global}
+      - {region: sahara,        layer: no2, expect: below_global}
+
+  fires:
+    title: Fires
+    group: human
+    cover_svs: 5669
+    layers:
+      - {id: veg_fire_frp, group: nature, units: "MW (sum FRP)", rawMin: 1, rawMax: 5000, scale: log,
+         caveat: "Vegetation fires are partly human-set."}
+      - {id: veg_fire_count, group: nature, units: "count", rawMin: 1, rawMax: 500, scale: log}
+      - {id: ind_fire_frp, group: human, units: "MW (sum FRP)", rawMin: 1, rawMax: 2000, scale: log}
+      - {id: ind_fire_count, group: human, units: "count", rawMin: 1, rawMax: 200, scale: log}
+    datasets:
+      - {reader: firms, dir: pipeline/cache/firms, satellite: T, min_confidence: 30,
+         type_map: {veg: [0], industrial: [2, 3], ignored: [1]},   # type 1 = volcano, ignored
+         years: [2001, null], sampling: {annual: true}}
+    splice: []
+    sanity:
+      - {region: central_africa, layer: veg_fire_count, expect: above_global}
+
+  plastic:
+    title: Ocean plastic
+    group: human
+    cover_svs: 5425
+    layers:
+      - {id: microplastic, group: human, units: "#/km2", rawMin: null, rawMax: null, scale: log}
+    datasets:
+      - {reader: cygnss_mp, short_name: CYGNSS_L3_MICROPLASTIC_V3.2, variable: mp_concentration,
+         lat_limit: 37.4, years: [2019, null], sampling: {days_per_month: 2, days: [5, 20]}}
+    splice: []
+    sanity:
+      - {region: north_pacific_gyre, layer: microplastic, expect: above_global}
