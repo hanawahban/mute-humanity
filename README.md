@@ -1,202 +1,182 @@
-# Mute Humanity
+# Mute Humanity: The Earth Jukebox
 
 NASA Space Apps 2026 entry for the **Earth Information Jukebox** challenge.
 
-An interactive Earth map where NASA Earth Information Center (EIC) visualizations become sound. Moving a cursor over the map plays the data under it. A **humanity slider** fades human-caused sound layers in and out over the natural ones, so you can hear what Earth sounds like with and without us.
+A website built as a literal jukebox. Each record is made from NASA data: three play Earth's natural systems (Ocean, Plants, Rain) and three play human damage (NO2, Fires, Ocean plastic). Every record has two sides:
+
+- **Side A:** the record's NASA Earth Information Center (EIC) visualization, with its frames turned into sound live.
+- **Side B:** the NASA data on a shared 2D map, with a timeline from 1950 to today that changes the music as you drag.
+
+Earth plays in tune; humanity pulls it out of tune. The **Mute Humanity** lever fades every human record out at once.
 
 ## Contents
 
-- [Stack](#stack)
+- [Quick start](#quick-start)
 - [Repository layout](#repository-layout)
-- [Data pipeline](#data-pipeline)
-- [Data to sound mappings](#data-to-sound-mappings)
-- [Sound engine](#sound-engine)
-- [Input modes](#input-modes)
+- [Records and datasets](#records-and-datasets)
+- [Data contract (pipeline to app)](#data-contract-pipeline-to-app)
+- [EIC clips (side A)](#eic-clips-side-a)
+- [Sound files](#sound-files)
+- [Controls](#controls)
 - [Accessibility](#accessibility)
-- [Privacy](#privacy)
-- [Milestones](#milestones)
+- [Status](#status)
 
-## Stack
+## Quick start
 
-| Area | Tools |
-| --- | --- |
-| Data prep (offline) | Python, OpenCV, NumPy, scikit-image |
-| App | React, Vite, TypeScript |
-| Audio | Tone.js |
-| Map | MapLibre GL (equirectangular projection) |
-| Hand tracking | MediaPipe Tasks Vision `HandLandmarker`, in-browser only |
-| Voice | Web Speech API (`SpeechRecognition` and `speechSynthesis`), English and Arabic |
-| Hosting | Firebase Hosting, static, must work offline once loaded |
+```bash
+npm install
+npm run mock-data   # writes fake data to public/data/mock/ (about 30 MB, not committed)
+npm run dev         # http://localhost:5173
+```
+
+Use **Chrome**. Click "Start the jukebox" (browsers need one click before playing sound).
+
+When the real pipeline output is in `public/data/`, create `.env.local` with:
+
+```
+VITE_DATA_BASE=/data
+```
 
 ## Repository layout
 
-Code is split into modules with clear boundaries.
+```
+scripts/make-mock-data.mjs   Fake data in the agreed format, until the pipeline delivers
+public/data/                 Pipeline output (see "Data contract")
+public/eic/<record>/         EIC clips for side A (see "EIC clips")
+public/audio/<record>/       Sound files from GarageBand (see "Sound files")
+src/config/                  Records, places, key and tempo
+src/data/                    Data contract types, loader, sampling (fractional years, regions)
+src/state/                   Shared state (zustand) and actions used by every input
+src/audio/                   Tone.js engine (placeholder synths) and the mixer loop
+src/input/                   Keyboard, Xbox controller (input and vibration), voice
+src/components/              Jukebox, map (side B), side A player, captions, settings
+```
+
+Every input (buttons, keyboard, voice, controller) calls the same actions in `src/state/actions.ts`, so adding an input never touches the audio or UI code.
+
+## Records and datasets
+
+All data is from NASA. Values are sampled at the map position and the slider year.
+
+| Record | Side | Data (side B) | Years | EIC visualization (side A) |
+| --- | --- | --- | --- | --- |
+| Ocean | Earth | [MUR 0.25° SST](https://podaac.jpl.nasa.gov/dataset/MUR25-JPL-L4-GLOB-v04.2) + [OSCAR currents](https://podaac.jpl.nasa.gov/dataset/OSCAR_L4_OC_FINAL_V2.0) | 1993-now | [SVS 3912](https://svs.gsfc.nasa.gov/3912/) |
+| Plants | Earth | [MODIS/Terra NDVI monthly (MOD13C2)](https://www.earthdata.nasa.gov/es/data/catalog/lpcloud-mod13c2-061) | 2000-now | [SVS 4950](https://svs.gsfc.nasa.gov/4950/) |
+| Rain | Earth | GPCP (1979-2000), then [GPM IMERG monthly](https://disc.gsfc.nasa.gov/datasets/GPM_3IMERGM_07/summary) | 1979-now | [SVS 4960](https://svs.gsfc.nasa.gov/4960/) |
+| NO2 | Human | [Surface NO2](https://doi.org/10.5067/J99FI2U38YRN) (1990-2003), then [OMI OMNO2d](https://disc.gsfc.nasa.gov/datacollection/OMNO2d_003.html) | 1990-now | [SVS 5533](https://svs.gsfc.nasa.gov/5533/) |
+| Fires | Human | [FIRMS active fires](https://firms.modaps.eosdis.nasa.gov/download/) | 2001-now | [SVS 5669](https://svs.gsfc.nasa.gov/5669/) |
+| Ocean plastic | Human | [CYGNSS microplastics v3.2](https://podaac.jpl.nasa.gov/dataset/CYGNSS_L3_MICROPLASTIC_V3.2) | 2018-now | [SVS 5425](https://svs.gsfc.nasa.gov/5425/) (currents, not plastic) |
+
+Prologue layer (no button): `temperature` from [NASA GISTEMP v4](https://data.giss.nasa.gov/gistemp/), 1950-now. It draws the warming stripes on the timeline. Land use (LUH2) and pollution (MERRA-2) are planned prologue layers.
+
+## Data contract (pipeline to app)
+
+The pipeline writes this layout. `scripts/make-mock-data.mjs` writes exactly the same layout with fake values, so it is also a working example.
 
 ```
-pipeline/            Offline Python: fetch NASA SVS media, extract features, write JSON
-  config/            Crop boxes and projection per source image
-public/data/         Pipeline output, one <layer>.json per layer
-public/audio/        Optional samples: <group>_<layer>_lvl{1,2,3}.wav
-src/audio/           Tone.js engine, channels, mappings, earcons
-src/input/           Input modes and the shared action interface
-src/a11y/            Screen reader announcer, captions, describe, cursor feel
-src/viz/             Canvas overlay: ripples, seismograph strip, flashes
+public/data/index.json
+public/data/<layer>/yearly.bin
+public/data/<layer>/monthly_<year>.bin
 ```
 
-## Data pipeline
+**Grid:** 2 degrees, 90 rows by 180 columns. Row 0 is the band 90N to 88N (north to south). Column 0 is 180W to 178W (west to east). Cell centre: `lat = 89 - 2*row`, `lon = -179 + 2*col`.
 
-Lives in `/pipeline`. Runs offline; the app only reads the JSON it produces.
+**Encoding:** one byte per cell. `0-254` is the value scaled between the layer's `min` and `max`; `255` means no data (for example land for ocean layers, or polar night for NO2).
 
-### Sources
+- `yearly.bin`: `[yearIndex][row][col]`, one grid per year in `years`. Yearly average.
+- `monthly_<year>.bin`: `[month 0-11][row][col]`, for each year in `monthlyYears` (2000-now where the dataset allows).
 
-Media lists are fetched from the NASA SVS API (`https://svs.gsfc.nasa.gov/api/<id>`).
-
-| SVS id | Dataset | Layer group |
-| --- | --- | --- |
-| 5669 | Aerosols | nature and human (split by mask) |
-| 5313 | Night lights | human |
-| 5196 | CO2 | nature and human |
-| 3912 | Sea surface temperature and currents | nature |
-| 5011 | Lightning | nature |
-| 4950 | GEDI forest height | nature |
-| 4960 | Atmospheric river | nature (reserved) |
-
-Rules:
-
-- Prefer PNG frames or stills over MP4. Video compression shifts colors, which would corrupt hue-based extraction.
-- For 5313 (night lights), download only the annual keyframes, never the full frame set.
-- A config file holds the crop box and projection for each source image, because they differ between sources.
-
-### Grid and output format
-
-Every frame is reduced to a **5 degree lat/lon grid** (36 rows by 72 columns), with values normalized to 0 to 1.
-
-Output is written to `/public/data/<layer>.json`:
+**index.json:**
 
 ```json
 {
-  "layer": "aerosol_dust",
-  "group": "nature",
-  "times": ["2020-01-01T00:00:00Z"],
-  "grid": [[[0.0, 0.1]]]
+  "version": 1,
+  "grid": { "resolutionDeg": 2, "rows": 90, "cols": 180, "rowOrder": "north-to-south", "colOrder": "west-to-east", "noData": 255 },
+  "layers": [
+    {
+      "id": "no2",
+      "record": "no2",
+      "side": "human",
+      "units": "1e15 molecules/cm2",
+      "min": 0,
+      "max": 20,
+      "years": [1990, 1991, "...", 2026],
+      "monthlyYears": [2004, 2005, "...", 2026],
+      "source": "OMI OMNO2d v003, doi:10.5067/Aura/OMI/DATA3007"
+    }
+  ]
 }
 ```
 
-`grid[t][lat][lon]` is indexed by time step, then latitude row, then longitude column. `group` is `"nature"` or `"human"` and decides which side of the humanity slider controls the layer.
+Layer ids the app expects: `ocean`, `plants`, `rain`, `no2`, `fires`, `plastic`, `temperature`. Types are in `src/data/contract.ts`. Where the data source changes (NO2 in 2004, Rain in 2000), keep one layer and note it in `source`.
 
-### Feature extraction per source
+## EIC clips (side A)
 
-| Source | Method | Output |
-| --- | --- | --- |
-| Aerosols (5669) | Hue segmentation into four masks | `sea_salt`, `dust`, `smoke`, `sulfates` grids |
-| Night lights (5313) | Pixel brightness per cell; change map between keyframes (purple = more light, orange = less light) | `night_lights` brightness and `night_lights_change` |
-| CO2 (5196) | Density and brightness per cell; day/night pulse over time | `co2` density and pulse |
-| Currents (3912) | Farneback optical flow between frames | speed and direction per cell |
-| Lightning (5011) | Frame differencing | flash events per cell and time |
-| GEDI (4950) | Decode the colorbar back to values | canopy height per cell |
+Download each record's EIC visualization from the SVS page in the table above and save it as `public/eic/<record>/clip.mp4`. Browsers block reading pixels from videos on other websites, so the clips must be served by this app.
 
-## Data to sound mappings
+Optional `public/eic/<record>/colorbar.json` decodes colours into values:
 
-This section is the contract between the pipeline and the sound engine. Exact numbers are tunable in config; the mappings are the design.
-
-All values are the smoothed grid value `v` (0 to 1) under the cursor unless noted. The key, scale and tempo are shared by all layers, so layers always sit in harmony.
-
-### Nature layers
-
-| Layer | Data | Sound | Mapping |
-| --- | --- | --- | --- |
-| Sea salt | Aerosol sea salt mask | Soft filtered noise, like surf or wind over water | `v` sets volume and opens a low-pass filter (more salt = brighter, louder) |
-| Dust | Aerosol dust mask | Dry, grainy, breathy texture | `v` sets volume and grain density (more dust = denser grain) |
-| Ecosystems | CO2 day/night pulse | Slow rhythmic pad that breathes | Pulse phase drives pad swell; the pulse follows the day/night cycle; `v` sets volume |
-| Currents | Optical flow speed and direction | Flowing, evolving tone | Speed sets volume and movement rate; direction sets stereo pan and pitch drift (eastward right, westward left) |
-| Lightning | Flash events | Short percussive crackle or clicks | Each flash event triggers a hit; flash density sets how often hits fire; hit velocity scales with intensity |
-| Forest | GEDI canopy height | Warm sustained harmonic tones | Taller canopy = lower register and more voices (up to three layered tones); `v` sets volume |
-
-### Human layers
-
-| Layer | Data | Sound | Mapping |
-| --- | --- | --- | --- |
-| Night lights | Brightness | Electric hum and shimmer | Brightness sets volume and shimmer rate; brighter cells sound busier |
-| Fossil CO2 | CO2 density | Low, heavy drone | Density sets volume and drone weight (sub bass level) |
-| Sulfates | Aerosol sulfates mask | Thin, harsh, high-frequency tone | `v` sets volume and brightness; more sulfates = harsher |
-| Smoke | Aerosol smoke mask | Dark, rough, crackling bed | `v` sets volume and roughness (distortion amount) |
-
-### Change over time
-
-Night lights uses the annual change map. Cells that gained light (purple) push the night-lights layer up in density; cells that lost light (orange) thin it out. Scrubbing across years audibly shows human growth.
-
-### Sample mapping (later)
-
-Placeholder Tone.js synths come first. When samples arrive, each layer uses three intensity levels, crossfaded by `v`:
-
-```
-/public/audio/<group>_<layer>_lvl1.wav   low intensity
-/public/audio/<group>_<layer>_lvl2.wav   medium intensity
-/public/audio/<group>_<layer>_lvl3.wav   high intensity
+```json
+{ "stops": [[r, g, b, value0to1], ...] }
 ```
 
-### Earcons
+Without it, side A uses brightness. The player samples one column per tick and sweeps left to right (like NASA's Caldwell 73 sonification), and drives the record's instrument.
 
-Short non-spatial cues, independent of layers:
+## Sound files
 
-| Event | Purpose |
-| --- | --- |
-| Region enter | Cursor crosses into a named region |
-| Select | Cell or region selected |
-| Mode change | Input mode switched |
-| Mute / unmute | Humanity toggled |
+The engine (`src/audio/engine.ts`) uses placeholder Tone.js synths. Shared key: **D major pentatonic** (D E F# A B), about **80 BPM**. Human sounds play outside the key (the NO2 drone is on G#).
 
-## Sound engine
+Proposed file layout for the GarageBand exports (MP3, about equally loud):
 
-- One `Tone.Transport`, one key, one scale, one tempo, all set in config.
-- One channel per layer.
-- Grid value at the cursor drives each channel's volume, filter and density. Values are smoothed to avoid clicks and zipper noise.
-- **Humanity slider** (0 to 1) scales the gain of the whole human group. **Mute humanity** sets it to 0 and restores the previous value on unmute.
-- Placeholder synths now; sample crossfade later (see above).
+```
+public/audio/ocean/strings_<note>.mp3     e.g. strings_D3.mp3 ... strings_B4.mp3
+public/audio/plants/pad.mp3              seamless 16-bar loop
+public/audio/rain/drop_<note>.mp3
+public/audio/no2/drone.mp3               seamless loop on G#
+public/audio/fires/crackle_<1-8>.mp3
+public/audio/plastic/click_<1-8>.mp3     plus static.mp3 loop
+public/audio/ui/<name>.mp3               record press, lever, decade tick, voice chimes
+```
 
-## Input modes
+## Controls
 
-The user picks a mode at start and can switch at any time. Every mode is mapped onto **one shared action interface**, so new modes (head tracking, single switch) can be added without touching the audio or UI code.
+| Action | Keyboard | Xbox controller | Voice (hold V or X) |
+| --- | --- | --- | --- |
+| Play/stop a record | `1`-`6` | D-pad left/right to choose, `A` | "play ocean", "stop fires" |
+| Flip side A/B | `F` | `Y` | "flip ocean" |
+| Humanity lever | Up/Down, `M` mute | D-pad up/down | "mute humanity", "humanity to 50 percent" |
+| Year | Left/Right | `LT` / `RT` (harder = faster) | "go to 1985", "play the 1990s" |
+| Map | Shift + arrows, `+` / `-` | Left stick, `LB` / `RB` | "go to Bahrain", "zoom in" |
+| What am I hearing? | `D` | `B` | "what am I hearing?" |
+| Play 75 years | `P` | `Start` | "play 75 years" |
 
-Shared actions include: move cursor, select, set humanity, mute/unmute humanity, speak current cell, describe, go to region, change mode.
+**Controller on Mac:** Chrome, USB cable, press any button once after the page loads. Vibration uses `vibrationActuator.playEffect('dual-rumble')`; strong motor for Ocean, Plants and NO2, weak motor for Rain, Fires and plastic.
 
-| Mode | Controls |
-| --- | --- |
-| Mouse, trackpad, touch | Move = cursor. Click or tap = select |
-| Keyboard | Arrow keys move across grid cells. `Enter` = select. `M` = mute humanity. `[` and `]` = slider down and up. `S` = speak current cell |
-| Hand | Index fingertip = cursor. Pinch = grab slider; move hand up or down to set; open hand = release. Fist = mute. Open palm = unmute. Landmarks smoothed with a One Euro filter. Sensitivity setting. Hand outline overlay |
-| Voice | Fixed commands: "go to <region>", "listen", "mute humanity", "bring us back", "louder", "quieter", "describe". English and Arabic |
+**Voice:** Web Speech API (Chrome). It needs internet unless on-device recognition is available. The music ducks while listening.
 
 ## Accessibility
 
-- Full screen reader support: ARIA labels and a live region for announcements.
-- **Describe** speaks the region name, the top layers and their values.
-- **Captions** for sound events, delivered in a live region.
-- **Visual pulse** on a canvas overlay, driven by the same events as the audio:
-  - Ripples at the cursor. Size and speed = intensity; shape depends on the layer.
-  - Seismograph strip.
-  - Region-enter flash.
-  - Select double pulse.
-- **Cursor feel** (mouse and hand), with a toggle and a strength setting:
-  - Friction in dense cells.
-  - Jitter in human-heavy cells.
-  - Gentle pull toward hotspots.
-- **Reduced motion**: honors `prefers-reduced-motion` and has an in-app toggle. Ripples and jitter are replaced by brightness changes. The app never exceeds 3 flashes per second.
-- **Vibration**: `navigator.vibrate` behind a feature check, off by default.
+- Real buttons and range inputs: full keyboard control and screen reader labels (test with VoiceOver: Cmd+F5).
+- A polite live region announces actions. The caption line describes the music continuously for deaf users; it is not a live region, so screen readers aren't flooded (press `D` instead).
+- Volume meter on every record button.
+- Settings: high contrast, reduced motion, vibration strength.
+- No flashing faster than 3 times per second.
 
-## Privacy
+## Status
 
-Camera and microphone input is processed on-device only. Nothing is uploaded. Hand tracking runs in the browser through MediaPipe; voice uses the browser's Web Speech API.
+Working with mock data and placeholder synths:
 
-Note: some browsers implement `SpeechRecognition` by sending audio to a cloud service. The settings panel will say so, and keyboard, mouse and hand modes work without it.
+- [x] Jukebox with six records, stacking, Mute Humanity lever
+- [x] Timeline 1950-today, live while dragging, monthly loop when it rests on a year
+- [x] Shared 2D map with zoom, pan and a local listening area
+- [x] Side A player sampling EIC video frames (needs the clips)
+- [x] Xbox controller input and vibration, keyboard, voice commands, captions
 
-## Milestones
+To do:
 
-1. **Pipeline and first sound.** Pipeline outputs `aerosols.json`; the app plays it with mouse and slider.
-2. **All layers and a11y.** All layers, keyboard mode, screen reader support, captions, visual pulse.
-3. **Hand and voice.** Hand mode, voice mode, cursor feel.
-4. **Ship.** Settings panel, offline check, Firebase deploy.
-
-## Credits
-
-Data: NASA Scientific Visualization Studio (SVS) and NASA Earth Information Center.
+- [ ] Real pipeline output in `public/data/`
+- [ ] EIC clips and colour keys in `public/eic/`
+- [ ] GarageBand samples replacing the placeholder synths
+- [ ] Jukebox artwork from multimedia
+- [ ] Prologue layers (land use, pollution), mono audio switch, left/right panning
+- [ ] Project page: how each sound is made, sources, caveats

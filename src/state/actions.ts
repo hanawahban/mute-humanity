@@ -1,0 +1,151 @@
+// One shared set of actions. The jukebox buttons, keyboard, voice and Xbox controller
+// all call these, so a new input never needs to touch the audio or UI code.
+
+import { findPlace, nameRegion } from '../config/places';
+import { RECORDS, RECORD_BY_ID, YEAR_MAX, YEAR_MIN, type RecordId } from '../config/records';
+import { getState, setState } from './store';
+import { startAudio } from '../audio/engine';
+
+const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+
+export function announce(text: string) {
+  // Re-setting the same text would not be re-read by screen readers, so add an invisible change.
+  const prev = getState().announcement;
+  setState({ announcement: prev === text ? `${text}​` : text });
+}
+
+export async function ensureAudio() {
+  if (!getState().audioOn) {
+    await startAudio();
+    setState({ audioOn: true });
+  }
+}
+
+export async function toggleRecord(id: RecordId, on?: boolean) {
+  await ensureAudio();
+  const { playing, sideA } = getState();
+  const next = on ?? !playing[id];
+  setState({
+    playing: { ...playing, [id]: next },
+    selected: id,
+    sideA: next ? sideA : sideA === id ? null : sideA,
+  });
+  announce(`${RECORD_BY_ID[id].name} ${next ? 'playing' : 'stopped'}`);
+}
+
+/** Flip a record between side A (its EIC visualization) and side B (the NASA data on the map). */
+export async function flipRecord(id: RecordId) {
+  await ensureAudio();
+  const { sideA, playing } = getState();
+  const toA = sideA !== id;
+  setState({ sideA: toA ? id : null, playing: { ...playing, [id]: true }, selected: id });
+  const rec = RECORD_BY_ID[id];
+  announce(toA ? `${rec.name}, side A: ${rec.eic.title}` : `${rec.name}, side B: NASA data on the map`);
+}
+
+export function selectRecord(delta: number) {
+  const ids = RECORDS.map((r) => r.id);
+  const i = ids.indexOf(getState().selected);
+  const next = ids[(i + delta + ids.length) % ids.length];
+  setState({ selected: next });
+  announce(`${RECORD_BY_ID[next].name} selected, ${getState().playing[next] ? 'playing' : 'stopped'}`);
+}
+
+export function setYear(year: number, opts: { dragging?: boolean; quiet?: boolean } = {}) {
+  const y = clamp(year, YEAR_MIN, YEAR_MAX);
+  setState({ year: y, dragging: opts.dragging ?? false, month: null });
+  if (!opts.quiet && !opts.dragging) announce(`Year ${Math.round(y)}`);
+}
+
+export function nudgeYear(delta: number) {
+  setYear(Math.round(getState().year) + delta);
+}
+
+export function setHumanity(v: number, quiet = false) {
+  const h = clamp(v, 0, 1);
+  setState({ humanity: h, lastHumanity: h > 0 ? h : getState().lastHumanity });
+  if (!quiet) announce(`Humanity ${Math.round(h * 100)} percent`);
+}
+
+export function muteHumanity() {
+  const { humanity } = getState();
+  setState({ lastHumanity: humanity > 0 ? humanity : getState().lastHumanity, humanity: 0 });
+  announce('Humanity muted. Listen to the planet without us.');
+}
+
+export function unmuteHumanity() {
+  setState({ humanity: getState().lastHumanity || 1 });
+  announce('Humanity is back.');
+}
+
+export function toggleMuteHumanity() {
+  if (getState().humanity > 0) muteHumanity();
+  else unmuteHumanity();
+}
+
+export function setAutoplay(on: boolean) {
+  setState({ autoplay: on });
+  if (on && getState().year >= YEAR_MAX - 0.5) setYear(YEAR_MIN, { quiet: true });
+  announce(on ? 'Playing 75 years, from 1950 to today' : 'Timeline paused');
+}
+
+export function panBy(dLat: number, dLon: number) {
+  const { focus } = getState();
+  let lon = focus.lon + dLon;
+  if (lon > 180) lon -= 360;
+  if (lon < -180) lon += 360;
+  setState({ focus: { ...focus, lat: clamp(focus.lat + dLat, -80, 80), lon } });
+}
+
+export function zoomBy(factor: number) {
+  const { focus } = getState();
+  setState({ focus: { ...focus, zoom: clamp(focus.zoom * factor, 1, 12) } });
+}
+
+export function goToPlace(text: string): boolean {
+  const place = findPlace(text);
+  if (!place) return false;
+  setState({ focus: { lat: place.lat, lon: place.lon, zoom: place.zoom } });
+  announce(`Flying to ${place.name}`);
+  return true;
+}
+
+const level = (v: number) => (v > 0.66 ? 'strong' : v > 0.33 ? 'medium' : v > 0.05 ? 'weak' : 'silent');
+
+/** The text for "what am I hearing?", and for the live caption line. */
+export function describeNow(): string {
+  const { mix, focus, year, month, playing, sideA, humanity } = getState();
+  const place = nameRegion(focus.lat, focus.lon, focus.zoom);
+  const when = month != null
+    ? `${new Date(2000, month, 1).toLocaleString('en', { month: 'long' })} ${Math.floor(year)}`
+    : `${Math.round(year)}`;
+  const parts = RECORDS.filter((r) => playing[r.id])
+    .map((r) => {
+      if (sideA === r.id) return { r, text: `${r.instrument} from the EIC visualization ${r.eic.title}`, v: 1 };
+      const m = mix[r.id];
+      if (!m) return { r, text: `${r.instrument}, no data for this year`, v: -1 };
+      return { r, text: `${r.instrument}, ${level(m.value)}`, v: m.value };
+    })
+    .sort((a, b) => b.v - a.v);
+  if (parts.length === 0) return `Nothing playing. ${place}, ${when}. Press a record to start.`;
+  const muted = humanity === 0 ? ' Humanity is muted.' : '';
+  return `${place}, ${when}: ${parts.map((p) => p.text).join('. ')}.${muted}`;
+}
+
+export function speak(text: string) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 1.05;
+  window.speechSynthesis.speak(u);
+}
+
+/**
+ * Keyboard users (often with a screen reader) get it through the live region.
+ * Voice and controller users get it spoken by the browser. Never both, so it isn't read twice.
+ */
+export function describe(via: 'screen-reader' | 'speech') {
+  const text = describeNow();
+  if (via === 'speech') speak(text);
+  else announce(text);
+}
