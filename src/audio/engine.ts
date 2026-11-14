@@ -25,9 +25,10 @@ if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__notes 
 
 const url = (id: InstrumentId) => `/sounds/${id}.mp3`;
 
-function makeChannel(instrument: InstrumentId, bus: Tone.ToneAudioNode, opts: { attack: number; release: number }) {
+function makeChannel(instrument: InstrumentId, bus: Tone.ToneAudioNode, opts: { attack: number; release: number; lowpass?: number }) {
   const gain = new Tone.Gain(0).connect(bus);
-  const panner = new Tone.Panner(0).connect(gain);
+  const out: Tone.ToneAudioNode = opts.lowpass ? new Tone.Filter({ frequency: opts.lowpass, type: 'lowpass', rolloff: -24 }).connect(gain) : gain;
+  const panner = new Tone.Panner(0).connect(out);
   const sampler = new Tone.Sampler({
     urls: { [INSTRUMENT_NOTES[instrument]]: url(instrument) },
     attack: opts.attack,
@@ -38,6 +39,9 @@ function makeChannel(instrument: InstrumentId, bus: Tone.ToneAudioNode, opts: { 
 
 export async function startAudio() {
   if (started) return;
+  // A bigger safety buffer: notes are scheduled 0.25 s ahead, so a busy main thread (decoding
+  // video frames, drawing the map) can't make the audio stutter.
+  Tone.setContext(new Tone.Context({ latencyHint: 'playback', lookAhead: 0.25 }));
   await Tone.start();
   started = true;
   Tone.getTransport().bpm.value = BPM;
@@ -50,7 +54,7 @@ export async function startAudio() {
   const echo = new Tone.PingPongDelay({ delayTime: '8n.', feedback: 0.22, wet: 0.16 });
   const earthBus = new Tone.Gain(1).chain(echo, reverb, master);
   // Humanity: dry, close and a little rough.
-  const grit = new Tone.Distortion({ distortion: 0.3, wet: 0.35 });
+  const grit = new Tone.Distortion({ distortion: 0.15, wet: 0.2 });
   const humanBus = new Tone.Gain(1).chain(grit, new Tone.Reverb({ decay: 1.2, wet: 0.12 }), master);
 
   for (const rec of RECORDS) {
@@ -59,7 +63,8 @@ export async function startAudio() {
       : rec.voice === 'drops' ? { attack: 0.01, release: 0.8 }
         : rec.voice === 'drone' ? { attack: 1, release: 3.5 }
           : { attack: 0.3, release: 2.2 };
-    channels.set(rec.id, makeChannel(rec.instrument, bus, env));
+    // the oboe is bright and nasal: take the edge off so pollution sounds rough, not piercing
+    channels.set(rec.id, makeChannel(rec.instrument, bus, rec.id === 'nox' ? { ...env, lowpass: 1500 } : env));
     if (rec.second) channels.set(`${rec.id}:2`, makeChannel(rec.second.instrument, bus, { attack: 1.5, release: 4 }));
   }
   // The harmony under everything: viola chords and a deep synth root, changing every two bars.
@@ -104,7 +109,13 @@ export function setSpace(amount: number, time?: number) {
 
 /** Turn the music down while the microphone listens. */
 export function duck(on: boolean, level = 0.15) {
-  if (master) master.gain.rampTo(on ? level : 0.9, 0.3);
+  if (master) master.gain.rampTo(on ? level : 0.9, on ? 0.4 : 1.2);
 }
 
 export const isStarted = () => started;
+
+/** How long the speakers lag behind the audio clock, so visuals can line up with what you hear. */
+export function outputLatency(): number {
+  const raw = Tone.getContext().rawContext as AudioContext;
+  return (raw.outputLatency || raw.baseLatency || 0) as number;
+}

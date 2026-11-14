@@ -1,11 +1,13 @@
 // One shared set of actions. The dock buttons, keyboard, voice and Xbox controller all call
 // these, so a new input never needs to touch the audio or UI code.
 
-import { HOTSPOTS, PLACES, findPlace, nameRegion } from '../config/places';
+import { HOTSPOTS, PLACES, findPlace, nameRegion, nearestPlace } from '../config/places';
 import { RECORDS, RECORD_BY_ID, type RecordId } from '../config/records';
 import { getState, setState, type Mode } from './store';
 import { playIntro, startAudio } from '../audio/engine';
-import { say, speakText } from '../audio/speech';
+import { hasLine, say, sayQueue, speakText } from '../audio/speech';
+import { layers, sample, valueAt } from '../eic/layers';
+import { setRegion } from '../map/camera';
 import { flyTo, moveBy, zoomAt } from '../map/camera';
 import { cue } from '../input/haptics';
 
@@ -216,3 +218,51 @@ export function describe(via: 'screen-reader' | 'speech') {
 }
 
 export const placeNames = () => PLACES.map((p) => p.name);
+
+const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const level = (v: number) => (v > 0.6 ? 2 : v > 0.25 ? 1 : 0);
+
+/**
+ * Probe a spot: move the probe there and, if asked, say where it is and what each playing
+ * record shows there, in the recorded narrator's voice.
+ */
+export function probeAt(lat: number, lon: number, speakIt: boolean) {
+  setProbe(lat, lon);
+  const s = getState();
+  const near = nearestPlace(lat, lon, 9);
+  const ocean = layers.get('ocean');
+  if (ocean?.ready && !ocean.sampledAt) sample('ocean', 0);
+  const sea = ocean?.sampledAt ? valueAt(ocean.grid, lat, lon, 1) : null;
+  const clips: string[] = [near && hasLine(`near-${slug(near.name)}`) ? `near-${slug(near.name)}` : sea != null ? 'over-ocean' : 'over-land'];
+  const words: string[] = [near ? `Near ${near.name}.` : sea != null ? 'Over the open ocean.' : 'Over land.'];
+  for (const r of RECORDS) {
+    if (!s.playing[r.id] || (s.solo && s.solo !== r.id)) continue;
+    const l = layers.get(r.id);
+    if (!l?.ready) continue;
+    if (!l.sampledAt) sample(r.id, 0);
+    const v = valueAt(l.grid, lat, lon);
+    if (v == null) continue;
+    clips.push(`${r.id}-${level(v)}`);
+    words.push(`${r.short}: ${describeValue(r.id, v)}.`);
+  }
+  announce(words.join(' '));
+  if (speakIt && s.settings.narrate) void sayQueue(clips);
+}
+
+export const BAHRAIN_REGION = { west: 49.6, east: 51.6, south: 25.2, north: 26.9 };
+
+/** Open the Bahrain close-up: the sound now listens to just this corner of the Gulf. */
+export async function openCloseUp() {
+  await ensureAudio();
+  setRegion(BAHRAIN_REGION);
+  setState({ closeUp: true });
+  goToPlace('Bahrain');
+  announce('Bahrain, up close. The sound now comes only from this area.');
+  if (getState().settings.narrate && !getState().story.running) void say('bahrain-open');
+}
+
+export function closeCloseUp() {
+  setRegion(null);
+  setState({ closeUp: false });
+  announce('Back to the whole map');
+}

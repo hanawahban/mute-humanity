@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Jukebox } from './components/Jukebox';
 import { MapView } from './components/MapView';
 import { HelpDialog } from './components/Settings';
+import { BahrainCloseUp } from './components/BahrainCloseUp';
 import { Captions, Feeling, Legend, ProbeReadout, TopBar } from './components/Overlays';
 import { loadLayers } from './eic/layers';
 import { startConductor } from './audio/conductor';
@@ -43,6 +44,7 @@ export function App() {
     <div className={`app ${highContrast ? 'high-contrast' : ''} ${reducedMotion ? 'reduced-motion' : ''}`}>
       <main className="stage">
         <MapView />
+        <BahrainCloseUp />
         <TopBar />
         <div className="map-bottom">
           <Legend />
@@ -75,7 +77,7 @@ export function App() {
               <li><strong>Choose how to listen.</strong> Hear the whole screen, sweep a needle across it, or point at one spot.</li>
               <li><strong>Mute humanity.</strong> Hear the planet without us.</li>
             </ol>
-            <p className="start-hint">The story is a 90-second guided tour, spoken aloud. Works with a mouse, keyboard, screen reader, your voice (hold V) or an Xbox controller. Press H any time for help.</p>
+            <p className="start-hint">The story is a three-minute guided tour, spoken aloud, that shows how every map becomes music. Works with a mouse, keyboard, screen reader, your voice (hold V) or an Xbox controller. Press H any time for help.</p>
           </div>
         </div>
       )}

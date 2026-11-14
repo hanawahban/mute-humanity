@@ -41,6 +41,8 @@ export interface RecordDef {
   voice: Voice;
   /** Second instrument for a second part of the picture (clouds under the rain). */
   second?: { instrument: InstrumentId; voice: Voice; label: string };
+  /** The map key: what low and high look like and mean (also used to colour the Bahrain close-up). */
+  scale: { low: string; high: string; colours: string[]; lightBar?: boolean };
   /** Pixels that don't match the colour key: "nodata" (land under the ocean layer) or "zero" (no pollution, no rain). */
   empty: 'nodata' | 'zero';
   /** How the map shader hides this layer's background, so all layers can be stacked. */
@@ -66,15 +68,17 @@ export const RECORDS: RecordDef[] = [
     svs: 3912,
     eicTitle: 'Global Sea Surface Currents and Temperature',
     period: 'Mar 2007 – Mar 2008',
-    shows: 'Ocean surface currents, coloured by water temperature: blue is 0 °C, green 10 to 20 °C, yellow about 25 °C and red 32 °C.',
+    shows: 'Ocean surface currents, coloured by water temperature from 0 °C (deep blue) to 32 °C (orange). We use calmer colours than the original rainbow so the land stays easy to see.',
     hear: 'A cello. Warmer water plays higher notes.',
     kind: 'movie',
     // From the SVS colour bar: blue 0 C, green 10-20 C, yellow ~25 C, red 32 C.
     decode: { kind: 'colorbar', stops: [[20, 40, 160, 0], [30, 150, 90, 0.3], [140, 200, 60, 0.6], [250, 220, 40, 0.78], [220, 30, 20, 1]] },
     instrument: 'cello',
     voice: 'sustain',
+    scale: { low: '0 °C', high: '32 °C', colours: ['#1d3557', '#2a6f97', '#61a5c2', '#d9cba0', '#cf9a68', '#b9745a'] },
     empty: 'nodata',
-    keying: 'saturated',
+    keying: 'ocean', // re-coloured from the rainbow to a calmer cold-to-warm palette
+    keyingPlaceholder: 'ocean',
     masks: [[0, 0.895, 0.175, 1]], // colour bar burned into the frame
     matchHue: true,
     area: [0, 0, 1, 1],
@@ -96,6 +100,7 @@ export const RECORDS: RecordDef[] = [
     instrument: 'flute',
     voice: 'drops',
     second: { instrument: 'synth1', voice: 'sustain', label: 'clouds' },
+    scale: { low: 'light rain', high: 'very heavy', colours: ['#22c55e', '#3b82f6', '#22d3ee', '#a855f7', '#991b1b', '#ef4444', '#f97316', '#facc15'] },
     empty: 'zero',
     keying: 'precip',
     masks: [[0, 0, 0.175, 0.078], [0, 0.895, 0.25, 1]], // NASA/GMAO logo and date stamp
@@ -117,6 +122,7 @@ export const RECORDS: RecordDef[] = [
     decode: { kind: 'colourful' },
     instrument: 'violin',
     voice: 'strikes',
+    scale: { low: 'none', high: 'many flashes', colours: ['#2a2a2a', '#8a7a20', '#ffe14d'] },
     empty: 'zero',
     keying: 'saturated', // yellow flashes over grey land
     keyingPlaceholder: 'bright',
@@ -139,6 +145,7 @@ export const RECORDS: RecordDef[] = [
     decode: { kind: 'bright', floor: 0.33 },
     instrument: 'clarinet',
     voice: 'drops',
+    scale: { low: 'dark', high: 'bright', colours: ['#1a1a1a', '#8a6a2a', '#ffe9a8'] },
     empty: 'zero',
     keying: 'bright',
     masks: [[0, 0.486, 1, 0.524]], // year labels across the middle of the frame
@@ -161,6 +168,7 @@ export const RECORDS: RecordDef[] = [
     decode: { kind: 'bright', floor: 0.12 },
     instrument: 'synth3',
     voice: 'drone',
+    scale: { low: 'low', high: 'high', colours: ['#2b0a00', '#b33a00', '#ff7a1a', '#fff2a0'] },
     empty: 'zero',
     keying: 'bright',
     area: [0, 0, 1, 1],
@@ -175,12 +183,13 @@ export const RECORDS: RecordDef[] = [
     svs: 5154,
     eicTitle: 'Nitrogen Oxides (NOx)',
     period: 'Recent days (NASA air-quality model)',
-    shows: 'Nitrogen oxides near the ground, from traffic, industry and power plants (NASA GEOS-CF model). Darker green is more pollution.',
+    shows: 'Nitrogen oxides near the ground, from traffic, industry and power plants (NASA GEOS-CF model). Shown here as dark smog: darker is more pollution.',
     hear: 'An oboe, out of key. More pollution is louder and harsher.',
     kind: 'movie',
     decode: { kind: 'warm' },
     instrument: 'oboe',
     voice: 'sustain',
+    scale: { low: 'clean', high: 'polluted', colours: ['rgba(90,70,54,0)', '#5a4636', '#0d0907'], lightBar: true },
     empty: 'zero',
     keying: 'darkgreen',
     keyingPlaceholder: 'warm',

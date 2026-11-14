@@ -5,7 +5,7 @@
 import { type CSSProperties } from 'react';
 import { HOTSPOTS } from '../config/places';
 import { INSTRUMENT_NAMES, RECORDS, type RecordDef } from '../config/records';
-import { goToPlace, muteHumanity, resetView, setHumanity, setMode, toggleRecord, unmuteHumanity } from '../state/actions';
+import { goToPlace, openCloseUp, muteHumanity, resetView, setHumanity, setMode, toggleRecord, unmuteHumanity } from '../state/actions';
 import { startStory, stopStory, storyLength } from '../state/story';
 import { useStore, type Mode } from '../state/store';
 import { ModeIcon, RecordIcon } from './icons';
@@ -101,12 +101,14 @@ export function Jukebox() {
             value=""
             onChange={(e) => {
               if (e.target.value === '*') resetView();
+              else if (e.target.value === '#bahrain') void openCloseUp();
               else if (e.target.value) goToPlace(e.target.value);
               e.target.blur();
             }}
           >
             <option value="">Choose a place…</option>
             <option value="*">The whole planet</option>
+            <option value="#bahrain">★ Bahrain close-up</option>
             {placeGroups.map((r) => (
               <optgroup key={r.id} label={r.name}>
                 {(HOTSPOTS[r.id] ?? []).map((p) => (

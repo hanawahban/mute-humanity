@@ -16,7 +16,7 @@ import { RECORDS, RECORD_BY_ID, type RecordDef, type RecordId } from '../config/
 import { audible, getState, setState, type Level } from '../state/store';
 import { columnPeaks, layers, sample, valueAt, viewStats } from '../eic/layers';
 import { viewBounds, latLonToScreen } from '../map/camera';
-import { play, setGain, setSpace, type VoiceKey } from './engine';
+import { outputLatency, play, setGain, setSpace, type VoiceKey } from './engine';
 import { hapticTick } from '../input/haptics';
 import { describeNow } from '../state/actions';
 
@@ -30,9 +30,9 @@ const RANGE: Record<RecordId, { root: number; steps: number; from?: number }> = 
   lightning: { root: 69, steps: 8, from: 3 }, // violin, from E5
   lights: { root: 69, steps: 6 }, // clarinet
   co2: { root: 33, steps: 3, from: 2 }, // synth drone, low
-  nox: { root: 69, steps: 6 }, // oboe
+  nox: { root: 57, steps: 6 }, // oboe, an octave lower than it was recorded: rough, not shrill
 };
-const BASE_GAIN: Record<RecordId, number> = { ocean: 0.75, rain: 0.6, lightning: 0.55, lights: 0.5, co2: 0.8, nox: 0.6 };
+const BASE_GAIN: Record<RecordId, number> = { ocean: 0.75, rain: 0.6, lightning: 0.55, lights: 0.5, co2: 0.75, nox: 0.3 };
 const CLOUD_GAIN = 0.35;
 
 function noteOf(rec: RecordDef, degree: number): string {
@@ -72,6 +72,12 @@ function analyse() {
   const levels: Partial<Record<RecordId, Level>> = {};
   const probeValues: Partial<Record<RecordId, number | null>> = {};
   stats = {};
+  // Reading a video frame back from the GPU is the slowest thing we do, so only one layer is
+  // read per tick (the one read longest ago); the others use their last reading. Stills are read once.
+  const due = ids
+    .map((id) => layers.get(id))
+    .filter((l) => l?.ready && (l.rec.kind === 'movie' || !l.sampledAt))
+    .sort((a, c) => a!.sampledAt - c!.sampledAt)[0]?.rec.id;
 
   for (const rec of RECORDS) {
     const layer = layers.get(rec.id);
@@ -86,7 +92,8 @@ function analyse() {
     if (rec.second) setGain(`${rec.id}:2`, on ? CLOUD_GAIN * scale : 0);
     if (!on) continue;
 
-    const l = sample(rec.id);
+    const cached = layers.get(rec.id);
+    const l = rec.id === due || !cached?.sampledAt ? sample(rec.id, 0) : cached;
     if (!l) continue;
     const st = viewStats(l.grid, b, l.second);
     stats[rec.id] = st;
@@ -115,13 +122,16 @@ function analyse() {
 
 // ---------- scan needle and note flashes (read by the map every animation frame) ----------
 let barStart = 0; // audio time when the current scan bar started
-const BAR = () => Tone.Time('1m').toSeconds();
 const SIXTEENTH = () => Tone.Time('16n').toSeconds();
 
-/** Where the needle is right now, 0-1 across the view (smooth, from the audio clock). */
+/** One sweep of the needle takes this many 16th notes: 48 = three bars, about 9 seconds. */
+export const SWEEP = 48;
+let scanStep = 0;
+
+/** Where the needle is right now, 0-1 across the view: smooth, from the audio clock, and lined up with what you hear. */
 export function scanNeedle(): number | null {
   if (getState().mode !== 'scan' || !barStart) return null;
-  const x = (Tone.getContext().currentTime - barStart) / BAR();
+  const x = (audioNow() - barStart) / (SWEEP * SIXTEENTH());
   return x < 0 ? x + 1 : x > 1 ? x - 1 : x;
 }
 
@@ -134,7 +144,7 @@ export interface Hit {
 }
 /** Notes the needle has triggered, for the flashes on the map. */
 export const hits: Hit[] = [];
-export const audioNow = () => Tone.getContext().currentTime;
+export const audioNow = () => Tone.getContext().currentTime - outputLatency();
 
 /** Every 16th note: decide what to play. */
 function tick(time: number) {
@@ -144,34 +154,35 @@ function tick(time: number) {
   const b = viewBounds();
 
   if (s.mode === 'scan') {
-    if (st === 0) barStart = time;
-    else if (!barStart) barStart = time - st * SIXTEENTH();
-    const x0 = st / 16;
+    if (!barStart) scanStep = 0;
+    const ss = scanStep++ % SWEEP;
+    if (ss === 0) barStart = time; // start of this sweep
+    const x0 = ss / SWEEP;
     const sixteenth = SIXTEENTH();
     // Columns the needle crosses during this 16th; each strong point plays exactly when the needle reaches it.
-    const cols = Math.max(1, Math.round((b.lonSpan * 2) / 16)); // grid columns crossed in one 16th (half-degree grid)
+    const cols = Math.max(1, Math.round((b.lonSpan * 2) / SWEEP)); // grid columns crossed in one 16th (half-degree grid)
     for (const id of ids) {
       const rec = RECORD_BY_ID[id];
       const l = layers.get(id);
       if (!l?.ready) continue;
       const found: Array<{ x: number; y: number; v: number }> = [];
       for (let c = 0; c < cols; c++) {
-        const x = x0 + (c + 0.5) / cols / 16;
+        const x = x0 + (c + 0.5) / cols / SWEEP;
         for (const p of columnPeaks(l.grid, b.west + x * b.lonSpan, b, 2)) found.push({ x, y: p.y, v: p.v });
       }
       // the ocean fills the whole map, so it plays one note every 8th; sparse layers play what they have
-      if (rec.empty === 'nodata' && st % 2 === 1) continue;
+      if (rec.empty === 'nodata' && ss % 2 === 1) continue;
       const max = rec.empty === 'nodata' || rec.voice === 'drone' ? 1 : rec.voice === 'strikes' ? 3 : 2;
       const { steps } = RANGE[id];
       const humanScale = rec.side === 'human' ? s.humanity : 1;
       for (const p of found.sort((a, c) => c.v - a.v).slice(0, max)) {
-        const at = time + (p.x - x0) * 16 * sixteenth;
+        const at = time + (p.x - x0) * SWEEP * sixteenth;
         const dur = rec.voice === 'strikes' ? 0.2 : rec.voice === 'drone' ? '4n' : '8n';
         play(id, noteOf(rec, (1 - p.y) * (steps - 1)), dur, at, 0.3 + 0.7 * p.v, p.x * 2 - 1);
         if (humanScale > 0.05) hits.push({ x: p.x, y: p.y, colour: rec.colour, v: p.v * humanScale, at });
       }
-      if (rec.second && l.second && st % 4 === 0) {
-        const clouds = columnPeaks(l.second, b.west + (x0 + 1 / 32) * b.lonSpan, b, 1)[0];
+      if (rec.second && l.second && ss % 4 === 0) {
+        const clouds = columnPeaks(l.second, b.west + (x0 + 0.5 / SWEEP) * b.lonSpan, b, 1)[0];
         if (clouds) play(`${id}:2` as VoiceKey, noteOf(rec, (1 - clouds.y) * 4), '2n', time, 0.2 + 0.5 * clouds.v, x0 * 2 - 1);
       }
     }
@@ -266,4 +277,4 @@ export function startConductor() {
   new Tone.Loop((time) => tick(time), '16n').start(0);
 }
 
-export const debugClock = () => ({ bar: BAR(), sixteenth: SIXTEENTH(), barStart, now: Tone.getContext().currentTime, bpm: Tone.getTransport().bpm.value });
+export const debugClock = () => ({ sixteenth: SIXTEENTH(), barStart, now: Tone.getContext().currentTime, bpm: Tone.getTransport().bpm.value });

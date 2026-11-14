@@ -21,10 +21,29 @@ export function say(id: string): Promise<number> {
     a.addEventListener('ended', () => {
       if (current === a) duck(false);
     });
-    duck(true, 0.45);
+    duck(true, 0.28);
     void a.play().catch(() => resolve(0));
   });
 }
+
+let queueId = 0;
+/** Play several recorded lines one after another (cancels any line already playing). */
+export async function sayQueue(ids: string[]) {
+  const me = ++queueId;
+  for (const id of ids) {
+    if (me !== queueId) return;
+    const seconds = await say(id);
+    if (!seconds) continue;
+    await new Promise<void>((resolve) => {
+      const a = current;
+      if (!a) return resolve();
+      a.addEventListener('ended', () => resolve(), { once: true });
+      a.addEventListener('pause', () => resolve(), { once: true });
+    });
+  }
+}
+
+export const hasLine = (id: string) => id in LINES;
 
 export function stopSpeaking() {
   current?.pause();
@@ -56,6 +75,6 @@ export function speakText(text: string) {
   u.rate = 0.98;
   u.pitch = 1;
   u.onend = () => duck(false);
-  duck(true, 0.45);
+  duck(true, 0.28);
   window.speechSynthesis.speak(u);
 }

@@ -12,6 +12,8 @@
 
 import { RECORDS } from '../config/records';
 import {
+  closeCloseUp,
+  openCloseUp,
   announce, cycleMode, describe, moveProbe, nextHotspot, panBy, resetView, selectRecord, setHumanity, setMode,
   toggleMuteHumanity, toggleRecord, toggleSolo, zoomBy,
 } from '../state/actions';
@@ -70,6 +72,10 @@ export function initKeyboard() {
         return;
       case 'g':
         nextHotspot(e.shiftKey ? -1 : 1);
+        break;
+      case 'b':
+        if (getState().closeUp) closeCloseUp();
+        else void openCloseUp();
         break;
       case 'o':
         toggleSolo();

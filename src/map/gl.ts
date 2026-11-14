@@ -4,8 +4,13 @@
 // rain, light green "clean air") is made transparent in the shader, so all six layers can be
 // stacked on one map while the data stays visible.
 
-export type KeyMode = 'bright' | 'saturated' | 'precip' | 'darkgreen' | 'warm' | 'opaque';
-const MODE_ID: Record<KeyMode, number> = { bright: 0, saturated: 1, precip: 2, darkgreen: 3, warm: 4, opaque: 5 };
+export type KeyMode = 'bright' | 'saturated' | 'precip' | 'darkgreen' | 'warm' | 'opaque' | 'ocean';
+const MODE_ID: Record<KeyMode, number> = { bright: 0, saturated: 1, precip: 2, darkgreen: 3, warm: 4, opaque: 5, ocean: 6 };
+
+/** The calmer ocean palette (cold to warm). The map key uses the same colours. */
+export const OCEAN_RAMP: Array<[number, string]> = [[0, '#1d3557'], [0.3, '#2a6f97'], [0.55, '#61a5c2'], [0.75, '#d9cba0'], [0.9, '#cf9a68'], [1, '#b9745a']];
+/** NOx is drawn as dark smog, not green. */
+export const SMOG = { light: '#5a4636', dark: '#0d0907' };
 
 export interface GlLayer {
   source: TexImageSource;
@@ -39,6 +44,32 @@ out vec4 outColor;
 
 bool inRect(vec2 t, vec4 r) { return t.x >= r.x && t.x <= r.z && t.y >= r.y && t.y <= r.w; }
 
+float hue(vec3 c) {
+  float mx = max(c.r, max(c.g, c.b));
+  float d = mx - min(c.r, min(c.g, c.b));
+  if (d < 1e-4) return 0.0;
+  float h;
+  if (mx == c.r) h = mod((c.g - c.b) / d, 6.0);
+  else if (mx == c.g) h = (c.b - c.r) / d + 2.0;
+  else h = (c.r - c.g) / d + 4.0;
+  return h * 60.0;
+}
+
+// cold to warm, muted: the rainbow of the original is re-coloured so land stays readable
+vec3 oceanRamp(float t) {
+  vec3 c0 = vec3(0.114, 0.208, 0.341);
+  vec3 c1 = vec3(0.165, 0.435, 0.592);
+  vec3 c2 = vec3(0.380, 0.647, 0.761);
+  vec3 c3 = vec3(0.851, 0.796, 0.627);
+  vec3 c4 = vec3(0.812, 0.604, 0.408);
+  vec3 c5 = vec3(0.725, 0.455, 0.353);
+  if (t < 0.3) return mix(c0, c1, t / 0.3);
+  if (t < 0.55) return mix(c1, c2, (t - 0.3) / 0.25);
+  if (t < 0.75) return mix(c2, c3, (t - 0.55) / 0.2);
+  if (t < 0.9) return mix(c3, c4, (t - 0.75) / 0.15);
+  return mix(c4, c5, (t - 0.9) / 0.1);
+}
+
 void main() {
   vec2 frag = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
   float lon = uView.x + (frag.x - uSize.x * 0.5) / uView.z;
@@ -60,10 +91,20 @@ void main() {
     float rain = smoothstep(0.45, 0.65, sat) * smoothstep(0.4, 0.6, mx) * (1.0 - step(0.0, c.r - c.b) * step(0.0, c.g - c.b) * step(c.g, c.r * 1.15) * step(sat, 0.75));
     float cloud = (1.0 - smoothstep(0.1, 0.25, sat)) * smoothstep(0.55, 0.9, mx) * 0.75;
     a = max(rain, cloud);
-  } else if (uMode == 3) {                                                         // NOx: white (clean) to dark green (polluted)
-    float green = c.g - max(c.r, c.b);
-    a = smoothstep(0.35, 0.8, 1.0 - mx) * step(0.05, green); // only the darker greens: real pollution
-  } else if (uMode == 4) a = smoothstep(0.2, 0.5, c.r - c.b);                    // warm colours over a base map
+  } else if (uMode == 3 || uMode == 4) {                                           // NOx, shown as dark smog
+    float t;
+    if (uMode == 3) {                                                              // real: white (clean) to dark green (polluted)
+      float green = c.g - max(c.r, c.b);
+      t = smoothstep(0.3, 0.8, 1.0 - mx) * step(0.05, green);
+    } else t = smoothstep(0.2, 0.5, c.r - c.b);                                   // placeholder: yellow to red
+    c = mix(vec3(0.353, 0.275, 0.212), vec3(0.05, 0.035, 0.027), t);
+    a = smoothstep(0.0, 0.6, t) * 0.88;
+  } else if (uMode == 6) {                                                         // ocean: hue -> temperature -> calm palette
+    float h = hue(c);
+    float t = clamp(1.0 - h / 240.0, 0.0, 1.0);
+    a = smoothstep(0.18, 0.42, sat) * smoothstep(0.06, 0.22, mx) * 0.9;
+    c = oceanRamp(t) * (0.55 + 0.4 * mx);
+  }
   c = min(vec3(1.0), c * uBoost);
   a *= uAlpha;
   outColor = vec4(c * a, a);
@@ -73,6 +114,7 @@ interface TexEntry {
   tex: WebGLTexture;
   w: number;
   h: number;
+  time?: number;
 }
 
 export class MapRenderer {
@@ -149,8 +191,11 @@ export class MapRenderer {
     const none = [-1, -1, -1, -1] as const;
     for (const l of list) {
       let e = this.textures.get(l.source);
-      if (!e || l.isVideo) {
+      // Uploading a 2048 px video frame is expensive: only do it when the frame has changed.
+      const t = l.isVideo ? (l.source as HTMLVideoElement).currentTime : 0;
+      if (!e || (l.isVideo && e.time !== t)) {
         e = this.upload(l.source, false, e);
+        e.time = t;
         this.textures.set(l.source, e);
       } else gl.bindTexture(gl.TEXTURE_2D, e.tex);
       gl.uniform1i(this.u.uMode, MODE_ID[l.mode]);

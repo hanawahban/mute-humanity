@@ -50,6 +50,7 @@ export interface AppState {
   settings: Settings;
   controller: string | null;
   helpOpen: boolean;
+  closeUp: boolean; // the Bahrain close-up is open
 }
 
 const each = <T,>(v: T) => Object.fromEntries(RECORDS.map((r) => [r.id, v])) as Record<RecordId, T>;
@@ -83,6 +84,7 @@ export const useStore = create<AppState>(() => ({
   },
   controller: null,
   helpOpen: false,
+  closeUp: false,
 }));
 
 export const getState = useStore.getState;
