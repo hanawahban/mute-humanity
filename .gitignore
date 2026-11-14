@@ -16,3 +16,5 @@ public/eic/**/*.mov
 public/eic/**/frames/
 public/eic/*/samples/
 public/eic/*/frames/
+# EIC downloads: originals are huge, web clips are shared outside git
+eic-raw/

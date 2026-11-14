@@ -4,24 +4,26 @@
 //
 // Controls (standard mapping):
 //   D-pad left/right  choose a record        A  play/stop the chosen record
-//   D-pad up/down     humanity lever         Y  flip the chosen record (side A / side B)
-//   LT / RT           move back/forward in time (hold harder to go faster)
-//   Left stick        move around the map    LB / RB or right stick  zoom out / in
+//   D-pad up/down     humanity lever         Y  Listen -> Scan -> Probe
+//   LT / RT           previous / next place for the chosen record
+//   Left stick        move the map (the probe, in Probe mode)
+//   LB / RB or right stick  zoom out / in    View  solo the chosen record
 //   B                 "what am I hearing?" (spoken)
 //   X (hold)          talk: voice command
-//   Start             play / pause the 75-year timeline
+//   Start             play / stop the story
 
 import {
-  describe, flipRecord, panBy, selectRecord, setAutoplay, setHumanity, setYear, toggleRecord, zoomBy, announce,
+  announce, cycleMode, describe, moveProbe, nextHotspot, panBy, selectRecord, setHumanity, toggleRecord, toggleSolo, zoomBy,
 } from '../state/actions';
+import { startStory, stopStory } from '../state/story';
 import { getState, setState } from '../state/store';
 import { startListening, stopListening } from './voice';
 
-const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
+const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, VIEW: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 
 let padIndex: number | null = null;
 let prevPressed: boolean[] = [];
-let scrubbing = false;
+let prevTriggers: [number, number] = [0, 0];
 
 export function initGamepad() {
   window.addEventListener('gamepadconnected', (e) => {
@@ -60,32 +62,36 @@ function poll() {
   if (down(BTN.LEFT)) selectRecord(-1);
   if (down(BTN.RIGHT)) selectRecord(1);
   if (down(BTN.A)) void toggleRecord(s.selected);
-  if (down(BTN.Y)) void flipRecord(s.selected);
+  if (down(BTN.Y)) cycleMode();
+  if (down(BTN.VIEW)) toggleSolo();
   if (down(BTN.UP)) setHumanity(Math.round((s.humanity + 0.1) * 10) / 10);
   if (down(BTN.DOWN)) setHumanity(Math.round((s.humanity - 0.1) * 10) / 10);
   if (down(BTN.B)) describe('speech');
-  if (down(BTN.START)) setAutoplay(!s.autoplay);
+  if (down(BTN.START)) {
+    if (s.story.running) stopStory();
+    else void startStory();
+  }
   if (down(BTN.X)) startListening();
   if (up(BTN.X)) stopListening();
   if (down(BTN.LB)) zoomBy(1 / 1.5);
   if (down(BTN.RB)) zoomBy(1.5);
 
-  // Triggers scrub through time, faster the harder you press.
+  // Triggers jump between the chosen record's places.
   const lt = gp.buttons[BTN.LT]?.value ?? 0;
   const rt = gp.buttons[BTN.RT]?.value ?? 0;
-  const scrub = (rt * rt - lt * lt) * 0.2; // years per frame: a light press is slow, a full press about 12 years per second
-  if (Math.abs(scrub) > 0.01) {
-    setYear(s.year + scrub, { dragging: true });
-    scrubbing = true;
-  } else if (scrubbing) {
-    scrubbing = false;
-    setYear(Math.round(getState().year)); // releasing the trigger settles on a whole year
-  }
+  const prevLt = prevTriggers[0];
+  const prevRt = prevTriggers[1];
+  if (lt > 0.6 && prevLt <= 0.6) nextHotspot(-1);
+  if (rt > 0.6 && prevRt <= 0.6) nextHotspot(1);
+  prevTriggers = [lt, rt];
 
   // Left stick moves the map.
   const [ax, ay] = [gp.axes[0] ?? 0, gp.axes[1] ?? 0];
   const dead = (v: number) => (Math.abs(v) < 0.15 ? 0 : v);
-  if (dead(ax) || dead(ay)) panBy(-dead(ay) * 2 / s.focus.zoom, dead(ax) * 3 / s.focus.zoom);
+  if (dead(ax) || dead(ay)) {
+    if (s.mode === 'probe') moveProbe(-dead(ay) * 1.2 / s.focus.zoom, dead(ax) * 1.8 / s.focus.zoom);
+    else panBy(-dead(ay) * 2 / s.focus.zoom, dead(ax) * 3 / s.focus.zoom);
+  }
   // Right stick up/down zooms smoothly.
   const rz = dead(gp.axes[3] ?? 0);
   if (rz) zoomBy(Math.exp(-rz * 0.05));

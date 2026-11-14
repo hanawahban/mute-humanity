@@ -38,8 +38,27 @@ export const PLACES: Place[] = [
   { name: 'the Atlantic Ocean', lat: 10, lon: -35, zoom: 2, aliases: ['atlantic'] },
   { name: 'the Pacific Ocean', lat: 0, lon: -160, zoom: 2, aliases: ['pacific'] },
   { name: 'the Indian Ocean', lat: -15, lon: 75, zoom: 2, aliases: ['indian ocean'] },
+  { name: 'the Kuroshio Current', lat: 34, lon: 145, zoom: 4, aliases: ['kuroshio'] },
+  { name: 'the Agulhas Current', lat: -37, lon: 25, zoom: 4, aliases: ['agulhas'] },
+  { name: 'the Congo Basin', lat: -1, lon: 22, zoom: 4, aliases: ['congo basin'] },
+  { name: 'Lake Maracaibo', lat: 9.8, lon: -71.6, zoom: 6, aliases: ['maracaibo', 'venezuela'] },
+  { name: 'the Bay of Bengal', lat: 17, lon: 89, zoom: 4, aliases: ['bay of bengal', 'bangladesh'] },
+  { name: 'the Nile Delta', lat: 30.5, lon: 31, zoom: 6, aliases: ['nile delta'] },
+  { name: 'the Eastern Mediterranean', lat: 33, lon: 34, zoom: 5, aliases: ['eastern mediterranean', 'levant'] },
+  { name: 'Western Europe', lat: 49, lon: 5, zoom: 4, aliases: ['western europe', 'france'] },
+  { name: 'the South African Highveld', lat: -26.3, lon: 29, zoom: 6, aliases: ['highveld', 'johannesburg'] },
   { name: 'the whole planet', lat: 10, lon: 0, zoom: 1, aliases: ['world', 'earth', 'everywhere', 'planet'] },
 ];
+
+/** Curated places to zoom into for each record: the story stops. */
+export const HOTSPOTS: Record<string, string[]> = {
+  ocean: ['the Gulf Stream', 'the Kuroshio Current', 'the Agulhas Current', 'the Arabian Gulf'],
+  rain: ['India', 'the Bay of Bengal', 'the Amazon', 'Indonesia'],
+  lightning: ['the Congo Basin', 'Lake Maracaibo', 'Southeast Asia'],
+  lights: ['India', 'the Nile Delta', 'the Eastern Mediterranean', 'Bahrain'],
+  co2: ['eastern China', 'Western Europe', 'New York', 'the Arabian Gulf'],
+  nox: ['eastern China', 'the South African Highveld', 'Delhi', 'Bahrain'],
+};
 
 export function findPlace(text: string): Place | undefined {
   const t = text.toLowerCase().replace(/^the\s+/, '').trim();

@@ -1,206 +1,98 @@
 # Mute Humanity: The Earth Jukebox
 
-NASA Space Apps 2026 entry for the **Earth Information Jukebox** challenge.
+NASA Space Apps 2026, challenge "Earth Information Jukebox". Team from Bahrain.
 
-A website built as a literal jukebox. Each record is made from NASA data: three play Earth's natural systems (Ocean, Plants, Rain) and three play human damage (NO2, Fires, Ocean plastic). Every record has two sides:
+Six NASA Earth Information Center (EIC) visualizations, all flat maps of the whole Earth, are the six records of a jukebox. Turn records on and they play together on one shared map; zoom anywhere to hear just that place. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.
 
-- **Side A:** the record's NASA Earth Information Center (EIC) visualization, with its frames turned into sound live.
-- **Side B:** the NASA data on a shared 2D map, with a timeline from 1950 to today that changes the music as you drag.
-
-Earth plays in tune; humanity pulls it out of tune. The **Mute Humanity** lever fades every human record out at once.
-
-## Contents
-
-- [Quick start](#quick-start)
-- [Repository layout](#repository-layout)
-- [Records and datasets](#records-and-datasets)
-- [Data contract (pipeline to app)](#data-contract-pipeline-to-app)
-- [EIC clips (side A)](#eic-clips-side-a)
-- [Sound files](#sound-files)
-- [Controls](#controls)
-- [Accessibility](#accessibility)
-- [Status](#status)
+Every sound comes from the pixels of the EIC frames, read through each visualization's colour key.
 
 ## Quick start
 
 ```bash
 npm install
-npm run mock-data   # writes fake data to public/data/mock/ (about 30 MB, not committed)
-npm run dev         # http://localhost:5173
+npm run eic        # download the six EIC clips from NASA SVS (needs curl + ffmpeg; re-run if it times out)
+npm run dev        # http://localhost:5173 in Chrome
 ```
 
-Use **Chrome**. Click "Start the jukebox" (browsers need one click before playing sound).
+Without the clips, the site uses placeholder layers from `public/eic-placeholder/` and shows a "Placeholder visuals" badge. Rebuild them with `npm run placeholders` (needs Python with numpy and Pillow).
 
-When the real pipeline output is in `public/data/`, create `.env.local` with:
+## The six records
+
+| # | Record | Side | EIC visualization | Period | Instrument | What you hear |
+|---|---|---|---|---|---|---|
+| 1 | Ocean | Earth | [SVS 3912](https://svs.gsfc.nasa.gov/3912/) Sea Surface Currents and Temperature | Mar 2007 – Mar 2008 | Cello | warmer water = higher notes |
+| 2 | Rain and clouds | Earth | [SVS 5149](https://svs.gsfc.nasa.gov/5149/) GEOS-FP Precipitation and Clouds | recent days | Flute + Synth 1 pad | more rain = more notes; thicker cloud = louder pad |
+| 3 | Lightning | Earth | [SVS 5011](https://svs.gsfc.nasa.gov/5011/) Lightning from the ISS | 2017 – 2023 | Violin | every flash = a sharp note |
+| 4 | City lights | Humanity | [SVS 5475](https://svs.gsfc.nasa.gov/5475/) Night Lights 2012–2023 (flat version of 5313) | 2012 – 2023 | Clarinet | brighter = more and higher notes |
+| 5 | Carbon emissions | Humanity | [SVS 5121](https://svs.gsfc.nasa.gov/5121/) ODIAC (one still image) | Dec 2021 | Synth 3 drone | more emissions = thicker, louder drone |
+| 6 | Traffic and industry | Humanity | [SVS 5154](https://svs.gsfc.nasa.gov/5154/) Nitrogen Oxides (NOx) | recent days | Oboe | more pollution = louder, harsher |
+
+The layers line up in place, not in time: each keeps its real dates, shown on the map. The team's other instruments: `all.mp3` is the welcome chord; Viola and Synth 2 are spares.
+
+## How it's sonified
+
+1. **Pixels to numbers.** Each frame is drawn into a 360 × 180 grid (1° cells). Each pixel's colour is matched to the visualization's colour key (`src/eic/layers.ts`), giving a value from 0 to 1, or "no data" (land under the ocean layer).
+2. **Three ways to listen** (`src/audio/conductor.ts`), all on a 16th-note grid at 80 BPM:
+   - **Listen**: the view's average, hotspot strength and coverage drive each instrument while its video plays.
+   - **Scan**: the videos pause and a needle sweeps the view in one bar. Each strong point it crosses plays a note: higher on screen = higher pitch, stronger = louder, left/right = stereo.
+   - **Probe**: the value under the probe plays on every beat.
+3. **Mix rules.** Earth records use A major pentatonic, the key the instruments were recorded in, with reverb. Humanity records use notes that clash with it (A#, D#, F, G), dry with a little grit. The humanity lever scales their volume; Mute Humanity fades them out.
+
+## For the pipeline: what the app expects
 
 ```
-VITE_DATA_BASE=/data
+public/eic/<record>/clip.mp4       the visualization, 2048 px wide, H.264, no audio (still.png for co2)
+public/eic/<record>/colorbar.json  optional: {"stops": [[r, g, b, value0to1], ...]}  (beats the built-in guess)
+public/eic/<record>/colorbar.png   optional: the NASA colour key, shown in the map key
 ```
+
+Record ids: `ocean`, `rain`, `lightning`, `lights`, `co2`, `nox`. `scripts/download_eic.py` produces the clips and fetches colour key images. If a clip has titles or a colour bar inside the frame, set its `area` (the part that is the map, as fractions) in `src/config/records.ts`.
+
+Built-in decoding until `colorbar.json` exists: ocean uses the SVS colour bar description; lights, lightning and CO₂ use brightness; NOx uses warm colours; rain separates grey clouds from coloured rain.
+
+## Controls
+
+| | Keyboard | Xbox controller | Voice (hold V or X) |
+|---|---|---|---|
+| Play / stop a record | `1`–`6` | D-pad ← → to choose, `A` | "play ocean", "stop rain" |
+| Humanity | `↑` `↓`, `M` to mute | D-pad ↑ ↓ | "mute humanity", "humanity to 50 percent" |
+| Listen / Scan / Probe | `L` `S` `P` | `Y` cycles | "scan", "probe", "listen" |
+| Move probe | arrows (Probe mode) or mouse | left stick (Probe mode) | |
+| Places | `G` next place; chips in the dock | triggers | "go to Bahrain" |
+| Solo | `O` | View | "solo NOx" |
+| Story | `T` | Start | "play the story" |
+| Map | Shift + arrows, `+` `-` `0`, mouse | left stick, right stick / bumpers zoom | "zoom in" |
+| What am I hearing? | `D` | `B` (spoken) | "what am I hearing?" |
+| Captions, help | `C`, `H` | | "help" |
+
+**Controller vibration** (`src/input/haptics.ts`): you feel the chosen record. Ocean swells, rain patters, lightning strikes, city lights flicker, CO₂ rumbles, NOx clicks like a Geiger counter; faster and stronger means more. Chrome on Mac, USB cable, press a button once after loading. The controller's LEDs can't be set from a browser.
+
+## Accessibility
+
+- Every control is a real button or slider with a label; the screen reader hears what each record sounds like.
+- "Play the story" is a hands-free, narrated 90-second tour.
+- `D` describes what you're hearing; captions describe the music for deaf and hard-of-hearing users.
+- Keyboard and switch access for everything, controller vibration, voice commands.
+- High contrast and reduced motion (also follows the system setting).
 
 ## Repository layout
 
 ```
-scripts/make-mock-data.mjs   Fake data in the agreed format, until the pipeline delivers
-public/data/                 Pipeline output (see "Data contract")
-public/basemap/              NASA Blue Marble base map (see CREDITS.txt)
-public/eic/<record>/         EIC clips for side A (see "EIC clips")
-public/audio/<record>/       Sound files from GarageBand (see "Sound files")
-src/config/                  Records, places, key and tempo
-src/data/                    Data contract types, loader, sampling (fractional years, regions)
-src/state/                   Shared state (zustand) and actions used by every input
-src/audio/                   Tone.js engine (placeholder synths) and the mixer loop
-src/input/                   Keyboard, Xbox controller input, vibration patterns (haptics.ts), voice
-src/map/                     Map colours and legends per record (styles.ts), smooth zoom (camera.ts)
-src/components/              Jukebox dock, map (side B), side A panel, overlays, help dialog
+src/config/records.ts     the six records: EIC source, period, decoding, instrument
+src/config/places.ts      places and the curated hotspots per record
+src/eic/layers.ts         loads clips, decodes frames into values, view / column / point queries
+src/audio/engine.ts       Tone.js samplers with the team's instruments, buses, channels
+src/audio/conductor.ts    Listen / Scan / Probe note scheduling, levels, vibration, captions
+src/state/                store, shared actions, the story
+src/map/camera.ts         smooth zoom and pan
+src/components/           map, dock, overlays, help
+src/input/                keyboard, controller, vibration, voice
+public/sounds/            the 10 instruments (trimmed, normalised mp3) + instruments.json
+public/eic-placeholder/   placeholder layers until the real clips are downloaded
+scripts/download_eic.py   downloads the EIC clips from NASA SVS
+pipeline/                 the earlier gridded-data pipeline (shelved)
 ```
 
-Every input (buttons, keyboard, voice, controller) calls the same actions in `src/state/actions.ts`, so adding an input never touches the audio or UI code.
+## Credits
 
-## Records and datasets
-
-All data is from NASA. Values are sampled at the map position and the slider year.
-
-| Record | Side | Data (side B) | Years | EIC visualization (side A) |
-| --- | --- | --- | --- | --- |
-| Ocean | Earth | [MUR 0.25° SST](https://podaac.jpl.nasa.gov/dataset/MUR25-JPL-L4-GLOB-v04.2) + [OSCAR currents](https://podaac.jpl.nasa.gov/dataset/OSCAR_L4_OC_FINAL_V2.0) | 1993-now | [SVS 3912](https://svs.gsfc.nasa.gov/3912/) |
-| Plants | Earth | [MODIS/Terra NDVI monthly (MOD13C2)](https://www.earthdata.nasa.gov/es/data/catalog/lpcloud-mod13c2-061) | 2000-now | [SVS 4950](https://svs.gsfc.nasa.gov/4950/) |
-| Rain | Earth | GPCP (1979-2000), then [GPM IMERG monthly](https://disc.gsfc.nasa.gov/datasets/GPM_3IMERGM_07/summary) | 1979-now | [SVS 4960](https://svs.gsfc.nasa.gov/4960/) |
-| NO2 | Human | [Surface NO2](https://doi.org/10.5067/J99FI2U38YRN) (1990-2003), then [OMI OMNO2d](https://disc.gsfc.nasa.gov/datacollection/OMNO2d_003.html) | 1990-now | [SVS 5533](https://svs.gsfc.nasa.gov/5533/) |
-| Fires | Human | [FIRMS active fires](https://firms.modaps.eosdis.nasa.gov/download/) | 2001-now | [SVS 5669](https://svs.gsfc.nasa.gov/5669/) |
-| Ocean plastic | Human | [CYGNSS microplastics v3.2](https://podaac.jpl.nasa.gov/dataset/CYGNSS_L3_MICROPLASTIC_V3.2) | 2018-now | [SVS 5425](https://svs.gsfc.nasa.gov/5425/) (currents, not plastic) |
-
-Prologue layer (no button): `temperature` from [NASA GISTEMP v4](https://data.giss.nasa.gov/gistemp/), 1950-now. It draws the warming stripes on the timeline. Land use (LUH2) and pollution (MERRA-2) are planned prologue layers.
-
-## The map
-
-NASA Blue Marble underneath; each playing record's data on top, drawn the way NASA maps usually show it (`src/map/styles.ts`):
-
-| Record | How it looks |
-| --- | --- |
-| Ocean | sea surface temperature, blue (cold) to red (warm), ocean only |
-| Plants | NDVI, tan (bare) to deep green (lush), land only |
-| Rain | light blue to purple and pink for the heaviest rain |
-| NO2 | transparent (clean) to yellow, orange, red, dark mahogany (polluted) |
-| Fires | glowing dots, more dots where FIRMS counts more fires |
-| Ocean plastic | white specks gathering in the gyres |
-
-Coastlines come from vector outlines (world-atlas 50m), so the 2-degree data still has sharp coasts at any zoom. Layer images are cached, so panning and zooming are cheap. Zoom with the scroll wheel or trackpad pinch (toward the pointer), double-click (Shift + double-click to zoom out), the +/− buttons, `+`/`-`/`0`, or the controller's right stick.
-
-`npm run mock-data` makes fake data shaped like the real products (where things are, the seasons, known events such as the 2015 El Niño, the 2019-20 Australian fires and the 2020 lockdown dip in NO2). It is still made up, and the app shows a "Mock data" badge while it is in use.
-
-## Data contract (pipeline to app)
-
-The pipeline writes this layout. `scripts/make-mock-data.mjs` writes exactly the same layout with fake values, so it is also a working example.
-
-```
-public/data/index.json
-public/data/<layer>/yearly.bin
-public/data/<layer>/monthly_<year>.bin
-```
-
-**Grid:** 2 degrees, 90 rows by 180 columns. Row 0 is the band 90N to 88N (north to south). Column 0 is 180W to 178W (west to east). Cell centre: `lat = 89 - 2*row`, `lon = -179 + 2*col`.
-
-**Encoding:** one byte per cell. `0-254` is the value scaled between the layer's `min` and `max`; `255` means no data (for example land for ocean layers, or polar night for NO2).
-
-- `yearly.bin`: `[yearIndex][row][col]`, one grid per year in `years`. Yearly average.
-- `monthly_<year>.bin`: `[month 0-11][row][col]`, for each year in `monthlyYears` (2000-now where the dataset allows).
-
-**index.json:**
-
-```json
-{
-  "version": 1,
-  "grid": { "resolutionDeg": 2, "rows": 90, "cols": 180, "rowOrder": "north-to-south", "colOrder": "west-to-east", "noData": 255 },
-  "layers": [
-    {
-      "id": "no2",
-      "record": "no2",
-      "side": "human",
-      "units": "1e15 molecules/cm2",
-      "min": 0,
-      "max": 20,
-      "years": [1990, 1991, "...", 2026],
-      "monthlyYears": [2005, 2006, "...", 2026],
-      "source": "OMI OMNO2d v003, doi:10.5067/Aura/OMI/DATA3007"
-    }
-  ]
-}
-```
-
-Layer ids the app expects: `ocean`, `plants`, `rain`, `no2`, `fires`, `plastic`, `temperature`. Types are in `src/data/contract.ts`. Where the data source changes (NO2 in 2004, Rain in 2000), keep one layer and note it in `source`.
-
-## EIC clips (side A)
-
-Download each record's EIC visualization from the SVS page in the table above and save it as `public/eic/<record>/clip.mp4`. Browsers block reading pixels from videos on other websites, so the clips must be served by this app.
-
-Optional `public/eic/<record>/colorbar.json` decodes colours into values:
-
-```json
-{ "stops": [[r, g, b, value0to1], ...] }
-```
-
-Without it, side A uses brightness. The player samples one column per tick and sweeps left to right (like NASA's Caldwell 73 sonification), and drives the record's instrument.
-
-## Sound files
-
-The engine (`src/audio/engine.ts`) uses placeholder Tone.js synths. Shared key: **D major pentatonic** (D E F# A B), about **80 BPM**. Human sounds play outside the key (the NO2 drone is on G#).
-
-Proposed file layout for the GarageBand exports (MP3, about equally loud):
-
-```
-public/audio/ocean/strings_<note>.mp3     e.g. strings_D3.mp3 ... strings_B4.mp3
-public/audio/plants/pad.mp3              seamless 16-bar loop
-public/audio/rain/drop_<note>.mp3
-public/audio/no2/drone.mp3               seamless loop on G#
-public/audio/fires/crackle_<1-8>.mp3
-public/audio/plastic/click_<1-8>.mp3     plus static.mp3 loop
-public/audio/ui/<name>.mp3               record press, lever, decade tick, voice chimes
-```
-
-## Controls
-
-| Action | Keyboard | Xbox controller | Voice (hold V or X) |
-| --- | --- | --- | --- |
-| Play/stop a record | `1`-`6` | D-pad left/right to choose, `A` | "play ocean", "stop fires" |
-| Flip side A/B | `F` | `Y` | "flip ocean" |
-| Humanity lever | Up/Down, `M` mute | D-pad up/down | "mute humanity", "humanity to 50 percent" |
-| Year | Left/Right | `LT` / `RT` (harder = faster) | "go to 1985", "play the 1990s" |
-| Map | Shift + arrows, `+` / `-` / `0`, mouse | Left stick, right stick or `LB` / `RB` to zoom | "go to Bahrain", "zoom in" |
-| What am I hearing? | `D` | `B` | "what am I hearing?" |
-| Play 75 years | `P` | `Start` | "play 75 years" |
-| Captions, help | `C`, `H` | | "help" |
-
-**Controller on Mac:** Chrome, USB cable, press any button once after the page loads.
-
-**Vibration** (`src/input/haptics.ts`): the controller feels one record at a time, the one chosen with the D-pad (or the loudest one playing). Each record has its own pattern: ocean swells, plants breathe on the beat, rain patters, NO2 clicks like a Geiger counter, fires crackle in bursts, plastic rattles. Faster and stronger means more, where you are listening. Short cues confirm actions: two taps for a record on, one for off, a notch at every decade while scrubbing, a double bump where a dataset begins, a long fade when humanity is muted.
-
-**Controller lights:** browsers can't set the LEDs on Xbox-style controllers. The Gamepad API has no light control (a 2019 proposal never shipped), and WebHID only works with controllers whose protocol is public, such as the PlayStation DualShock 4.
-
-**Voice:** Web Speech API (Chrome). It needs internet unless on-device recognition is available. The music ducks while listening.
-
-## Accessibility
-
-- Real buttons and range inputs: full keyboard control and screen reader labels (test with VoiceOver: Cmd+F5).
-- A polite live region announces actions. The caption line describes the music continuously for deaf users; it is not a live region, so screen readers aren't flooded (press `D` instead).
-- Volume ring around every record.
-- Help and settings behind the `?` button (`H`): captions, high contrast, reduced motion (also follows the system setting), vibration strength.
-- No flashing faster than 3 times per second.
-
-## Status
-
-Working with mock data and placeholder synths:
-
-- [x] Jukebox with six records, stacking, Mute Humanity lever
-- [x] Timeline 1950-today, live while dragging, monthly loop when it rests on a year
-- [x] Shared 2D map on NASA Blue Marble, realistic colours per record, smooth zoom, pan and a local listening area
-- [x] Side A player sampling EIC video frames (needs the clips)
-- [x] Xbox controller input and vibration, keyboard, voice commands, captions
-
-To do:
-
-- [ ] Real pipeline output in `public/data/`. Note: `pipeline/build.py` currently writes `manifest.json` + `<record>.json` (annual JSON grids, several layers per record), not the binary layout above. Either the pipeline writes this layout, or the app gets a small adapter for the JSON.
-- [ ] EIC clips and colour keys in `public/eic/`
-- [ ] GarageBand samples replacing the placeholder synths
-- [ ] Jukebox artwork from multimedia
-- [ ] Prologue layers (land use, pollution), mono audio switch, left/right panning
-- [ ] Project page: how each sound is made, sources, caveats
+Visualizations: NASA Earth Information Center and NASA's Scientific Visualization Studio. Base map: NASA Blue Marble. Instruments recorded by our multimedia team.

@@ -1,0 +1,52 @@
+{
+  "cello": {
+    "file": "/sounds/cello.mp3",
+    "note": "A2",
+    "seconds": 13.99
+  },
+  "clarinet": {
+    "file": "/sounds/clarinet.mp3",
+    "note": "E5",
+    "seconds": 7.76
+  },
+  "flute": {
+    "file": "/sounds/flute.mp3",
+    "note": "B4",
+    "seconds": 8.53
+  },
+  "oboe": {
+    "file": "/sounds/oboe.mp3",
+    "note": "A4",
+    "seconds": 7.45
+  },
+  "synth1": {
+    "file": "/sounds/synth1.mp3",
+    "note": "C#4",
+    "seconds": 10.52
+  },
+  "synth2": {
+    "file": "/sounds/synth2.mp3",
+    "note": "A1",
+    "seconds": 9.36
+  },
+  "synth3": {
+    "file": "/sounds/synth3.mp3",
+    "note": "A2",
+    "seconds": 10.62
+  },
+  "viola": {
+    "file": "/sounds/viola.mp3",
+    "note": "C#4",
+    "seconds": 8.39
+  },
+  "violin": {
+    "file": "/sounds/violin.mp3",
+    "note": "E5",
+    "seconds": 8.28
+  },
+  "all": {
+    "file": "/sounds/all.mp3",
+    "note": "A3",
+    "seconds": 14.0
+  }
+}
