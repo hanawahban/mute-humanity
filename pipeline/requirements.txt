@@ -1,0 +1,14 @@
+earthaccess
+xarray
+h5netcdf
+h5py
+netCDF4
+numpy
+pandas
+scipy
+pyhdf
+pillow
+pyyaml
+requests
+matplotlib
+pytest
