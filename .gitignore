@@ -9,3 +9,7 @@ pipeline/cache/
 __pycache__/
 .DS_Store
 *.pyc
+
+# EIC downloads: originals are huge, web clips are shared outside git
+eic-raw/
+public/eic/*/clip.mp4
