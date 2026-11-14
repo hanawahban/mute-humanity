@@ -1,4 +1,4 @@
-// Xbox controller: vibration output plus button input, through the browser Gamepad API.
+// Xbox controller input, through the browser Gamepad API. Vibration lives in haptics.ts.
 // Mac: use Chrome and a USB cable. Press any button once after the page loads so the
 // browser reveals the controller.
 //
@@ -6,33 +6,33 @@
 //   D-pad left/right  choose a record        A  play/stop the chosen record
 //   D-pad up/down     humanity lever         Y  flip the chosen record (side A / side B)
 //   LT / RT           move back/forward in time (hold harder to go faster)
-//   Left stick        move around the map    LB / RB  zoom out / in
+//   Left stick        move around the map    LB / RB or right stick  zoom out / in
 //   B                 "what am I hearing?" (spoken)
 //   X (hold)          talk: voice command
 //   Start             play / pause the 75-year timeline
 
-import { RECORDS, type RecordId } from '../config/records';
 import {
   describe, flipRecord, panBy, selectRecord, setAutoplay, setHumanity, setYear, toggleRecord, zoomBy, announce,
 } from '../state/actions';
-import { getState, type MixEntry } from '../state/store';
+import { getState, setState } from '../state/store';
 import { startListening, stopListening } from './voice';
 
 const BTN = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
 
 let padIndex: number | null = null;
 let prevPressed: boolean[] = [];
-let lastRumble = 0;
 let scrubbing = false;
 
 export function initGamepad() {
   window.addEventListener('gamepadconnected', (e) => {
     padIndex = e.gamepad.index;
     const canRumble = !!e.gamepad.vibrationActuator;
+    setState({ controller: e.gamepad.id || 'Controller' });
     announce(`Controller connected${canRumble ? ', vibration on' : ', but this browser cannot vibrate it'}`);
   });
   window.addEventListener('gamepaddisconnected', (e) => {
     if (e.gamepad.index === padIndex) padIndex = null;
+    setState({ controller: null });
     announce('Controller disconnected');
   });
   const loop = () => {
@@ -73,7 +73,7 @@ function poll() {
   // Triggers scrub through time, faster the harder you press.
   const lt = gp.buttons[BTN.LT]?.value ?? 0;
   const rt = gp.buttons[BTN.RT]?.value ?? 0;
-  const scrub = (rt - lt) * 0.25; // years per frame at full press (about 15 years per second)
+  const scrub = (rt * rt - lt * lt) * 0.2; // years per frame: a light press is slow, a full press about 12 years per second
   if (Math.abs(scrub) > 0.01) {
     setYear(s.year + scrub, { dragging: true });
     scrubbing = true;
@@ -86,41 +86,9 @@ function poll() {
   const [ax, ay] = [gp.axes[0] ?? 0, gp.axes[1] ?? 0];
   const dead = (v: number) => (Math.abs(v) < 0.15 ? 0 : v);
   if (dead(ax) || dead(ay)) panBy(-dead(ay) * 2 / s.focus.zoom, dead(ax) * 3 / s.focus.zoom);
+  // Right stick up/down zooms smoothly.
+  const rz = dead(gp.axes[3] ?? 0);
+  if (rz) zoomBy(Math.exp(-rz * 0.05));
 
   prevPressed = pressed;
-}
-
-// Which motor each record uses, and how it feels.
-const FEEL: Record<RecordId, (v: number, t: number) => number> = {
-  ocean: (v, t) => v * (0.55 + 0.45 * Math.sin(t / 900)), // slow rolling waves
-  plants: (v) => v * 0.35, // soft steady hum
-  rain: (v) => (Math.random() < v * 0.5 ? v * 0.6 : 0), // light patter
-  no2: (v) => v * 0.8, // steady heavy buzz
-  fires: (v) => (Math.random() < v * 0.6 ? 0.5 + Math.random() * 0.5 : 0), // sharp taps
-  plastic: (v) => (Math.random() < v * 0.4 ? v * 0.7 : v * 0.1), // gritty buzz
-};
-
-/** Called by the mixer. Sends one short overlapping rumble so vibration feels continuous. */
-export function updateHaptics(mix: Partial<Record<RecordId, MixEntry | null>>, now: number) {
-  if (now - lastRumble < 50) return;
-  lastRumble = now;
-  const gp = currentPad();
-  if (!gp?.vibrationActuator) return;
-  const strength = getState().settings.vibration;
-  if (strength <= 0) return;
-  let strong = 0;
-  let weak = 0;
-  for (const rec of RECORDS) {
-    const v = mix[rec.id]?.value ?? 0;
-    if (v <= 0) continue;
-    const feel = FEEL[rec.id](v, now);
-    if (rec.motor === 'strong') strong += feel;
-    else weak += feel;
-  }
-  strong = Math.min(1, strong) * strength;
-  weak = Math.min(1, weak) * strength;
-  if (strong < 0.02 && weak < 0.02) return;
-  void gp.vibrationActuator
-    .playEffect('dual-rumble', { startDelay: 0, duration: 100, strongMagnitude: strong, weakMagnitude: weak })
-    .catch(() => undefined);
 }

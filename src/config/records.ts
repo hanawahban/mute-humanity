@@ -6,7 +6,7 @@ export interface RecordDef {
   name: string;
   side: Side;
   layer: string; // data layer id in index.json
-  colour: string;
+  colour: string; // the record label; matches its map colours
   instrument: string; // spoken and captioned
   motor: 'strong' | 'weak'; // controller motor
   eic: { title: string; svsId: number; clip: string; note?: string };
@@ -14,32 +14,32 @@ export interface RecordDef {
 
 export const RECORDS: RecordDef[] = [
   {
-    id: 'ocean', name: 'Ocean', side: 'earth', layer: 'ocean', colour: '#3fa7d6',
+    id: 'ocean', name: 'Ocean', side: 'earth', layer: 'ocean', colour: '#3fa3c9',
     instrument: 'ocean strings', motor: 'strong',
     eic: { title: 'Sea Surface Currents and Temperature', svsId: 3912, clip: '/eic/ocean/clip.mp4' },
   },
   {
-    id: 'plants', name: 'Plants', side: 'earth', layer: 'plants', colour: '#59c26a',
+    id: 'plants', name: 'Plants', side: 'earth', layer: 'plants', colour: '#6fb23f',
     instrument: 'plant choir', motor: 'strong',
     eic: { title: 'GEDI Forest Height', svsId: 4950, clip: '/eic/plants/clip.mp4', note: 'Related: forest height, not greenness' },
   },
   {
-    id: 'rain', name: 'Rain', side: 'earth', layer: 'rain', colour: '#9ad1ff',
+    id: 'rain', name: 'Rain', side: 'earth', layer: 'rain', colour: '#6a8cf5',
     instrument: 'rain piano', motor: 'weak',
     eic: { title: 'A 3D View of an Atmospheric River', svsId: 4960, clip: '/eic/rain/clip.mp4', note: 'Related: moisture, not rainfall' },
   },
   {
-    id: 'no2', name: 'NO2', side: 'human', layer: 'no2', colour: '#d98a3d',
+    id: 'no2', name: 'NO2', side: 'human', layer: 'no2', colour: '#f0642c',
     instrument: 'NO2 drone', motor: 'strong',
     eic: { title: 'Air Quality Model Runs', svsId: 5533, clip: '/eic/no2/clip.mp4' },
   },
   {
-    id: 'fires', name: 'Fires', side: 'human', layer: 'fires', colour: '#ff5a36',
+    id: 'fires', name: 'Fires', side: 'human', layer: 'fires', colour: '#ffb020',
     instrument: 'fire crackle', motor: 'weak',
     eic: { title: 'GEOS Aerosols', svsId: 5669, clip: '/eic/fires/clip.mp4' },
   },
   {
-    id: 'plastic', name: 'Ocean plastic', side: 'human', layer: 'plastic', colour: '#e8e8e8',
+    id: 'plastic', name: 'Ocean plastic', side: 'human', layer: 'plastic', colour: '#d8f3ff',
     instrument: 'plastic clicks', motor: 'weak',
     eic: { title: 'Perpetual Ocean 2', svsId: 5425, clip: '/eic/plastic/clip.mp4', note: 'The currents that gather plastic, not plastic itself' },
   },
