@@ -1,8 +1,6 @@
-// The shared map. NASA Blue Marble underneath, then the EIC visualizations themselves: every
-// record is a flat (equirectangular) world map, so its video frames line up with the base map
-// and with each other using one linear transform. Two layers are drawn at most (the two most
-// recently turned on); the others play as sound only. The second layer is blended with
-// "screen", so its bright data shows through without hiding the first.
+// The shared map: NASA Blue Marble underneath, then every playing EIC visualization stacked on
+// top (WebGL, see map/gl.ts: each layer's background is made transparent so they all fit).
+// A 2D canvas on top draws borders, the scan needle, the probe and a flash for every note.
 
 import { useEffect, useRef } from 'react';
 import { mesh } from 'topojson-client';
@@ -10,13 +8,14 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { GeoJsonObject } from 'geojson';
 import { geoEquirectangular, geoPath } from 'd3-geo';
 import { nameRegion } from '../config/places';
-import { RECORD_BY_ID } from '../config/records';
+import { RECORDS, RECORD_BY_ID } from '../config/records';
 import { layers } from '../eic/layers';
 import { panBy, resetView, setProbe, zoomBy } from '../state/actions';
-import { getState, useStore, visible, type AppState } from '../state/store';
+import { audible, getState, useStore, type AppState } from '../state/store';
 import { baseScale, screenToLatLon, setViewport, stepCamera } from '../map/camera';
+import { MapRenderer, type GlLayer } from '../map/gl';
+import { audioNow, hits, scanNeedle } from '../audio/conductor';
 
-// Country borders in degree space (x = longitude, y = -latitude); d3 cuts them at 180°.
 const degrees = geoEquirectangular().scale(180 / Math.PI).translate([0, 0]).precision(0.05);
 let borders: Path2D | null = null;
 function loadBorders(onDone: () => void) {
@@ -29,37 +28,52 @@ function loadBorders(onDone: () => void) {
   });
 }
 
-const pick = (s: AppState) => [s.focus, s.order, s.playing, s.solo, s.humanity, s.mode, s.probe, s.scanX, s.sources, s.settings.highContrast];
+/** Draw order: Earth underneath (ocean first), humanity on top. */
+const ORDER = RECORDS.map((r) => r.id);
+
+const pick = (s: AppState) => [s.focus, s.playing, s.solo, s.humanity, s.mode, s.probe, s.sources, s.settings.highContrast];
 
 export function MapView() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const focus = useStore((s) => s.focus);
   const mode = useStore((s) => s.mode);
   const probe = useStore((s) => s.probe);
-  const order = useStore((s) => s.order);
-  const solo = useStore((s) => s.solo);
   const playing = useStore((s) => s.playing);
-  const shown = visible({ ...getState(), order, solo, playing });
+  const solo = useStore((s) => s.solo);
+  const shown = audible({ ...getState(), playing, solo });
   const region = mode === 'probe' ? nameRegion(probe.lat, probe.lon, 4) : nameRegion(focus.lat, focus.lon, focus.zoom);
 
   useEffect(() => {
-    const canvas = canvasRef.current!;
+    const glCanvas = glRef.current!;
+    const canvas = overlayRef.current!;
     const wrap = wrapRef.current!;
     const ctx = canvas.getContext('2d')!;
+    let renderer: MapRenderer | null = null;
+    try {
+      renderer = new MapRenderer(glCanvas);
+    } catch (e) {
+      console.error('WebGL2 is needed for the map', e);
+    }
     let dirty = true;
     let raf = 0;
     let last = performance.now();
 
     const base = new Image();
     base.src = '/basemap/blue-marble.jpg';
-    base.onload = () => (dirty = true);
+    base.onload = () => {
+      renderer?.setBase(base);
+      dirty = true;
+    };
     loadBorders(() => (dirty = true));
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = Math.round(wrap.clientWidth * dpr);
-      canvas.height = Math.round(wrap.clientHeight * dpr);
+      for (const c of [glCanvas, canvas]) {
+        c.width = Math.round(wrap.clientWidth * dpr);
+        c.height = Math.round(wrap.clientHeight * dpr);
+      }
       setViewport(wrap.clientWidth, wrap.clientHeight);
       dirty = true;
     };
@@ -81,70 +95,82 @@ export function MapView() {
       const w = canvas.width;
       const h = canvas.height;
       const k = baseScale(w / dpr, h / dpr) * f.zoom * dpr;
+
+      // Map layers (WebGL).
+      const on = audible(s);
+      const list: GlLayer[] = [];
+      for (const id of ORDER) {
+        if (!on.includes(id)) continue;
+        const layer = layers.get(id);
+        if (!layer?.ready || !layer.el) continue;
+        const rec = layer.rec;
+        list.push({
+          source: layer.el,
+          isVideo: layer.el instanceof HTMLVideoElement,
+          mode: layer.placeholder ? rec.keyingPlaceholder ?? rec.keying : rec.keying,
+          area: rec.area,
+          masks: layer.placeholder ? [] : rec.masks ?? [],
+          alpha: rec.side === 'human' ? 0.15 + 0.85 * s.humanity : 1,
+          boost: rec.boost ?? 1,
+          floor: layer.placeholder || rec.decode.kind !== 'bright' ? 0.1 : Math.max(0.1, rec.decode.floor - 0.1),
+        });
+      }
+      renderer?.draw({ lon: f.lon, lat: f.lat, k }, hc ? 0.45 : list.length ? 0.72 : 0.9, list);
+
+      // Overlay (2D).
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, w, h);
       const cy = h / 2 + f.lat * k;
       let x0 = w / 2 + (-180 - f.lon) * k;
       while (x0 > 0) x0 -= 360 * k;
       while (x0 + 360 * k < 0) x0 += 360 * k;
-      const copies: number[] = [];
-      for (let x = x0; x < w; x += 360 * k) copies.push(x);
-      const toDeg = (x: number) => ctx.setTransform(k, 0, 0, k, x + 180 * k, cy);
-
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = '#04070d';
-      ctx.fillRect(0, 0, w, h);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      for (const x of copies) {
-        toDeg(x);
-        if (base.complete && base.naturalWidth) ctx.drawImage(base, -180, -90, 360, 180);
-      }
-
-      // The EIC layers.
-      visible(s).forEach((id, i) => {
-        const layer = layers.get(id);
-        const el = layer?.el;
-        if (!layer?.ready || !el) return;
-        const ew = el instanceof HTMLVideoElement ? el.videoWidth : el.naturalWidth;
-        const eh = el instanceof HTMLVideoElement ? el.videoHeight : el.naturalHeight;
-        if (!ew || !eh) return;
-        const [ax0, ay0, ax1, ay1] = layer.rec.area;
-        const alpha = layer.rec.side === 'human' ? 0.25 + 0.75 * s.humanity : 1;
-        ctx.globalCompositeOperation = i === 0 ? 'source-over' : 'screen';
-        ctx.globalAlpha = (i === 0 ? 1 : 0.9) * alpha;
-        for (const x of copies) {
-          toDeg(x);
-          ctx.drawImage(el, ax0 * ew, ay0 * eh, (ax1 - ax0) * ew, (ay1 - ay0) * eh, -180, -90, 360, 180);
-        }
-      });
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 1;
-
-      // Borders, faint, so places stay recognisable over any layer.
       if (borders) {
-        for (const x of copies) {
-          toDeg(x);
+        for (let x = x0; x < w; x += 360 * k) {
+          ctx.setTransform(k, 0, 0, k, x + 180 * k, cy);
           ctx.lineWidth = ((hc ? 1.2 : 0.6) * dpr) / k;
-          ctx.strokeStyle = hc ? 'rgba(255,255,255,0.9)' : 'rgba(255,240,209,0.28)';
+          ctx.strokeStyle = hc ? 'rgba(255,255,255,0.9)' : 'rgba(255,240,209,0.3)';
           ctx.stroke(borders);
         }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-      // Scan needle.
-      if (s.mode === 'scan' && s.scanX != null) {
-        const nx = s.scanX * w;
-        const g = ctx.createLinearGradient(nx - 40 * dpr, 0, nx, 0);
+      // Scan needle and a flash for every note it plays.
+      const needle = scanNeedle();
+      if (needle != null) {
+        const nx = needle * w;
+        const g = ctx.createLinearGradient(nx - 60 * dpr, 0, nx, 0);
         g.addColorStop(0, 'rgba(255,215,36,0)');
-        g.addColorStop(1, 'rgba(255,215,36,0.22)');
+        g.addColorStop(1, 'rgba(255,215,36,0.25)');
         ctx.fillStyle = g;
-        ctx.fillRect(nx - 40 * dpr, 0, 40 * dpr, h);
+        ctx.fillRect(nx - 60 * dpr, 0, 60 * dpr, h);
         ctx.fillStyle = '#FFD724';
         ctx.shadowColor = '#FFD724';
-        ctx.shadowBlur = 12 * dpr;
+        ctx.shadowBlur = 14 * dpr;
         ctx.fillRect(nx - 1.5 * dpr, 0, 3 * dpr, h);
         ctx.shadowBlur = 0;
+      }
+      const now = audioNow();
+      for (const hit of hits) {
+        const age = now - hit.at;
+        if (age < 0 || age > 1) continue;
+        const t = age / 1;
+        const hx = hit.x * w;
+        const hy = hit.y * h;
+        const r = (6 + 22 * t) * dpr * (0.7 + 0.6 * hit.v);
+        ctx.globalAlpha = (1 - t) * 0.9;
+        ctx.strokeStyle = hit.colour;
+        ctx.lineWidth = 3 * dpr * (1 - t) + 1;
+        ctx.beginPath();
+        ctx.arc(hx, hy, r, 0, Math.PI * 2);
+        ctx.stroke();
+        if (age < 0.25) {
+          ctx.globalAlpha = 1 - age / 0.25;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(hx, hy, 4 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
       }
 
       // Probe.
@@ -154,14 +180,15 @@ export function MapView() {
         if (d < -180) d += 360;
         const px = w / 2 + d * k;
         const py = h / 2 - (s.probe.lat - f.lat) * k;
+        const pulse = 1 + 0.15 * Math.sin(performance.now() / 180);
         ctx.strokeStyle = '#FFD724';
-        ctx.lineWidth = 2.5 * dpr;
+        ctx.lineWidth = 3 * dpr;
         ctx.beginPath();
-        ctx.arc(px, py, 14 * dpr, 0, Math.PI * 2);
+        ctx.arc(px, py, 16 * dpr * pulse, 0, Math.PI * 2);
         ctx.stroke();
         ctx.fillStyle = '#FFD724';
         ctx.beginPath();
-        ctx.arc(px, py, 3 * dpr, 0, Math.PI * 2);
+        ctx.arc(px, py, 3.5 * dpr, 0, Math.PI * 2);
         ctx.fill();
       }
     };
@@ -171,12 +198,11 @@ export function MapView() {
       const moving = stepCamera((now - last) / 1000);
       last = now;
       const s = getState();
-      // playing videos change every frame
-      const videoOn = visible(s).some((id) => {
+      const animating = s.mode !== 'listen' || audible(s).some((id) => {
         const el = layers.get(id)?.el;
         return el instanceof HTMLVideoElement && !el.paused;
       });
-      if (moving || videoOn) dirty = true;
+      if (moving || animating) dirty = true;
       if (!dirty) return;
       dirty = false;
       draw();
@@ -184,7 +210,6 @@ export function MapView() {
     raf = requestAnimationFrame(frame);
     const tick = window.setInterval(() => (dirty = true), 500);
 
-    // Drag to pan; wheel, pinch or double-click to zoom; in Probe mode the pointer is the probe.
     let dragging = false;
     let moved = 0;
     let lastX = 0;
@@ -255,10 +280,11 @@ export function MapView() {
   const label = mode === 'probe' ? 'Probe at' : mode === 'scan' ? 'Scanning' : 'Listening to';
   return (
     <div className={`map mode-${mode}`} ref={wrapRef}>
+      <canvas ref={glRef} className="map-gl" aria-hidden="true" />
       <canvas
-        ref={canvasRef}
+        ref={overlayRef}
         role="img"
-        aria-label={`Map showing ${shown.map((id) => RECORD_BY_ID[id].eicTitle).join(' and ') || 'NASA Blue Marble'}. ${label} ${region}. Drag or Shift and the arrow keys to move, scroll or plus and minus to zoom.`}
+        aria-label={`Map showing ${shown.map((id) => RECORD_BY_ID[id].name).join(', ') || 'the Earth'}. ${label} ${region}. Drag or Shift and the arrow keys to move, scroll or plus and minus to zoom.`}
       />
       <div className="map-region" aria-hidden="true">
         <span>{label}</span> <strong>{region}</strong>

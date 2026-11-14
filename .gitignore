@@ -19,3 +19,6 @@ public/eic/*/frames/
 # EIC downloads: originals are huge, web clips are shared outside git
 eic-raw/
 public/eic/*/clip.mp4
+
+# the small web clips made by scripts/download_eic.py are part of the site
+!public/eic/*/clip.mp4

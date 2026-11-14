@@ -3,8 +3,9 @@
 
 import { HOTSPOTS, PLACES, findPlace, nameRegion } from '../config/places';
 import { RECORDS, RECORD_BY_ID, type RecordId } from '../config/records';
-import { getState, setState, visible, type Mode } from './store';
+import { getState, setState, type Mode } from './store';
 import { playIntro, startAudio } from '../audio/engine';
+import { say, speakText } from '../audio/speech';
 import { flyTo, moveBy, zoomAt } from '../map/camera';
 import { cue } from '../input/haptics';
 
@@ -36,8 +37,7 @@ export async function toggleRecord(id: RecordId, on?: boolean) {
     solo: solo === id && !next ? null : solo,
   });
   const rec = RECORD_BY_ID[id];
-  const shown = visible().includes(id);
-  announce(next ? `${rec.name} playing. ${rec.hear}${shown ? '' : ' Sound only: two layers are already on the map.'}` : `${rec.name} stopped`);
+  announce(next ? `${rec.name} on. ${rec.hear}` : `${rec.name} off`);
   cue(next ? 'on' : 'off');
 }
 
@@ -112,12 +112,14 @@ export function muteHumanity() {
   fadeHumanity(0, 2500);
   announce('Humanity muted. Listen to the planet without us.');
   cue('mute');
+  if (getState().settings.narrate && !getState().story.running) void say('mute');
 }
 
 export function unmuteHumanity() {
   fadeHumanity(getState().lastHumanity || 1, 1500);
   announce('Humanity is back.');
   cue('unmute');
+  if (getState().settings.narrate && !getState().story.running) void say('unmute');
 }
 
 export function toggleMuteHumanity() {
@@ -200,11 +202,7 @@ export function describeNow(): string {
 }
 
 export function speak(text: string) {
-  if (!('speechSynthesis' in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate = 1.02;
-  window.speechSynthesis.speak(u);
+  speakText(text);
 }
 
 /**

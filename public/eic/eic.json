@@ -1,0 +1,62 @@
+{
+  "ocean": {
+    "svs": 3912,
+    "side": "earth",
+    "title": "Global Sea Surface Currents and Temperature",
+    "url": "https://svs.gsfc.nasa.gov/3912/",
+    "source_file": "flat_global_ecco2_2028x1024_comp_p30.mp4",
+    "alt_text": "Global sea surface currents colored by temperature.  These are the assembled (contiguous) versions of the animation.  There are several resolutions to choose from, some are cropped for various purposes.  The 6840x3420 version is the complete, full resolution visualization at the appropriate 2x1 aspect ratio and has not been cropped or resized.  The time range for these visualizations is from 2007-03-25T12:00Z to 2008-03-03T12:00Z.",
+    "kind": "movie",
+    "credit": "NASA's Scientific Visualization Studio"
+  },
+  "rain": {
+    "svs": 5149,
+    "side": "earth",
+    "title": "GEOS-FP Precipitation and Clouds",
+    "url": "https://svs.gsfc.nasa.gov/5149/",
+    "source_file": "MC03_stage3_GMAO_precipitation_2048x1024_en.mp4",
+    "alt_text": "Precipitation and clouds are calculated using fields from NASA\u2019s GEOS-FP system. GEOS-FP combines millions of weather observations with a predictive model to create a global best estimate of weather conditions, which can be used to estimate the formation of clouds along with rain and snowfall.",
+    "kind": "movie",
+    "credit": "NASA's Scientific Visualization Studio"
+  },
+  "lightning": {
+    "svs": 5011,
+    "side": "earth",
+    "title": "Lightning Events Detected from the International Space Station (ISS) 2017-2023",
+    "url": "https://svs.gsfc.nasa.gov/5011/",
+    "source_file": "iss_lightning_sos_yearly_07312023_2048p60.mp4",
+    "alt_text": "Global lightning events detected by the LIS on the ISS between March 2017 and July 2023. Movie in 4096x2048 resolution for SOS display.",
+    "kind": "movie",
+    "credit": "NASA's Scientific Visualization Studio"
+  },
+  "lights": {
+    "svs": 5475,
+    "side": "human",
+    "title": "SOS - Change in Night Lights between 2012 and 2023",
+    "url": "https://svs.gsfc.nasa.gov/5475/",
+    "source_file": "nightlights_2012-2024_KSC_04_plus2_2048x1024_30p_sos.mp4",
+    "alt_text": "Flat map (equirectangular) view of NASA\u2019s Black Marble data, showing annual averages of nighttime lights from 2012 to 2023.",
+    "kind": "movie",
+    "credit": "NASA's Scientific Visualization Studio"
+  },
+  "co2": {
+    "svs": 5121,
+    "side": "human",
+    "title": "ODIAC: a map of human made carbon dioxide emissions",
+    "url": "https://svs.gsfc.nasa.gov/5121/",
+    "source_file": "emissionsGlobe_12_2021.png",
+    "alt_text": "ODIAC (Open-source Data Inventory for Anthropogenic CO2) map for December 2021. This equirectangular map is provided for wrapping to a sphere.",
+    "kind": "still",
+    "credit": "NASA's Scientific Visualization Studio"
+  },
+  "nox": {
+    "svs": 5154,
+    "side": "human",
+    "title": "Nitrogen Oxides (NOx)",
+    "url": "https://svs.gsfc.nasa.gov/5154/",
+    "source_file": "MC04_stage4_GMAO_NO2_2048x1024_en.mp4",
+    "alt_text": "Near surface concentration of Nitrogen Oxides (NOx) estimated from concentrations of nitrogen oxide and nitrogen dioxide produced by NASA\u2019s GEOS-CF model.",
+    "kind": "movie",
+    "credit": "NASA's Scientific Visualization Studio"
+  }
+}

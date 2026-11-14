@@ -3,6 +3,8 @@
 // tune (A major pentatonic, the key of the team's instruments); humanity records play out of
 // key. Each record keeps its own time period: they line up in place, not in date.
 
+import type { KeyMode } from '../map/gl';
+
 export type RecordId = 'ocean' | 'rain' | 'lightning' | 'lights' | 'co2' | 'nox';
 export type Side = 'earth' | 'human';
 export type InstrumentId = 'cello' | 'clarinet' | 'flute' | 'oboe' | 'synth1' | 'synth2' | 'synth3' | 'viola' | 'violin' | 'all';
@@ -11,6 +13,7 @@ export type InstrumentId = 'cello' | 'clarinet' | 'flute' | 'oboe' | 'synth1' | 
 export type Decode =
   | { kind: 'colorbar'; stops: Array<[r: number, g: number, b: number, v: number]>; maxDistance?: number }
   | { kind: 'bright'; floor: number } // brightness above a dark background
+  | { kind: 'colourful' } // coloured marks over grey or black (lightning flashes)
   | { kind: 'warm' } // warm-coloured data (yellow to red) drawn over a natural-colour base map
   | { kind: 'precip' }; // white clouds + coloured rain
 
@@ -40,6 +43,14 @@ export interface RecordDef {
   second?: { instrument: InstrumentId; voice: Voice; label: string };
   /** Pixels that don't match the colour key: "nodata" (land under the ocean layer) or "zero" (no pollution, no rain). */
   empty: 'nodata' | 'zero';
+  /** How the map shader hides this layer's background, so all layers can be stacked. */
+  keying: KeyMode;
+  keyingPlaceholder?: KeyMode;
+  /** Logos and date stamps burned into the real frames, as fractions [x0, y0, x1, y1]: ignored for sound and hidden on the map. */
+  masks?: Array<[number, number, number, number]>;
+  /** Match colours by hue only (for maps whose colours are dimmed, like the ocean flow lines). */
+  matchHue?: boolean;
+  boost?: number;
   /** Part of the frame that is the map, as fractions [x0, y0, x1, y1]. Titles and colour bars sit outside it. */
   area: [number, number, number, number];
   key: string; // keyboard number
@@ -63,6 +74,9 @@ export const RECORDS: RecordDef[] = [
     instrument: 'cello',
     voice: 'sustain',
     empty: 'nodata',
+    keying: 'saturated',
+    masks: [[0, 0.895, 0.175, 1]], // colour bar burned into the frame
+    matchHue: true,
     area: [0, 0, 1, 1],
     key: '1',
   },
@@ -75,7 +89,7 @@ export const RECORDS: RecordDef[] = [
     svs: 5149,
     eicTitle: 'GEOS-FP Precipitation and Clouds',
     period: 'Recent days (NASA weather model)',
-    shows: "Rain and snow over clouds, from NASA's GEOS-FP weather model. Thicker clouds are whiter.",
+    shows: "Rain and snow over clouds, from NASA's GEOS-FP weather model: green is light rain, then blue, purple, red and yellow for very heavy rain. Thicker clouds are whiter.",
     hear: 'A flute for rain, more rain is more notes. A soft synth pad for clouds.',
     kind: 'movie',
     decode: { kind: 'precip' },
@@ -83,6 +97,8 @@ export const RECORDS: RecordDef[] = [
     voice: 'drops',
     second: { instrument: 'synth1', voice: 'sustain', label: 'clouds' },
     empty: 'zero',
+    keying: 'precip',
+    masks: [[0, 0, 0.175, 0.078], [0, 0.895, 0.25, 1]], // NASA/GMAO logo and date stamp
     area: [0, 0, 1, 1],
     key: '2',
   },
@@ -98,10 +114,13 @@ export const RECORDS: RecordDef[] = [
     shows: 'Lightning seen by a sensor on the International Space Station, which covers the Earth between about 55° north and south.',
     hear: 'A violin. Every flash is a sharp note.',
     kind: 'movie',
-    decode: { kind: 'bright', floor: 0.45 },
+    decode: { kind: 'colourful' },
     instrument: 'violin',
     voice: 'strikes',
     empty: 'zero',
+    keying: 'saturated', // yellow flashes over grey land
+    keyingPlaceholder: 'bright',
+    boost: 1.4,
     area: [0, 0, 1, 1],
     key: '3',
   },
@@ -117,10 +136,13 @@ export const RECORDS: RecordDef[] = [
     shows: 'Night lights seen from space each year, then the change: purple where there is more light, orange where there is less.',
     hear: 'A clarinet, out of key. Brighter places play more notes.',
     kind: 'movie',
-    decode: { kind: 'bright', floor: 0.12 },
+    decode: { kind: 'bright', floor: 0.33 },
     instrument: 'clarinet',
     voice: 'drops',
     empty: 'zero',
+    keying: 'bright',
+    masks: [[0, 0.486, 1, 0.524]], // year labels across the middle of the frame
+    boost: 1.2,
     area: [0, 0, 1, 1],
     key: '4',
   },
@@ -140,6 +162,7 @@ export const RECORDS: RecordDef[] = [
     instrument: 'synth3',
     voice: 'drone',
     empty: 'zero',
+    keying: 'bright',
     area: [0, 0, 1, 1],
     key: '5',
   },
@@ -152,13 +175,16 @@ export const RECORDS: RecordDef[] = [
     svs: 5154,
     eicTitle: 'Nitrogen Oxides (NOx)',
     period: 'Recent days (NASA air-quality model)',
-    shows: 'Nitrogen oxides near the ground, from traffic, industry and power plants, from NASA’s GEOS-CF model.',
+    shows: 'Nitrogen oxides near the ground, from traffic, industry and power plants (NASA GEOS-CF model). Darker green is more pollution.',
     hear: 'An oboe, out of key. More pollution is louder and harsher.',
     kind: 'movie',
     decode: { kind: 'warm' },
     instrument: 'oboe',
     voice: 'sustain',
     empty: 'zero',
+    keying: 'darkgreen',
+    keyingPlaceholder: 'warm',
+    masks: [[0, 0, 0.175, 0.078], [0, 0.895, 0.25, 1]], // NASA/GMAO logo and date stamp
     area: [0, 0, 1, 1],
     key: '6',
   },
@@ -169,6 +195,10 @@ export const RECORD_BY_ID = Object.fromEntries(RECORDS.map((r) => [r.id, r])) as
 /** The base note each recording was played at (measured from the team's WAV files). */
 export const INSTRUMENT_NOTES: Record<InstrumentId, string> = {
   cello: 'A2', clarinet: 'E5', flute: 'B4', oboe: 'A4', synth1: 'C#4', synth2: 'A1', synth3: 'A2', viola: 'C#4', violin: 'E5', all: 'A3',
+};
+
+export const INSTRUMENT_NAMES: Record<InstrumentId, string> = {
+  cello: 'Cello', clarinet: 'Clarinet', flute: 'Flute', oboe: 'Oboe', synth1: 'Synth pad', synth2: 'Deep synth', synth3: 'Synth drone', viola: 'Viola', violin: 'Violin', all: 'Full band',
 };
 
 export const BPM = 80;

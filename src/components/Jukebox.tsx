@@ -1,80 +1,65 @@
-// The jukebox dock: six records, the humanity lever, how to listen, places, and the story.
-// Built from real buttons and range inputs, so keyboard and screen readers work by default.
+// The jukebox dock, kept simple: six big record buttons, the humanity lever, three ways to
+// listen, a place picker and the story. Every control is a real button, slider or select, so
+// keyboard, switch and screen-reader users get it for free.
 
 import { type CSSProperties } from 'react';
 import { HOTSPOTS } from '../config/places';
-import { RECORDS, type RecordDef } from '../config/records';
-import { bringToTop, goToPlace, muteHumanity, setHumanity, setMode, toggleRecord, toggleSolo, unmuteHumanity } from '../state/actions';
+import { INSTRUMENT_NAMES, RECORDS, type RecordDef } from '../config/records';
+import { goToPlace, muteHumanity, resetView, setHumanity, setMode, toggleRecord, unmuteHumanity } from '../state/actions';
 import { startStory, stopStory, storyLength } from '../state/story';
-import { useStore, visible, type Mode } from '../state/store';
+import { useStore, type Mode } from '../state/store';
+import { ModeIcon, RecordIcon } from './icons';
 
-function Vinyl({ rec, index }: { rec: RecordDef; index: number }) {
+function RecordButton({ rec, index }: { rec: RecordDef; index: number }) {
   const isOn = useStore((s) => s.playing[rec.id]);
-  const selected = useStore((s) => s.selected === rec.id);
-  const solo = useStore((s) => s.solo);
+  const silenced = useStore((s) => (s.solo != null && s.solo !== rec.id) || (rec.side === 'human' && s.humanity === 0));
   const level = useStore((s) => s.levels[rec.id]?.value ?? 0);
-  const onMap = useStore((s) => visible(s).includes(rec.id));
-  const progress = useStore((s) => s.progress[rec.id]);
-  const silenced = solo != null && solo !== rec.id;
-  const status = isOn ? (silenced ? 'playing, silenced by solo' : onMap ? 'playing, on the map' : 'playing, sound only') : 'stopped';
-
+  const placeholder = useStore((s) => s.sources[rec.id] === 'placeholder');
   return (
-    <div
-      className={`vinyl ${isOn ? 'on' : ''} ${selected ? 'selected' : ''} ${silenced ? 'dark' : ''}`}
+    <button
+      type="button"
+      className={`record ${isOn ? 'on' : ''} ${silenced && isOn ? 'silenced' : ''}`}
       style={{ '--rec': rec.colour, '--level': `${Math.round(level * 100)}%` } as CSSProperties}
+      aria-pressed={isOn}
+      aria-label={`${rec.name}. ${isOn ? 'Playing' : 'Off'}. ${rec.hear} ${rec.period}. Key ${index + 1}.`}
+      title={`${rec.eicTitle} · NASA SVS ${rec.svs} · ${rec.period}${placeholder ? ' · placeholder picture' : ''}`}
+      onClick={() => void toggleRecord(rec.id)}
     >
-      <button
-        type="button"
-        className="vinyl-disc"
-        aria-pressed={isOn}
-        aria-label={`${rec.name}, ${rec.side === 'earth' ? 'Earth' : 'humanity'} record, ${status}. ${rec.hear} Key ${index + 1}.`}
-        title={`${rec.eicTitle} (NASA SVS ${rec.svs}) · ${rec.period}`}
-        onClick={() => void toggleRecord(rec.id)}
-      >
-        <span className="disc" aria-hidden="true">
-          <span className="label">{index + 1}</span>
-        </span>
-      </button>
-      <span className="vinyl-name" aria-hidden="true">{rec.short}</span>
-      {isOn && !onMap && !silenced ? (
-        <button type="button" className="flip" onClick={() => bringToTop(rec.id)} aria-label={`Show ${rec.name} on the map`}>
-          Show
-        </button>
-      ) : (
-        <span className="vinyl-note" aria-hidden="true">
-          {isOn && progress != null ? <span className="progress" style={{ '--p': `${Math.round(progress * 100)}%` } as CSSProperties} /> : rec.period.replace(/\s*\(.*\)/, '')}
-        </span>
-      )}
-    </div>
+      <span className="record-icon" aria-hidden="true"><RecordIcon id={rec.id} /></span>
+      <span className="record-text" aria-hidden="true">
+        <span className="record-name">{rec.short}</span>
+        <span className="record-sub">{INSTRUMENT_NAMES[rec.instrument]} · {isOn ? (silenced ? 'muted' : 'on') : 'off'}</span>
+      </span>
+      <span className="record-meter" aria-hidden="true" />
+    </button>
   );
 }
 
 const MODES: Array<{ id: Mode; label: string; hint: string }> = [
-  { id: 'listen', label: 'Listen', hint: 'Hear everything in view (L)' },
-  { id: 'scan', label: 'Scan', hint: 'A needle sweeps the view (S)' },
-  { id: 'probe', label: 'Probe', hint: 'Hear the spot under the cursor (P)' },
+  { id: 'listen', label: 'Listen', hint: 'everything on screen' },
+  { id: 'scan', label: 'Scan', hint: 'a needle sweeps the map' },
+  { id: 'probe', label: 'Probe', hint: 'point to hear one spot' },
 ];
 
 export function Jukebox() {
   const humanity = useStore((s) => s.humanity);
   const mode = useStore((s) => s.mode);
-  const selected = useStore((s) => s.selected);
-  const solo = useStore((s) => s.solo);
   const story = useStore((s) => s.story);
+  const playing = useStore((s) => s.playing);
   const earth = RECORDS.filter((r) => r.side === 'earth');
   const human = RECORDS.filter((r) => r.side === 'human');
-  const sel = RECORDS.find((r) => r.id === selected)!;
+  const placeGroups = RECORDS.filter((r) => playing[r.id]).length ? RECORDS.filter((r) => playing[r.id]) : RECORDS;
 
   return (
     <section className="dock" aria-label="Jukebox">
       <div className="dock-row">
-        <div className="group earth" role="group" aria-label="Earth records, in tune">
-          <h2>Earth</h2>
-          <div className="vinyls">{earth.map((r) => <Vinyl key={r.id} rec={r} index={RECORDS.indexOf(r)} />)}</div>
+        <div className="group" role="group" aria-labelledby="earth-h">
+          <h2 id="earth-h">Earth <span>in tune</span></h2>
+          <div className="records">{earth.map((r) => <RecordButton key={r.id} rec={r} index={RECORDS.indexOf(r)} />)}</div>
         </div>
-        <div className="group human" role="group" aria-label="Humanity records, out of key">
-          <h2>Humanity</h2>
-          <div className="vinyls">{human.map((r) => <Vinyl key={r.id} rec={r} index={RECORDS.indexOf(r)} />)}</div>
+        <div className="group human" role="group" aria-labelledby="human-h">
+          <h2 id="human-h">Humanity <span>out of key</span></h2>
+          <div className="records">{human.map((r) => <RecordButton key={r.id} rec={r} index={RECORDS.indexOf(r)} />)}</div>
         </div>
         <div className={`lever ${humanity === 0 ? 'muted' : ''}`}>
           <div className="lever-head">
@@ -101,29 +86,42 @@ export function Jukebox() {
       <div className="controls-row">
         <div className="modes" role="group" aria-label="How to listen">
           {MODES.map((m) => (
-            <button key={m.id} type="button" aria-pressed={mode === m.id} title={m.hint} onClick={() => setMode(m.id)}>
-              {m.label}
+            <button key={m.id} type="button" aria-pressed={mode === m.id} onClick={() => setMode(m.id)} aria-label={`${m.label}: ${m.hint}`}>
+              <ModeIcon mode={m.id} />
+              <span className="mode-text" aria-hidden="true">
+                <strong>{m.label}</strong>
+                <span>{m.hint}</span>
+              </span>
             </button>
           ))}
         </div>
-        <div className="places" role="group" aria-label={`Places for ${sel.name}`}>
-          <span className="places-label" aria-hidden="true">{sel.short}:</span>
-          {(HOTSPOTS[selected] ?? []).map((p) => (
-            <button key={p} type="button" className="chip" onClick={() => goToPlace(p)}>
-              {p.replace(/^the /, '')}
-            </button>
-          ))}
-          <button type="button" className="chip" aria-pressed={solo === selected} onClick={() => toggleSolo(selected)} title="Hear only this record (O)">
-            Solo
-          </button>
-        </div>
+        <label className="goto">
+          <span>Go to</span>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value === '*') resetView();
+              else if (e.target.value) goToPlace(e.target.value);
+              e.target.blur();
+            }}
+          >
+            <option value="">Choose a place…</option>
+            <option value="*">The whole planet</option>
+            {placeGroups.map((r) => (
+              <optgroup key={r.id} label={r.name}>
+                {(HOTSPOTS[r.id] ?? []).map((p) => (
+                  <option key={`${r.id}-${p}`} value={p}>{p.replace(/^the /, '').replace(/^./, (c) => c.toUpperCase())}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </label>
         <button
           type="button"
           className={`story ${story.running ? 'running' : ''}`}
           onClick={() => (story.running ? stopStory() : void startStory())}
-          title="A guided 90-second tour (T)"
         >
-          {story.running ? `Stop the story · ${story.step + 1}/${storyLength}` : 'Play the story'}
+          {story.running ? `Stop the story (${story.step + 1}/${storyLength})` : '▶ Play the story'}
         </button>
       </div>
     </section>

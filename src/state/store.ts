@@ -94,8 +94,7 @@ export function audible(s: AppState = getState()): RecordId[] {
   return RECORDS.filter((r) => s.playing[r.id]).map((r) => r.id);
 }
 
-/** Records drawn on the map: the two most recently turned on (or the solo one). The rest are sound only. */
+/** Records drawn on the map: all audible ones (the shader makes every layer's background transparent). */
 export function visible(s: AppState = getState()): RecordId[] {
-  if (s.solo) return s.playing[s.solo] ? [s.solo] : [];
-  return s.order.filter((id) => s.playing[id]).slice(-2);
+  return audible(s);
 }
