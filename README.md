@@ -63,7 +63,7 @@ All data is from NASA. Values are sampled at the map position and the slider yea
 | Record | Side | Data (side B) | Years | EIC visualization (side A) |
 | --- | --- | --- | --- | --- |
 | Ocean | Earth | [MUR 0.25° SST](https://podaac.jpl.nasa.gov/dataset/MUR25-JPL-L4-GLOB-v04.2) + [OSCAR currents](https://podaac.jpl.nasa.gov/dataset/OSCAR_L4_OC_FINAL_V2.0) | 1993-now | [SVS 3912](https://svs.gsfc.nasa.gov/3912/) |
-| Plants | Earth | [MODIS/Terra NDVI monthly (MOD13C2)](https://www.earthdata.nasa.gov/es/data/catalog/lpcloud-mod13c2-061) | 2000-now | [SVS 4950](https://svs.gsfc.nasa.gov/4950/) |
+| Plants | Earth | [MODIS/Terra NDVI monthly (MOD13C2 v061)](https://doi.org/10.5067/MODIS/MOD13C2.061) ([Earthdata Search](https://search.earthdata.nasa.gov/search?q=MOD13C2)) | 2000-now | [SVS 4950](https://svs.gsfc.nasa.gov/4950/) |
 | Rain | Earth | GPCP (1979-2000), then [GPM IMERG monthly](https://disc.gsfc.nasa.gov/datasets/GPM_3IMERGM_07/summary) | 1979-now | [SVS 4960](https://svs.gsfc.nasa.gov/4960/) |
 | NO2 | Human | [Surface NO2](https://doi.org/10.5067/J99FI2U38YRN) (1990-2003), then [OMI OMNO2d](https://disc.gsfc.nasa.gov/datacollection/OMNO2d_003.html) | 1990-now | [SVS 5533](https://svs.gsfc.nasa.gov/5533/) |
 | Fires | Human | [FIRMS active fires](https://firms.modaps.eosdis.nasa.gov/download/) | 2001-now | [SVS 5669](https://svs.gsfc.nasa.gov/5669/) |
