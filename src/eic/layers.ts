@@ -40,28 +40,56 @@ async function exists(url: string, type: 'video' | 'image' | 'json'): Promise<bo
   }
 }
 
-async function loadLayer(rec: RecordDef): Promise<Layer> {
-  const file = rec.kind === 'movie' ? 'clip.mp4' : 'still.png';
+interface ManifestRecord {
+  id: string;
+  localFiles: Array<{ name: string; kind: string }>;
+}
+let manifest: Promise<ManifestRecord[]> | null = null;
+/** The pipeline's list of what it downloaded: public/eic/manifest.json, files in public/eic/<SVS id>/. */
+function pipelineFiles(): Promise<ManifestRecord[]> {
+  manifest ??= fetch('/eic/manifest.json')
+    .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('json') ? r.json() : { records: [] }))
+    .then((m: { records?: ManifestRecord[] }) => m.records ?? [])
+    .catch(() => []);
+  return manifest;
+}
+
+/** Where this record's picture is: our web clip, the pipeline's download, or the placeholder. */
+async function findSource(rec: RecordDef) {
   const type = rec.kind === 'movie' ? 'video' : 'image';
-  let base = `/eic/${rec.id}`;
-  let placeholder = false;
-  if (!(await exists(`${base}/${file}`, type))) {
-    base = `/eic-placeholder/${rec.id}`;
-    placeholder = true;
-    if (!(await exists(`${base}/${file}`, type))) base = '';
+  const ours = `/eic/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`;
+  if (await exists(ours, type)) return { url: ours, dir: `/eic/${rec.id}`, placeholder: false };
+  const entry = (await pipelineFiles()).find((m) => m.id === String(rec.svs));
+  if (entry) {
+    const files = entry.localFiles.map((f) => f.name);
+    const pick = rec.kind === 'movie'
+      ? files.find((f) => /\.(mp4|webm)$/i.test(f))
+      : files.find((f) => /\.(png|jpe?g)$/i.test(f) && !/(colorbar|cbar|_print|_thm|thumb|searchweb)/i.test(f));
+    if (pick && (await exists(`/eic/${entry.id}/${pick}`, type))) {
+      const cb = files.find((f) => /(colorbar|cbar).*plain/i.test(f)) ?? files.find((f) => /(colorbar|cbar)/i.test(f));
+      return { url: `/eic/${entry.id}/${pick}`, dir: `/eic/${entry.id}`, placeholder: false, colorbarPng: cb ? `/eic/${entry.id}/${cb}` : undefined };
+    }
   }
+  const ph = `/eic-placeholder/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`;
+  if (await exists(ph, type)) return { url: ph, dir: `/eic-placeholder/${rec.id}`, placeholder: true };
+  return null;
+}
+
+async function loadLayer(rec: RecordDef): Promise<Layer> {
+  let src = await findSource(rec);
   const canvas = document.createElement('canvas');
   canvas.width = GRID_W;
   canvas.height = GRID_H;
   const layer: Layer = {
-    rec, el: null, ready: false, placeholder, colorbarUrl: null, decode: rec.decode, lut: null,
+    rec, el: null, ready: false, placeholder: src?.placeholder ?? true, colorbarUrl: null, decode: rec.decode, lut: null,
     grid: new Float32Array(CELLS).fill(NaN), second: rec.decode.kind === 'precip' ? new Float32Array(CELLS) : null,
     canvas, ctx: canvas.getContext('2d', { willReadFrequently: true })!, sampledAt: 0,
   };
-  if (!base) {
+  if (!src) {
     setState({ sources: { ...getState().sources, [rec.id]: 'missing' } });
     return layer;
   }
+  const base = src.dir;
 
   // A colour key from the pipeline beats the built-in guess.
   if (await exists(`${base}/colorbar.json`, 'json')) {
@@ -75,32 +103,47 @@ async function loadLayer(rec: RecordDef): Promise<Layer> {
       /* keep the default */
     }
   }
-  if (!placeholder && (await exists(`/eic/${rec.id}/colorbar.png`, 'image'))) layer.colorbarUrl = `/eic/${rec.id}/colorbar.png`;
+  if (!src.placeholder) {
+    if (await exists(`${base}/colorbar.png`, 'image')) layer.colorbarUrl = `${base}/colorbar.png`;
+    else if ('colorbarPng' in src && src.colorbarPng) layer.colorbarUrl = src.colorbarPng;
+  }
   if (layer.decode.kind === 'colorbar') layer.lut = buildLut(layer.decode.stops, layer.decode.maxDistance ?? 70);
 
-  if (rec.kind === 'movie') {
-    const v = document.createElement('video');
-    v.src = `${base}/${file}`;
-    v.muted = true;
-    v.loop = true;
-    v.playsInline = true;
-    v.preload = 'auto';
-    v.crossOrigin = 'anonymous';
-    await new Promise<void>((resolve) => {
-      v.addEventListener('loadeddata', () => resolve(), { once: true });
-      v.addEventListener('error', () => resolve(), { once: true });
-      v.load();
-    });
-    layer.el = v;
-    layer.ready = v.readyState >= 2;
-  } else {
+  const open = async (url: string) => {
+    if (rec.kind === 'movie') {
+      const v = document.createElement('video');
+      v.src = url;
+      v.muted = true;
+      v.loop = true;
+      v.playsInline = true;
+      v.preload = 'auto';
+      v.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve) => {
+        v.addEventListener('loadeddata', () => resolve(), { once: true });
+        v.addEventListener('error', () => resolve(), { once: true });
+        v.load();
+      });
+      return { el: v, w: v.videoWidth, h: v.videoHeight, ok: v.readyState >= 2 };
+    }
     const img = new Image();
-    img.src = `${base}/${file}`;
+    img.src = url;
     await img.decode().catch(() => undefined);
-    layer.el = img;
-    layer.ready = img.complete && img.naturalWidth > 0;
+    return { el: img, w: img.naturalWidth, h: img.naturalHeight, ok: img.complete && img.naturalWidth > 0 };
+  };
+  let opened = await open(src.url);
+  // The map only lines up with flat world maps (2:1). Anything else (a globe, a 16:9 or 32:9 cut) is skipped.
+  const ratio = opened.h ? opened.w / opened.h : 0;
+  if (opened.ok && !src.placeholder && (ratio < 1.9 || ratio > 2.1)) {
+    console.warn(`${rec.name}: ${src.url} is ${opened.w}x${opened.h}, not a flat 2:1 world map, so it can't line up. Using the placeholder. See README.`);
+    const ph = `/eic-placeholder/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`;
+    src = { url: ph, dir: `/eic-placeholder/${rec.id}`, placeholder: true };
+    layer.colorbarUrl = null;
+    opened = await open(ph);
   }
-  setState({ sources: { ...getState().sources, [rec.id]: layer.ready ? (placeholder ? 'placeholder' : 'real') : 'missing' } });
+  layer.el = opened.el;
+  layer.ready = opened.ok;
+  layer.placeholder = src.placeholder;
+  setState({ sources: { ...getState().sources, [rec.id]: layer.ready ? (src.placeholder ? 'placeholder' : 'real') : 'missing' } });
   return layer;
 }
 
