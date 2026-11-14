@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download the EIC "Beauty Pieces" from NASA's Scientific Visualization Studio (SVS)
+"""Download the six EIC flat-map visualizations from NASA's Scientific Visualization Studio (SVS)
 and turn them into small web clips the jukebox can read pixels from.
 
     python3 scripts/download_eic.py            # all records
@@ -11,7 +11,8 @@ just run it again.
 
 Output:
     eic-raw/<record>/<original file>          big originals (not committed)
-    public/eic/<record>/clip.mp4               1280 px wide, H.264, no audio
+    public/eic/<record>/clip.mp4               2048 px wide, H.264, no audio
+    public/eic/<record>/still.png              for single-image records (CO2)
     public/eic/<record>/colorbar.png           the NASA colour key, if SVS has one
     public/eic/eic.json                        titles, SVS ids, alt text, credits
 """
@@ -28,17 +29,16 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "eic-raw"
 OUT = ROOT / "public" / "eic"
 
-# record id -> SVS id, side, preferred movie (first filename containing one of these wins)
+# record id -> SVS id, side, preferred file (first filename containing one of these wins).
+# All of these are flat 2:1 world maps, so they line up on one shared map.
+# kind "still" = a single image (no animation).
 RECORDS = {
-    "currents":  {"svs": 5425, "side": "earth", "prefer": ["temperature_1080p30", "clean_noDate_1080p30"]},
-    "sst":       {"svs": 3912, "side": "earth", "prefer": ["1080", "2048x1024"]},
-    "forests":   {"svs": 4950, "side": "earth", "prefer": ["GEDI_global_w_colorbar_1080p60.mp4", "GEDI_global_w_colorbar_2160p30"]},
-    "river":     {"svs": 4960, "side": "earth", "prefer": ["atmos_river_HD.webm", "atmos_river_HD.mp4"]},
-    "lightning": {"svs": 5011, "side": "earth", "prefer": ["iss_lightning_sphere_07312023.mp4", "eic_display"]},
-    "fire":      {"svs": 4993, "side": "human", "prefer": ["Dixie_fire_2021_4x_1080p30", "Dixie_fire_2021_p30_1080p30"]},
-    "lights":    {"svs": 5313, "side": "human", "prefer": ["EIC_2160p30_h265.mp4"]},
-    "co2":       {"svs": 5196, "side": "human", "prefer": ["globe_zoom_1080p30", "globe_orbit_1080p30"]},
-    "air":       {"svs": 5533, "side": "human", "prefer": ["EIC_AirQuality_Preview_3840x1080", "MapWithLabels"]},
+    "ocean":     {"svs": 3912, "side": "earth", "prefer": ["flat_global_ecco2_2028x1024_comp_p30.mp4", "ecco2_sst_flow.mp4"]},
+    "forests":   {"svs": 4950, "side": "earth", "prefer": ["GEDI_global_2160p60.mp4", "GEDI_global_w_colorbar_1080p60.mp4"]},
+    "lightning": {"svs": 5011, "side": "earth", "prefer": ["iss_lightning_sos_yearly_07312023_2048p60.mp4"]},
+    "lights":    {"svs": 5475, "side": "human", "prefer": ["nightlights_2012-2024_KSC_04_plus2_4096x2048_30p_sos.mp4", "2048x1024_30p_sos"]},
+    "co2":       {"svs": 5121, "side": "human", "kind": "still", "prefer": ["emissionsGlobe_12_2021.png"]},
+    "nox":       {"svs": 5154, "side": "human", "prefer": ["MC04_stage4_GMAO_NO2_2048x1024_en.mp4"]},
 }
 
 SKIP = ("prores", ".mov", "hwshow", "_print", "_thm", "searchweb", "DATE_ONLY", "datesOnly", "LAND_", "SEA_ICE", "holdout")
@@ -63,6 +63,14 @@ def media(page):
             inst = item.get("instance") or {}
             if inst.get("url") and inst.get("filename"):
                 yield inst
+
+
+def pick_still(items, prefer):
+    for p in prefer:
+        for m in items:
+            if m.get("media_type") == "Image" and p.lower() in m["filename"].lower():
+                return m
+    return None
 
 
 def pick_movie(items, prefer):
@@ -95,7 +103,7 @@ def transcode(src, dest):
     dest.parent.mkdir(parents=True, exist_ok=True)
     subprocess.check_call([
         "ffmpeg", "-y", "-loglevel", "error", "-i", str(src),
-        "-vf", "scale=1280:-2", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
+        "-vf", "scale=2048:-2", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26",
         "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(dest),
     ])
 
@@ -115,7 +123,8 @@ def main():
         print(f"\n== {rid}: SVS {cfg['svs']}")
         page = api(cfg["svs"])
         items = list(media(page))
-        movie = pick_movie(items, cfg["prefer"])
+        still = cfg.get("kind") == "still"
+        movie = pick_still(items, cfg["prefer"]) if still else pick_movie(items, cfg["prefer"])
         if not movie:
             print("  no movie found on this page, skipping")
             continue
@@ -130,13 +139,19 @@ def main():
                 curl(img["url"], OUT / rid / "colorbar.png")
                 print(f"  colour key: {img['filename']}")
                 break
-        if have_ffmpeg:
+        if still:
+            # one image: make a 4096 px wide web copy (the map reads its pixels directly)
+            if have_ffmpeg:
+                subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error", "-i", str(raw), "-vf", "scale=4096:-2", str(OUT / rid / "still.png")])
+                print(f"  wrote public/eic/{rid}/still.png")
+        elif have_ffmpeg:
             transcode(raw, OUT / rid / "clip.mp4")
             print(f"  wrote public/eic/{rid}/clip.mp4")
         manifest[rid] = {
             "svs": cfg["svs"], "side": cfg["side"], "title": page.get("title"),
             "url": f"https://svs.gsfc.nasa.gov/{cfg['svs']}/", "source_file": movie["filename"],
             "alt_text": movie.get("alt_text") or page.get("description", "")[:500],
+            "kind": "still" if still else "movie",
             "credit": "NASA's Scientific Visualization Studio",
         }
         OUT.mkdir(parents=True, exist_ok=True)
