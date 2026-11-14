@@ -64,6 +64,7 @@ Caveats:
 - NO2 before 2004 is surface concentration rescaled to column units; it shows pattern
   and trend, not exact column values. Both raw series are summarised in `rawRegionStats`.
 - Overlays are upsampled from the 2 degree grid, so they are soft.
+- Surface NO2 (George Washington University; DOI 10.5067/J99FI2U38YRN) is a land-use regression for 2010-12 scaled to other years with OMI and MERRA-2 column data. Land only, 60S-75N, annual, ppbv, 0.0083 deg. Its trend is therefore partly OMI-derived, so agreement with OMI over the splice overlap is expected and is not independent validation. Reader coarsens in row blocks (about 150 MB download per year, deleted after).
 - Satellite NO2 is cloud screened, so persistently cloudy cells may be null.
 
 ## Outputs

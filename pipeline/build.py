@@ -133,13 +133,20 @@ def build_record(record_id, years_filter=None, png=True, cover=False):
     stats = regmod.all_region_stats(norm, regions)
     human = [l["id"] for l in rec["layers"] if l["group"] == "human"]
     hum = regmod.humanity(stats, human)
-    raw_stats = regmod.all_region_stats(raw, [r for r in regions])
+    raw_stats = regmod.all_region_stats(raw, regions)
+    # unspliced per-dataset series (native units), regional means only
+    ds_stats = {}
+    for name, yrs in per_ds.items():
+        ys = sorted(yrs)
+        ds_stats[name] = {"times": ys, "regionStats": regmod.all_region_stats(
+            {lid: np.stack([yrs[y]["grids"][lid] if yrs[y]["used"] else np.full((90, 180), np.nan) for y in ys])
+             for lid in raw}, regions)}
 
     limit = src["limits"]["record_json_max_bytes"]
     for decimals in (2, 1):
         doc = {"id": record_id, "times": years, "meta": ymeta,
                "layers": {lid: {"grid": _enc(norm[lid], decimals)} for lid in norm},
-               "regionStats": stats, "rawRegionStats": raw_stats, "humanity": hum}
+               "regionStats": stats, "rawRegionStats": raw_stats, "datasetRegionStats": ds_stats, "humanity": hum}
         text = json.dumps(doc, separators=(",", ":"))
         if len(text) <= limit:
             break

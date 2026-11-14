@@ -66,7 +66,7 @@ records:
       - {id: no2, group: human, units: "molec/cm2", displayUnit: "1e15 molec/cm2", displayDivisor: 1.0e15,
          rawMin: 1.0e14, rawMax: 1.0e16, scale: log}
     datasets:
-      - {reader: sfc_no2, short_name: SFC_NITROGEN_DIOXIDE_CONC, variable: TODO_verify,
+      - {reader: sfc_no2, short_name: SFC_NITROGEN_DIOXIDE_CONC, variable: SurfaceNO2, units: ppbv, fill: -999, doi: "10.5067/J99FI2U38YRN",
          years: [1990, 2010], sampling: {annual: true}}     # read through 2010 for the overlap; used < 2005
       - {reader: omno2d, short_name: OMNO2d, version: "003",
          variable: ColumnAmountNO2TropCloudScreened,
