@@ -19,18 +19,28 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
 EIC = ROOT / "public" / "eic"
-IMG = re.compile(r'href="([^"?/][^"]*\.(?:png|jpg|jpeg|tif|tiff|exr|tga))"', re.I)
-SUBDIR = re.compile(r'href="([^"?/][^"]*/)"')
+ROW = re.compile(r"<tr><td>([^<]*)</td><td>([^<]*?)\s*</td><td><a href=\"([^\"]+)\"", re.S)
+IMG_EXT = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".exr", ".tga")
+SUBDIR = re.compile(r'<a href="([^"]+/)"')
 UA = {"User-Agent": "mute-humanity-pipeline"}
+BASE = "https://svs.gsfc.nasa.gov"
 
 
 def list_frames(url):
-    """HTTP directory index -> (image filenames sorted, subfolders)."""
+    """SVS 'Index of Frames Files' page (HTML table) -> ([{name, url, size, mime}], subfolders).
+
+    Rows look like: <td>6 MB</td><td>TIFF Image: 2048x1024</td><td><a href="/vis/.../name.tif">name</a>.
+    """
     r = requests.get(url, timeout=180, headers=UA)
     r.raise_for_status()
-    names = sorted(set(IMG.findall(r.text)))
-    subs = sorted(set(SUBDIR.findall(r.text)))
-    return names, subs
+    files = []
+    for size, mime, href in ROW.findall(r.text):
+        if href.lower().endswith(IMG_EXT):
+            files.append({"name": href.rsplit("/", 1)[-1], "url": href if href.startswith("http") else BASE + href,
+                          "size": size.strip().replace("\xa0", " "), "mime": " ".join(mime.split())})
+    files.sort(key=lambda f: f["name"])
+    subs = sorted({h.rstrip("/").rsplit("/", 1)[-1] for h in SUBDIR.findall(r.text) if "/frames/" in h and h.rstrip("/") != url.rstrip("/")[len(BASE):]})
+    return files, subs
 
 
 def frame_sets(api):
@@ -118,17 +128,25 @@ def main(id_, want_set=None):
     sample_paths = []
     if chosen:
         try:
-            names, subs = list_frames(chosen["url"])
+            files, subs = list_frames(chosen["url"])
         except Exception as e:
-            names, subs = [], []
+            files, subs = [], []
             print(f"   index fetch failed: {e}")
-        print(f"Chosen set: {chosen['name']}  -> {len(names)} images, subfolders: {subs[:8]}")
-        out["chosen"] = {**chosen, "count": len(names), "subfolders": subs[:20],
-                         "firstName": names[:1], "lastName": names[-1:]}
-        if names:
-            for tag, i in (("first", 0), ("middle", len(names) // 2), ("last", len(names) - 1)):
-                n = names[i]
-                sample_paths.append(fetch(chosen["url"] + n, sdir / f"{id_}_{tag}_{n}"))
+        print(f"Chosen set: {chosen['name']}  -> {len(files)} images, subfolders: {subs[:8]}")
+        if files:
+            print(f"   first: {files[0]['name']} ({files[0]['size']}, {files[0]['mime']})   last: {files[-1]['name']}")
+        out["chosen"] = {**chosen, "count": len(files), "subfolders": subs[:20],
+                         "first": files[:1], "last": files[-1:], "formats": sorted({f["mime"].split(":")[0] for f in files})}
+        if files:
+            for tag, i in (("first", 0), ("middle", len(files) // 2), ("last", len(files) - 1)):
+                f = files[i]
+                path = fetch(f["url"], sdir / f"{id_}_{tag}_{f['name']}")
+                if path.suffix.lower() in (".tif", ".tiff"):   # browsers and viewers cannot show TIFF: keep a PNG copy
+                    png = path.with_suffix(".png")
+                    if not png.exists():
+                        Image.open(path).convert("RGB").save(png)
+                    path = png
+                sample_paths.append(path)
     if not sample_paths:
         mp4s = sorted(d.glob("*.mp4"))
         stills = [p for p in d.iterdir() if p.suffix.lower() in (".png", ".jpg") and "cbar" not in p.name.lower()
