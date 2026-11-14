@@ -34,7 +34,7 @@ OUT = ROOT / "public" / "eic"
 # kind "still" = a single image (no animation).
 RECORDS = {
     "ocean":     {"svs": 3912, "side": "earth", "prefer": ["flat_global_ecco2_2028x1024_comp_p30.mp4", "ecco2_sst_flow.mp4"]},
-    "forests":   {"svs": 4950, "side": "earth", "prefer": ["GEDI_global_2160p60.mp4", "GEDI_global_w_colorbar_1080p60.mp4"]},
+    "rain":      {"svs": 5149, "side": "earth", "prefer": ["MC03_stage3_GMAO_precipitation_2048x1024_en.mp4"]},
     "lightning": {"svs": 5011, "side": "earth", "prefer": ["iss_lightning_sos_yearly_07312023_2048p60.mp4"]},
     "lights":    {"svs": 5475, "side": "human", "prefer": ["nightlights_2012-2024_KSC_04_plus2_4096x2048_30p_sos.mp4", "2048x1024_30p_sos"]},
     "co2":       {"svs": 5121, "side": "human", "kind": "still", "prefer": ["emissionsGlobe_12_2021.png"]},
@@ -135,7 +135,8 @@ def main():
             continue
         for img in items:
             name = img["filename"].lower()
-            if img.get("media_type") == "Image" and ("colorbar" in name or "cbar" in name) and "_thm" not in name:
+            if img.get("media_type") == "Image" and ("colorbar" in name or "cbar" in name) and "_thm" not in name \
+                    and ("plain" in name or not any("plain" in i["filename"].lower() for i in items)):
                 curl(img["url"], OUT / rid / "colorbar.png")
                 print(f"  colour key: {img['filename']}")
                 break
