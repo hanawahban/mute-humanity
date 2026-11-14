@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Jukebox } from './components/Jukebox';
+import { Logo } from './components/Logo';
 import { MapView } from './components/MapView';
 import { HelpDialog } from './components/Settings';
-import { BahrainCloseUp } from './components/BahrainCloseUp';
 import { Captions, Feeling, Legend, ProbeReadout, TopBar } from './components/Overlays';
 import { loadLayers } from './eic/layers';
 import { startConductor } from './audio/conductor';
@@ -44,7 +44,6 @@ export function App() {
     <div className={`app ${highContrast ? 'high-contrast' : ''} ${reducedMotion ? 'reduced-motion' : ''}`}>
       <main className="stage">
         <MapView />
-        <BahrainCloseUp />
         <TopBar />
         <div className="map-bottom">
           <Legend />
@@ -61,9 +60,10 @@ export function App() {
       {!audioOn && (
         <div className="start">
           <div className="start-card">
+            <Logo reveal className="start-logo" title="Sonific-8 logo" />
             <p className="start-kicker">NASA Space Apps 2026 · Earth Information Jukebox</p>
-            <h1>Mute Humanity</h1>
-            <p className="start-sub">Six NASA Earth Information Center maps, played as music. Earth plays in tune. Humanity plays out of key.</p>
+            <h1>Sonific-8</h1>
+            <p className="start-sub">Six NASA Earth Information Center maps, played as music. Earth plays in tune. Humanity plays out of key. Then you get to mute humanity.</p>
             <div className="start-buttons">
               <button type="button" className="start-button" onClick={() => void start(true)} disabled={starting} autoFocus>
                 Play the story
@@ -77,7 +77,7 @@ export function App() {
               <li><strong>Choose how to listen.</strong> Hear the whole screen, sweep a needle across it, or point at one spot.</li>
               <li><strong>Mute humanity.</strong> Hear the planet without us.</li>
             </ol>
-            <p className="start-hint">The story is a three-minute guided tour, spoken aloud, that shows how every map becomes music. Works with a mouse, keyboard, screen reader, your voice (hold V) or an Xbox controller. Press H any time for help.</p>
+            <p className="start-hint">The story is a short guided listen: each sound on its own, then all of them together. Works with a mouse, keyboard, screen reader, your voice (hold V) or an Xbox controller. Press H any time for help.</p>
           </div>
         </div>
       )}

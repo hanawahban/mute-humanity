@@ -6,9 +6,8 @@ import { RECORDS, RECORD_BY_ID, type RecordId } from '../config/records';
 import { getState, setState, type Mode } from './store';
 import { playIntro, startAudio } from '../audio/engine';
 import { hasLine, say, sayQueue, speakText } from '../audio/speech';
-import { layers, sample, valueAt } from '../eic/layers';
-import { setRegion } from '../map/camera';
-import { flyTo, moveBy, zoomAt } from '../map/camera';
+import { densest, layers, sample, valueAt } from '../eic/layers';
+import { flyTo, moveBy, viewSpan, zoomAt } from '../map/camera';
 import { cue } from '../input/haptics';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -89,13 +88,16 @@ export function cycleMode() {
   setMode(order[(order.indexOf(getState().mode) + 1) % order.length]);
 }
 
+let fadeTimer = 0;
+
+/** Set humanity directly (the slider, voice, controller). Stops any fade in progress. */
 export function setHumanity(v: number, quiet = false) {
+  window.clearInterval(fadeTimer);
   const h = clamp(v, 0, 1);
-  setState({ humanity: h, lastHumanity: h > 0 ? h : getState().lastHumanity });
+  setState({ humanity: h });
   if (!quiet) announce(`Humanity ${Math.round(h * 100)} percent`);
 }
 
-let fadeTimer = 0;
 /** Fade humanity to a value over a few seconds: the lever moves on its own. */
 export function fadeHumanity(to: number, ms = 3000) {
   window.clearInterval(fadeTimer);
@@ -103,14 +105,12 @@ export function fadeHumanity(to: number, ms = 3000) {
   const t0 = performance.now();
   fadeTimer = window.setInterval(() => {
     const t = Math.min(1, (performance.now() - t0) / ms);
-    setHumanity(from + (to - from) * t, true);
+    setState({ humanity: clamp(from + (to - from) * t, 0, 1) });
     if (t >= 1) window.clearInterval(fadeTimer);
   }, 50);
 }
 
 export function muteHumanity() {
-  const { humanity } = getState();
-  setState({ lastHumanity: humanity > 0 ? humanity : getState().lastHumanity });
   fadeHumanity(0, 2500);
   announce('Humanity muted. Listen to the planet without us.');
   cue('mute');
@@ -118,7 +118,8 @@ export function muteHumanity() {
 }
 
 export function unmuteHumanity() {
-  fadeHumanity(getState().lastHumanity || 1, 1500);
+  // the lever glides all the way back up
+  fadeHumanity(1, 3000);
   announce('Humanity is back.');
   cue('unmute');
   if (getState().settings.narrate && !getState().story.running) void say('unmute');
@@ -163,6 +164,19 @@ export function goToPlace(text: string): boolean {
   setState({ probe: { lat: place.lat, lon: place.lon } });
   announce(`Flying to ${place.name}`);
   return true;
+}
+
+/**
+ * Fly to wherever this record is strongest right now, read from the NASA frame itself, at a
+ * zoom close enough to hear single notes. Returns false if the data isn't loaded yet.
+ */
+export function focusDensest(id: RecordId, zoom: number, glide = 1, avoid: Array<{ lat: number; lon: number }> = []): { lat: number; lon: number } | null {
+  const span = viewSpan(zoom);
+  const spot = densest(id, span.lon * 0.6, span.lat * 0.6, avoid);
+  if (!spot) return null;
+  flyTo({ lat: spot.lat, lon: spot.lon, zoom }, glide);
+  setState({ probe: { lat: spot.lat, lon: spot.lon } });
+  return spot;
 }
 
 let hotspotIndex = -1;
@@ -247,22 +261,4 @@ export function probeAt(lat: number, lon: number, speakIt: boolean) {
   }
   announce(words.join(' '));
   if (speakIt && s.settings.narrate) void sayQueue(clips);
-}
-
-export const BAHRAIN_REGION = { west: 49.6, east: 51.6, south: 25.2, north: 26.9 };
-
-/** Open the Bahrain close-up: the sound now listens to just this corner of the Gulf. */
-export async function openCloseUp() {
-  await ensureAudio();
-  setRegion(BAHRAIN_REGION);
-  setState({ closeUp: true });
-  goToPlace('Bahrain');
-  announce('Bahrain, up close. The sound now comes only from this area.');
-  if (getState().settings.narrate && !getState().story.running) void say('bahrain-open');
-}
-
-export function closeCloseUp() {
-  setRegion(null);
-  setState({ closeUp: false });
-  announce('Back to the whole map');
 }

@@ -8,57 +8,70 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 import type { GeoJsonObject } from 'geojson';
 import { geoEquirectangular, geoPath } from 'd3-geo';
 import { nameRegion } from '../config/places';
-import { RECORDS, RECORD_BY_ID } from '../config/records';
+import { RECORD_BY_ID, type RecordId } from '../config/records';
 import { layers } from '../eic/layers';
-import { openCloseUp, panBy, probeAt, resetView, setProbe, zoomBy } from '../state/actions';
+import { panBy, probeAt, resetView, setProbe, zoomBy } from '../state/actions';
 import { audible, getState, useStore, type AppState } from '../state/store';
 import { baseScale, latLonToScreen, screenToLatLon, setViewport, stepCamera } from '../map/camera';
 import { MapRenderer, type GlLayer } from '../map/gl';
 import { audioNow, hits, scanNeedle } from '../audio/conductor';
 
 const degrees = geoEquirectangular().scale(180 / Math.PI).translate([0, 0]).precision(0.05);
-let borders: Path2D | null = null;
-let coast: Path2D | null = null;
+// Outlines in two levels of detail: the light 1:110m set when zoomed out, 1:50m when zoomed in.
+type Outlines = { borders: Path2D; coast: Path2D };
+const outlines: { low: Outlines | null; high: Outlines | null } = { low: null, high: null };
+function buildOutlines(c: unknown, l: unknown): Outlines {
+  const ct = c as Topology<{ countries: GeometryCollection }>;
+  const lt = l as Topology<{ land: GeometryCollection }>;
+  const draw = (g: unknown) => {
+    const p = new Path2D();
+    geoPath(degrees, p as unknown as CanvasRenderingContext2D)(g as never);
+    return p;
+  };
+  return {
+    borders: draw(mesh(ct, ct.objects.countries, (a, b) => a !== b) as unknown as GeoJsonObject),
+    coast: draw(feature(lt, lt.objects.land) as unknown as GeoJsonObject),
+  };
+}
 function loadOutlines(onDone: () => void) {
+  void Promise.all([import('world-atlas/countries-110m.json'), import('world-atlas/land-110m.json')]).then(([c, l]) => {
+    outlines.low = buildOutlines(c.default ?? c, l.default ?? l);
+    onDone();
+  });
   void Promise.all([import('world-atlas/countries-50m.json'), import('world-atlas/land-50m.json')]).then(([c, l]) => {
-    const ct = (c.default ?? c) as unknown as Topology<{ countries: GeometryCollection }>;
-    const lt = (l.default ?? l) as unknown as Topology<{ land: GeometryCollection }>;
-    const draw = (g: unknown) => {
-      const p = new Path2D();
-      geoPath(degrees, p as unknown as CanvasRenderingContext2D)(g as never);
-      return p;
-    };
-    borders = draw(mesh(ct, ct.objects.countries, (a, b) => a !== b) as unknown as GeoJsonObject);
-    coast = draw(feature(lt, lt.objects.land) as unknown as GeoJsonObject);
+    outlines.high = buildOutlines(c.default ?? c, l.default ?? l);
     onDone();
   });
 }
 
-/** Bahrain's pin on the world map: tap it for the close-up. */
-export const BAHRAIN = { lat: 26.07, lon: 50.55 };
-
-/** Draw order: Earth underneath (ocean first), humanity on top. */
-const ORDER = RECORDS.map((r) => r.id);
+/**
+ * Draw order. Smog (NOx) goes low, straight after the ocean, so the red CO₂ glow and the city
+ * lights stay visible through it; lightning flashes on top of everything.
+ */
+const ORDER: RecordId[] = ['ocean', 'nox', 'rain', 'lights', 'co2', 'lightning'];
 
 /** Changes that need the map layers redrawn (the mix changes 10 times a second and must not). */
 const pickMap = (s: AppState) => [s.focus, s.playing, s.solo, s.humanity, s.sources, s.settings.highContrast];
 /** Changes that need the outlines redrawn. */
-const pickOutline = (s: AppState) => [s.focus, s.settings.highContrast, s.closeUp];
-/** The GPU draws at most 1.5x resolution: sharp enough, and much lighter on a laptop. */
-const glDpr = () => Math.min(1.5, window.devicePixelRatio || 1);
+const pickOutline = (s: AppState) => [s.focus, s.settings.highContrast];
+/**
+ * Resolution caps. The data is blurry at this zoom anyway, and a laptop has to push every
+ * pixel of several full-screen layers 60 times a second.
+ */
+const glDpr = () => Math.min(1.25, window.devicePixelRatio || 1);
+const lineDpr = () => Math.min(1.5, window.devicePixelRatio || 1);
 
 export function MapView() {
   const glRef = useRef<HTMLCanvasElement>(null);
   const outlineRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const focus = useStore((s) => s.focus);
+  // Only the place name re-renders this component, not every frame of a camera move.
   const mode = useStore((s) => s.mode);
-  const probe = useStore((s) => s.probe);
+  const region = useStore((s) => (s.mode === 'probe' ? nameRegion(s.probe.lat, s.probe.lon, 4) : nameRegion(s.focus.lat, s.focus.lon, s.focus.zoom)));
   const playing = useStore((s) => s.playing);
   const solo = useStore((s) => s.solo);
   const shown = audible({ ...getState(), playing, solo });
-  const region = mode === 'probe' ? nameRegion(probe.lat, probe.lon, 4) : nameRegion(focus.lat, focus.lon, focus.zoom);
 
   useEffect(() => {
     const glCanvas = glRef.current!;
@@ -88,7 +101,7 @@ export function MapView() {
     loadOutlines(() => (outlineDirty = true));
 
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = lineDpr();
       glCanvas.width = Math.round(wrap.clientWidth * glDpr());
       glCanvas.height = Math.round(wrap.clientHeight * glDpr());
       for (const c of [outline, canvas]) {
@@ -104,7 +117,13 @@ export function MapView() {
     resize();
     let prevMap = pickMap(getState());
     let prevOutline = pickOutline(getState());
+    let lastFocus = getState().focus;
+    let focusAt = 0; // when the map last moved (drags move it directly, outside the camera easing)
     const unsub = useStore.subscribe((s) => {
+      if (s.focus !== lastFocus) {
+        lastFocus = s.focus;
+        focusAt = performance.now();
+      }
       const m = pickMap(s);
       if (m.some((v, i) => v !== prevMap[i])) mapDirty = true;
       prevMap = m;
@@ -134,73 +153,79 @@ export function MapView() {
           alpha: rec.side === 'human' ? 0.15 + 0.85 * s.humanity : 1,
           boost: rec.boost ?? 1,
           floor: layer.placeholder || rec.decode.kind !== 'bright' ? 0.1 : Math.max(0.1, rec.decode.floor - 0.1),
+          grow: id === 'lightning' ? 1.5 : 0,
         });
       }
       renderer?.draw({ lon: f.lon, lat: f.lat, k }, s.settings.highContrast ? 0.45 : list.length ? 0.72 : 0.9, list);
     };
 
-    /** Coastlines (clear, with a dark halo so they show over any layer), borders and the Bahrain pin. */
+    /**
+     * Coastlines and borders, with a dark halo so they show over any layer. Stroking the
+     * whole world's coastline is the most expensive drawing we do, so while the map moves the
+     * last drawing is just slid and scaled (a CSS transform, free on the GPU) and redrawn
+     * properly only a few times a second and when the map stops.
+     */
+    let drawn = { ...getState().focus };
+    let drawnAt = 0;
     const drawOutline = () => {
       const s = getState();
       const f = s.focus;
       const hc = s.settings.highContrast;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = lineDpr();
       const w = outline.width;
       const h = outline.height;
       const k = baseScale() * f.zoom * dpr;
+      const set = (f.zoom < 2.2 ? outlines.low : outlines.high) ?? outlines.low ?? outlines.high;
       octx.setTransform(1, 0, 0, 1, 0, 0);
       octx.clearRect(0, 0, w, h);
+      outline.style.transform = '';
+      drawn = { ...f };
+      drawnAt = performance.now();
+      if (!set) return;
       const cy = h / 2 + f.lat * k;
       let x0 = w / 2 + (-180 - f.lon) * k;
       while (x0 > 0) x0 -= 360 * k;
       while (x0 + 360 * k < 0) x0 += 360 * k;
+      octx.lineJoin = 'round';
       for (let x = x0; x < w; x += 360 * k) {
         octx.setTransform(k, 0, 0, k, x + 180 * k, cy);
-        if (coast) {
-          octx.lineJoin = 'round';
-          octx.lineWidth = (3 * dpr) / k;
-          octx.strokeStyle = 'rgba(0,0,0,0.55)';
-          octx.stroke(coast);
-          octx.lineWidth = ((hc ? 1.8 : 1.2) * dpr) / k;
-          octx.strokeStyle = hc ? '#ffffff' : 'rgba(255,240,209,0.85)';
-          octx.stroke(coast);
-        }
-        if (borders) {
-          octx.lineWidth = ((hc ? 1 : 0.7) * dpr) / k;
-          octx.strokeStyle = hc ? 'rgba(255,255,255,0.7)' : 'rgba(255,240,209,0.35)';
-          octx.stroke(borders);
-        }
+        octx.lineWidth = (3 * dpr) / k;
+        octx.strokeStyle = 'rgba(0,0,0,0.55)';
+        octx.stroke(set.coast);
+        octx.lineWidth = ((hc ? 1.8 : 1.2) * dpr) / k;
+        octx.strokeStyle = hc ? '#ffffff' : 'rgba(255,240,209,0.85)';
+        octx.stroke(set.coast);
+        octx.lineWidth = ((hc ? 1 : 0.7) * dpr) / k;
+        octx.strokeStyle = hc ? 'rgba(255,255,255,0.7)' : 'rgba(255,240,209,0.35)';
+        octx.stroke(set.borders);
       }
       octx.setTransform(1, 0, 0, 1, 0, 0);
-      // Bahrain pin
-      const p = latLonToScreen(BAHRAIN.lat, BAHRAIN.lon);
-      const px = p.x * dpr;
-      const py = p.y * dpr;
-      octx.fillStyle = '#FFD724';
-      octx.strokeStyle = '#450101';
-      octx.lineWidth = 2 * dpr;
-      octx.beginPath();
-      octx.arc(px, py, 7 * dpr, 0, Math.PI * 2);
-      octx.fill();
-      octx.stroke();
-      octx.font = `700 ${12 * dpr}px -apple-system, system-ui, sans-serif`;
-      octx.lineWidth = 3 * dpr;
-      octx.strokeStyle = 'rgba(43,0,0,0.85)';
-      octx.strokeText('Bahrain · tap for close-up', px + 11 * dpr, py + 4 * dpr);
-      octx.fillStyle = '#FFF0D1';
-      octx.fillText('Bahrain · tap for close-up', px + 11 * dpr, py + 4 * dpr);
+    };
+    /** Slide and scale the last outline drawing to where the map is now. */
+    const shiftOutline = () => {
+      const f = getState().focus;
+      const W = wrap.clientWidth;
+      const H = wrap.clientHeight;
+      const k0 = baseScale() * drawn.zoom;
+      let dl = f.lon - drawn.lon;
+      if (dl > 180) dl -= 360;
+      if (dl < -180) dl += 360;
+      const px = W / 2 + dl * k0;
+      const py = H / 2 - (f.lat - drawn.lat) * k0;
+      const sc = f.zoom / drawn.zoom;
+      outline.style.transformOrigin = '0 0';
+      outline.style.transform = `translate(${W / 2 - sc * px}px, ${H / 2 - sc * py}px) scale(${sc})`;
     };
 
     /** Needle, note flashes and the probe: small, redrawn every frame only in Scan and Probe. */
     let overlayHadContent = false;
     const drawOverlay = () => {
       const s = getState();
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = lineDpr();
       const w = canvas.width;
       const h = canvas.height;
       ctx.clearRect(0, 0, w, h);
       overlayHadContent = false;
-      if (s.closeUp) return;
       const needle = scanNeedle();
       if (needle != null) {
         overlayHadContent = true;
@@ -210,11 +235,11 @@ export function MapView() {
         g.addColorStop(1, 'rgba(255,215,36,0.25)');
         ctx.fillStyle = g;
         ctx.fillRect(nx - 70 * dpr, 0, 70 * dpr, h);
+        // a soft glow without shadowBlur, which is slow to draw every frame
+        ctx.fillStyle = 'rgba(255,215,36,0.35)';
+        ctx.fillRect(nx - 4 * dpr, 0, 8 * dpr, h);
         ctx.fillStyle = '#FFD724';
-        ctx.shadowColor = '#FFD724';
-        ctx.shadowBlur = 14 * dpr;
         ctx.fillRect(nx - 1.5 * dpr, 0, 3 * dpr, h);
-        ctx.shadowBlur = 0;
       }
       const now = audioNow();
       for (const hit of hits) {
@@ -261,10 +286,7 @@ export function MapView() {
       const moving = stepCamera((now - last) / 1000);
       last = now;
       const s = getState();
-      if (moving) {
-        mapDirty = true;
-        outlineDirty = true;
-      }
+      if (moving) mapDirty = true;
       // a playing video only needs a redraw when it has shown a new frame (about 30 times a second)
       for (const id of audible(s)) {
         const el = layers.get(id)?.el;
@@ -273,14 +295,17 @@ export function MapView() {
           mapDirty = true;
         }
       }
+      const motion = moving || now - focusAt < 120;
       if (mapDirty) {
         mapDirty = false;
         drawMap();
       }
       if (outlineDirty) {
         outlineDirty = false;
-        drawOutline();
-      }
+        // while moving: slide the old drawing, and redraw for real at most ~6 times a second
+        if (motion && now - drawnAt < 160) shiftOutline();
+        else drawOutline();
+      } else if (!motion && outline.style.transform) drawOutline();
       if (s.mode !== 'listen' || overlayHadContent) drawOverlay();
     };
     raf = requestAnimationFrame(frame);
@@ -294,13 +319,6 @@ export function MapView() {
       const r = canvas.getBoundingClientRect();
       return screenToLatLon(e.clientX - r.left, e.clientY - r.top);
     };
-    const nearPin = (e: MouseEvent) => {
-      const r = canvas.getBoundingClientRect();
-      const p = latLonToScreen(BAHRAIN.lat, BAHRAIN.lon);
-      const dx = e.clientX - r.left - p.x;
-      const dy = e.clientY - r.top - p.y;
-      return dx * dx + dy * dy < 16 * 16 || (dx > 0 && dx < 175 && Math.abs(dy) < 10);
-    };
     const scale = () => baseScale() * getState().focus.zoom;
     const onDown = (e: PointerEvent) => {
       dragging = true;
@@ -312,7 +330,6 @@ export function MapView() {
     };
     const onMove = (e: PointerEvent) => {
       if (!dragging) {
-        canvas.classList.toggle('over-pin', nearPin(e));
         if (getState().mode === 'probe') {
           const p = local(e);
           setProbe(p.lat, p.lon);
@@ -329,10 +346,6 @@ export function MapView() {
       dragging = false;
       canvas.classList.remove('grabbing');
       if (moved >= 4) return;
-      if (nearPin(e)) {
-        void openCloseUp();
-        return;
-      }
       if (getState().mode === 'probe') {
         const p = local(e);
         probeAt(p.lat, p.lon, true);

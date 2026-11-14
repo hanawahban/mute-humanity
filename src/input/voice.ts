@@ -6,7 +6,7 @@
 import { RECORDS, type RecordId } from '../config/records';
 import { duck } from '../audio/engine';
 import {
-  announce, describe, goToPlace, openCloseUp, muteHumanity, setHumanity, setMode, speak, toggleRecord, toggleSolo, unmuteHumanity, zoomBy,
+  announce, describe, goToPlace, muteHumanity, setHumanity, setMode, speak, toggleRecord, toggleSolo, unmuteHumanity, zoomBy,
 } from '../state/actions';
 import { startStory, stopStory } from '../state/story';
 import { nameRegion } from '../config/places';
@@ -93,7 +93,7 @@ const NUMBER_WORDS: Record<string, number> = { zero: 0, ten: 10, twenty: 20, thi
 
 const HELP =
   'Say: play ocean, add lightning, stop rain, solo NOx, scan, probe, listen, mute humanity, bring humanity back, ' +
-  'humanity to 50 percent, go to Bahrain, Bahrain close-up, zoom in, zoom out, play the story, what am I hearing, or where am I.';
+  'humanity to 50 percent, go to Bahrain, zoom in, zoom out, play the story, what am I hearing, or where am I.';
 
 export function runCommand(raw: string) {
   const t = raw.toLowerCase().replace(/[.,!?]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -130,11 +130,6 @@ export function runCommand(raw: string) {
   }
   if (/\b(play all|everything|all records)\b/.test(t)) {
     RECORDS.forEach((r) => void toggleRecord(r.id, true));
-    return;
-  }
-
-  if (/\b(bahrain close|close up|closeup|zoom (in )?(on|to) bahrain)\b/.test(t)) {
-    void openCloseUp();
     return;
   }
 

@@ -2,6 +2,7 @@
 // stays calm. A native <dialog> traps focus and closes with Escape.
 
 import { useEffect, useRef } from 'react';
+import { Logo } from './Logo';
 import { setState, useStore } from '../state/store';
 
 export function HelpDialog() {
@@ -19,7 +20,8 @@ export function HelpDialog() {
   return (
     <dialog ref={ref} className="help" aria-labelledby="help-title" onClose={() => setState({ helpOpen: false })}>
       <div className="help-head">
-        <h2 id="help-title">How to play</h2>
+        <Logo className="help-logo" />
+        <h2 id="help-title">How to play Sonific-8</h2>
         <button type="button" className="icon-button" aria-label="Close" onClick={() => setState({ helpOpen: false })}>×</button>
       </div>
 
@@ -30,7 +32,6 @@ export function HelpDialog() {
           <p>Every layer keeps its real dates: they line up in place, not in time. The sound comes from the pixels, read through each visualization's colour key.</p>
           <h3>Three ways to listen</h3>
           <p><strong>Listen</strong>: you hear everything on screen. Zoom in to hear one place. <strong>Scan</strong>: a needle slowly sweeps the map (about 9 seconds a sweep); every bright point it crosses flashes and plays a note, higher on screen is higher in pitch. <strong>Probe</strong>: click a spot and the narrator says where it is and what each record shows there.</p>
-          <p><strong>Bahrain close-up</strong> (<kbd>B</kbd>, the gold pin, or Go to): a detailed map of Bahrain with the records on top, and the sound comes only from that area. NASA's maps are about 19 km per pixel, so Bahrain is a handful of real readings.</p>
         </section>
 
         <section>
@@ -62,7 +63,6 @@ export function HelpDialog() {
             <dt><kbd>M</kbd></dt><dd>mute humanity</dd>
             <dt><kbd>L</kbd> <kbd>S</kbd> <kbd>P</kbd></dt><dd>Listen, Scan, Probe</dd>
             <dt>arrows in Probe</dt><dd>move the probe</dd>
-            <dt><kbd>B</kbd></dt><dd>Bahrain close-up (Escape closes it)</dd>
             <dt><kbd>G</kbd></dt><dd>next place for the chosen record</dd>
             <dt><kbd>O</kbd></dt><dd>solo the chosen record</dd>
             <dt><kbd>T</kbd></dt><dd>play or stop the story</dd>
@@ -94,7 +94,7 @@ export function HelpDialog() {
 
         <section className="wide">
           <h3>Voice (hold V or X)</h3>
-          <p>"Play ocean", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "mute humanity", "humanity to 50 percent", "go to Bahrain", "Bahrain close-up", "zoom in", "play the story", "what am I hearing?", "help".</p>
+          <p>"Play ocean", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "mute humanity", "humanity to 50 percent", "go to Bahrain", "zoom in", "play the story", "what am I hearing?", "help".</p>
           <h3>Credits</h3>
           <p className="small">Visualizations: NASA Earth Information Center and Scientific Visualization Studio (SVS 3912, 5149, 5011, 5475, 5121, 5154). Base map: NASA Blue Marble. Instruments recorded by our multimedia team.</p>
         </section>

@@ -27,6 +27,8 @@ export interface Layer {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
   sampledAt: number;
+  /** The record averaged over its whole clip (filled in the background after loading). */
+  overall: Float32Array | null;
 }
 
 export const layers = new Map<RecordId, Layer>();
@@ -85,7 +87,7 @@ async function loadLayer(rec: RecordDef): Promise<Layer> {
   const layer: Layer = {
     rec, el: null, ready: false, placeholder: src?.placeholder ?? true, colorbarUrl: null, decode: rec.decode, lut: null,
     grid: new Float32Array(CELLS).fill(NaN), second: rec.decode.kind === 'precip' ? new Float32Array(CELLS) : null,
-    canvas, ctx: canvas.getContext('2d', { willReadFrequently: true })!, sampledAt: 0,
+    canvas, ctx: canvas.getContext('2d', { willReadFrequently: true })!, sampledAt: 0, overall: null,
   };
   if (!src) {
     setState({ sources: { ...getState().sources, [rec.id]: 'missing' } });
@@ -155,6 +157,62 @@ export async function loadLayers() {
       layers.set(rec.id, await loadLayer(rec));
     }),
   );
+  const idle = (cb: () => void) => ('requestIdleCallback' in window ? window.requestIdleCallback(cb, { timeout: 4000 }) : setTimeout(cb, 1500));
+  idle(() => void profileLayers());
+}
+
+/**
+ * Average every record over its whole clip, once, in the background: a hidden copy of each
+ * video is stepped through 16 moments and read like a live frame. This is "where this record
+ * is densest across the whole NASA dataset", which a single frame can't tell (one frame of
+ * lightning has only a few flashes).
+ */
+async function profileLayers(frames = 16) {
+  for (const layer of layers.values()) {
+    if (!layer.ready || !layer.el) continue;
+    if (!(layer.el instanceof HTMLVideoElement)) {
+      if (!layer.sampledAt) sample(layer.rec.id, 0);
+      layer.overall = layer.grid.slice();
+      continue;
+    }
+    const v = document.createElement('video');
+    v.muted = true;
+    v.preload = 'auto';
+    v.src = layer.el.currentSrc || layer.el.src;
+    try {
+      await new Promise<void>((ok, fail) => {
+        v.addEventListener('loadeddata', () => ok(), { once: true });
+        v.addEventListener('error', () => fail(), { once: true });
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = GRID_W;
+      canvas.height = GRID_H;
+      const tmp: Layer = { ...layer, el: v, canvas, ctx: canvas.getContext('2d', { willReadFrequently: true })!, grid: new Float32Array(CELLS), second: layer.second ? new Float32Array(CELLS) : null };
+      const sum = new Float32Array(CELLS);
+      const n = new Uint16Array(CELLS);
+      for (let k = 0; k < frames; k++) {
+        v.currentTime = ((k + 0.5) / frames) * (v.duration || 1);
+        await new Promise<void>((ok) => v.addEventListener('seeked', () => ok(), { once: true }));
+        readFrame(tmp);
+        for (let i = 0; i < CELLS; i++) {
+          const x = tmp.grid[i];
+          if (x === x) {
+            sum[i] += x;
+            n[i]++;
+          }
+        }
+        await new Promise((r) => setTimeout(r, 30)); // stay out of the music's way
+      }
+      const overall = new Float32Array(CELLS);
+      for (let i = 0; i < CELLS; i++) overall[i] = n[i] ? sum[i] / n[i] : NaN;
+      layer.overall = overall;
+    } catch {
+      /* keep the live frame */
+    } finally {
+      v.removeAttribute('src');
+      v.load();
+    }
+  }
 }
 
 // ---------- decoding ----------
@@ -217,7 +275,12 @@ function decodePixel(layer: Layer, r: number, g: number, b: number, lat: number,
   const mx = Math.max(r, g, b);
   switch (d.kind) {
     case 'colorbar': {
-      const v = layer.lut![((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)];
+      // a key that runs through one tint (NOx: white to dark green): black borders, grey land
+      // and no-data areas are not on the key, even if their colour is closest to its dark end
+      if (layer.rec.tint === 'green' && g - Math.max(r, b) < 10) return 0;
+      let v = layer.lut![((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)];
+      const c = layer.rec.contrast;
+      if (c && !Number.isNaN(v)) v = Math.max(0, Math.min(1, (v - c[0]) / (c[1] - c[0])));
       return Number.isNaN(v) && layer.rec.empty === 'zero' ? 0 : v;
     }
     case 'bright':
@@ -244,47 +307,34 @@ function decodePixel(layer: Layer, r: number, g: number, b: number, lat: number,
 
 function decodeFrame(layer: Layer) {
   const { data } = layer.ctx.getImageData(0, 0, GRID_W, GRID_H);
-  const cloud = { v: 0 };
-  for (let i = 0, o = 0; i < CELLS; i++, o += 4) {
-    const lat = 90 - (Math.floor(i / GRID_W) + 0.5) / PER_DEG;
-    layer.grid[i] = decodePixel(layer, data[o], data[o + 1], data[o + 2], lat, cloud);
-    if (layer.second) layer.second[i] = cloud.v;
+  const grid = layer.grid;
+  const d = layer.decode;
+  // Fast paths for the common keys: one tight loop, no function call per pixel.
+  if (d.kind === 'bright') {
+    const f = d.floor;
+    for (let i = 0, o = 0; i < CELLS; i++, o += 4) {
+      const mx = Math.max(data[o], data[o + 1], data[o + 2]) / 255;
+      grid[i] = mx > f ? (mx - f) / (1 - f) : 0;
+    }
+    return;
   }
-}
-
-const regionCanvas = document.createElement('canvas');
-const regionCtx = regionCanvas.getContext('2d', { willReadFrequently: true })!;
-/**
- * Values for a small area at the visualization's own resolution (for the Bahrain close-up):
- * every value is one real pixel of the NASA frame.
- */
-export function regionValues(id: RecordId, b: { west: number; east: number; south: number; north: number }) {
-  const layer = layers.get(id);
-  const el = layer?.el;
-  if (!layer?.ready || !el) return null;
-  const W = el instanceof HTMLVideoElement ? el.videoWidth : el.naturalWidth;
-  const H = el instanceof HTMLVideoElement ? el.videoHeight : el.naturalHeight;
-  if (!W || !H) return null;
-  const [ax0, ay0, ax1, ay1] = layer.rec.area;
-  const sx0 = (ax0 + ((b.west + 180) / 360) * (ax1 - ax0)) * W;
-  const sx1 = (ax0 + ((b.east + 180) / 360) * (ax1 - ax0)) * W;
-  const sy0 = (ay0 + ((90 - b.north) / 180) * (ay1 - ay0)) * H;
-  const sy1 = (ay0 + ((90 - b.south) / 180) * (ay1 - ay0)) * H;
-  const w = Math.max(2, Math.round(sx1 - sx0));
-  const h = Math.max(2, Math.round(sy1 - sy0));
-  regionCanvas.width = w;
-  regionCanvas.height = h;
-  regionCtx.drawImage(el, sx0, sy0, sx1 - sx0, sy1 - sy0, 0, 0, w, h);
-  const { data } = regionCtx.getImageData(0, 0, w, h);
-  const values = new Float32Array(w * h);
-  const clouds = layer.second ? new Float32Array(w * h) : null;
-  const cloud = { v: 0 };
-  for (let i = 0, o = 0; i < w * h; i++, o += 4) {
-    const lat = b.north - ((Math.floor(i / w) + 0.5) / h) * (b.north - b.south);
-    values[i] = decodePixel(layer, data[o], data[o + 1], data[o + 2], lat, cloud);
-    if (clouds) clouds[i] = cloud.v;
+  if (d.kind === 'colorbar' && !layer.rec.tint && !layer.rec.contrast) {
+    const lut = layer.lut!;
+    const zero = layer.rec.empty === 'zero';
+    for (let i = 0, o = 0; i < CELLS; i++, o += 4) {
+      const v = lut[((data[o] >> 3) << 10) | ((data[o + 1] >> 3) << 5) | (data[o + 2] >> 3)];
+      grid[i] = zero && v !== v ? 0 : v;
+    }
+    return;
   }
-  return { w, h, values, clouds, pixelDeg: 360 / ((ax1 - ax0) * W) };
+  const cloud = { v: 0 };
+  for (let r = 0, i = 0, o = 0; r < GRID_H; r++) {
+    const lat = 90 - (r + 0.5) / PER_DEG;
+    for (let c = 0; c < GRID_W; c++, i++, o += 4) {
+      grid[i] = decodePixel(layer, data[o], data[o + 1], data[o + 2], lat, cloud);
+      if (layer.second) layer.second[i] = cloud.v;
+    }
+  }
 }
 
 /** Reads the current frame into the grid (at most every `minMs`). */
@@ -293,10 +343,17 @@ export function sample(id: RecordId, minMs = 90) {
   if (!layer?.el || !layer.ready) return null;
   const now = performance.now();
   if (now - layer.sampledAt < minMs && layer.sampledAt) return layer;
-  const el = layer.el;
+  if (!readFrame(layer)) return null;
+  layer.sampledAt = now;
+  return layer;
+}
+
+/** Draw the layer's current frame small and decode it into its grid (masks become no data). */
+function readFrame(layer: Layer): boolean {
+  const el = layer.el!;
   const w = el instanceof HTMLVideoElement ? el.videoWidth : el.naturalWidth;
   const h = el instanceof HTMLVideoElement ? el.videoHeight : el.naturalHeight;
-  if (!w || !h) return null;
+  if (!w || !h) return false;
   const [x0, y0, x1, y1] = layer.rec.area;
   layer.ctx.drawImage(el, x0 * w, y0 * h, (x1 - x0) * w, (y1 - y0) * h, 0, 0, GRID_W, GRID_H);
   decodeFrame(layer);
@@ -310,8 +367,7 @@ export function sample(id: RecordId, minMs = 90) {
       for (let yy = gy0; yy < gy1; yy++) for (let xx = gx0; xx < gx1; xx++) layer.grid[yy * GRID_W + xx] = NaN;
     }
   }
-  layer.sampledAt = now;
-  return layer;
+  return true;
 }
 
 // ---------- questions about the grid ----------
@@ -421,4 +477,74 @@ export function valueAt(grid: Float32Array, lat: number, lon: number, radius = P
     }
   }
   return n ? sum / n : null;
+}
+
+/**
+ * Where on Earth this record is strongest right now: the centre of the window (lonSpan × latSpan
+ * degrees, the size of the zoomed-in view) with the highest average. For the ocean, which
+ * covers everything, it looks for the most varied water instead (warm and cold side by side,
+ * like the Gulf Stream), so you hear the widest range of notes. Used by the story, so it zooms
+ * into the densest area of each NASA map, read from the data itself.
+ */
+export function densest(
+  id: RecordId,
+  lonSpan: number,
+  latSpan: number,
+  avoid: Array<{ lat: number; lon: number }> = [], // places already visited: find somewhere new
+  maxLat = 60,
+): { lat: number; lon: number; score: number } | null {
+  const live = sample(id, 0) ?? layers.get(id);
+  if (!live?.sampledAt && !live?.overall) return null;
+  // the whole clip, averaged, if we have it: where this record is densest across the dataset
+  const l = { rec: live.rec, grid: live.overall ?? live.grid };
+  const spread = l.rec.empty === 'nodata';
+  const W2 = GRID_W * 2; // twice as wide, so windows can cross the date line
+  const S = new Float64Array((W2 + 1) * (GRID_H + 1));
+  const Q = spread ? new Float64Array(S.length) : null;
+  const N = spread ? new Float64Array(S.length) : null;
+  for (let r = 0; r < GRID_H; r++) {
+    let rs = 0;
+    let rq = 0;
+    let rn = 0;
+    for (let c = 0; c < W2; c++) {
+      const v = l.grid[r * GRID_W + (c % GRID_W)];
+      const ok = !Number.isNaN(v);
+      if (ok) rs += v;
+      if (Q && ok) rq += v * v;
+      if (N && ok) rn++;
+      const i = (r + 1) * (W2 + 1) + c + 1;
+      const up = r * (W2 + 1) + c + 1;
+      S[i] = S[up] + rs;
+      if (Q) Q[i] = Q[up] + rq;
+      if (N) N[i] = N[up] + rn;
+    }
+  }
+  const box = (T: Float64Array, r0: number, c0: number, r1: number, c1: number) =>
+    T[r1 * (W2 + 1) + c1] - T[r0 * (W2 + 1) + c1] - T[r1 * (W2 + 1) + c0] + T[r0 * (W2 + 1) + c0];
+  const w = Math.round(lonSpan * PER_DEG);
+  const h = Math.round(latSpan * PER_DEG);
+  const rMin = Math.max(0, Math.round((90 - maxLat) * PER_DEG) - Math.floor(h / 2));
+  const rMax = Math.min(GRID_H - h, Math.round((90 + maxLat) * PER_DEG) - Math.ceil(h / 2));
+  let best = { lat: 0, lon: 0, score: -1 };
+  for (let r0 = rMin; r0 <= rMax; r0 += 2) {
+    for (let c0 = 0; c0 < GRID_W; c0 += 2) {
+      const sum = box(S, r0, c0, r0 + h, c0 + w);
+      let score: number;
+      if (spread) {
+        const n = box(N!, r0, c0, r0 + h, c0 + w);
+        if (n < w * h * 0.45) continue; // mostly land: not an ocean view
+        const mean = sum / n;
+        const sd = Math.sqrt(Math.max(0, box(Q!, r0, c0, r0 + h, c0 + w) / n - mean * mean));
+        score = sd + 0.25 * mean;
+      } else score = sum / (w * h);
+      if (score > best.score) {
+        let lon = (c0 + w / 2) / PER_DEG - 180;
+        if (lon > 180) lon -= 360;
+        const lat = 90 - (r0 + h / 2) / PER_DEG;
+        if (avoid.some((p) => Math.abs(p.lat - lat) < latSpan * 0.8 && Math.abs(((lon - p.lon + 540) % 360) - 180) < lonSpan * 0.8)) continue;
+        best = { lat, lon, score };
+      }
+    }
+  }
+  return best.score >= 0 ? best : null;
 }

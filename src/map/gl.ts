@@ -21,6 +21,7 @@ export interface GlLayer {
   alpha: number;
   boost: number; // brightness boost for faint layers
   floor: number; // for 'bright': how bright a pixel must be to count as data
+  grow?: number; // spread tiny points over this many texels (lightning)
 }
 
 const VERT = `#version 300 es
@@ -40,6 +41,7 @@ uniform float uAlpha;
 uniform float uBoost;
 uniform float uDim;
 uniform float uFloor;
+uniform float uGrow;     // >0: spread small bright points (lightning flashes) over this many texels
 out vec4 outColor;
 
 bool inRect(vec2 t, vec4 r) { return t.x >= r.x && t.x <= r.z && t.y >= r.y && t.y <= r.w; }
@@ -79,6 +81,13 @@ void main() {
   vec2 t = vec2(mix(uArea.x, uArea.z, uv.x), mix(uArea.y, uArea.w, uv.y));
   vec3 c = texture(uTex, t).rgb;
   if (uMode < 0) { outColor = vec4(c * uDim, 1.0); return; }
+  if (uGrow > 0.0) {
+    // a flash is a pixel or two in the NASA frame: take the brightest of a few neighbours so it reads
+    vec2 px = uGrow / vec2(textureSize(uTex, 0));
+    vec3 n[4] = vec3[4](texture(uTex, t + vec2(px.x, 0.0)).rgb, texture(uTex, t - vec2(px.x, 0.0)).rgb,
+                        texture(uTex, t + vec2(0.0, px.y)).rgb, texture(uTex, t - vec2(0.0, px.y)).rgb);
+    for (int i = 0; i < 4; i++) if (max(n[i].r, max(n[i].g, n[i].b)) > max(c.r, max(c.g, c.b))) c = n[i];
+  }
   if (inRect(t, uMask0) || inRect(t, uMask1)) { outColor = vec4(0.0); return; }
 
   float mx = max(c.r, max(c.g, c.b));
@@ -95,10 +104,11 @@ void main() {
     float t;
     if (uMode == 3) {                                                              // real: white (clean) to dark green (polluted)
       float green = c.g - max(c.r, c.b);
-      t = smoothstep(0.3, 0.8, 1.0 - mx) * step(0.05, green);
+      t = smoothstep(0.25, 0.75, 1.0 - mx) * step(0.04, green);
     } else t = smoothstep(0.2, 0.5, c.r - c.b);                                   // placeholder: yellow to red
-    c = mix(vec3(0.353, 0.275, 0.212), vec3(0.05, 0.035, 0.027), t);
-    a = smoothstep(0.0, 0.6, t) * 0.88;
+    // a see-through haze, not a black blanket: CO₂ and city lights are drawn above it and show through
+    c = mix(vec3(0.42, 0.37, 0.33), vec3(0.11, 0.09, 0.08), t);
+    a = smoothstep(0.05, 0.6, t) * 0.75;
   } else if (uMode == 6) {                                                         // ocean: hue -> temperature -> calm palette
     float h = hue(c);
     float t = clamp(1.0 - h / 240.0, 0.0, 1.0);
@@ -140,7 +150,7 @@ export class MapRenderer {
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
     gl.useProgram(prog);
-    for (const n of ['uSize', 'uView', 'uTex', 'uMode', 'uArea', 'uMask0', 'uMask1', 'uAlpha', 'uBoost', 'uDim', 'uFloor']) this.u[n] = gl.getUniformLocation(prog, n);
+    for (const n of ['uSize', 'uView', 'uTex', 'uMode', 'uArea', 'uMask0', 'uMask1', 'uAlpha', 'uBoost', 'uDim', 'uFloor', 'uGrow']) this.u[n] = gl.getUniformLocation(prog, n);
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
@@ -205,6 +215,7 @@ export class MapRenderer {
       gl.uniform1f(this.u.uAlpha, l.alpha);
       gl.uniform1f(this.u.uBoost, l.boost);
       gl.uniform1f(this.u.uFloor, l.floor);
+      gl.uniform1f(this.u.uGrow, l.grow ?? 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
   }

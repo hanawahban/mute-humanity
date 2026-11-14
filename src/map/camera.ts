@@ -13,6 +13,7 @@ const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
 let viewW = 1200;
 let viewH = 700;
 let target: Focus | null = null;
+let speed = 11; // how fast the camera eases toward its target (higher = snappier)
 
 /** Pixels per degree at zoom 1: the planet always fills the map area. */
 export const baseScale = (w = viewW, h = viewH) => Math.max(w / 360, h / 180);
@@ -37,7 +38,9 @@ function current(): Focus {
   return target ?? getState().focus;
 }
 
-export function flyTo(f: Partial<Focus>) {
+/** Ease the map to a place. `glide` slows the flight down (the story uses it for a cinematic move). */
+export function flyTo(f: Partial<Focus>, glide = 1) {
+  speed = 11 / glide;
   target = clampFocus({ ...current(), ...f });
   if (getState().settings.reducedMotion) jump();
 }
@@ -76,7 +79,7 @@ function jump() {
 export function stepCamera(dt: number): boolean {
   if (!target) return false;
   const f = getState().focus;
-  const t = 1 - Math.exp(-dt * 11);
+  const t = 1 - Math.exp(-dt * speed);
   let dl = target.lon - f.lon;
   if (dl > 180) dl -= 360;
   if (dl < -180) dl += 360;
@@ -91,6 +94,12 @@ export function stepCamera(dt: number): boolean {
   return true;
 }
 
+/** How many degrees the map shows across and down at a zoom level. */
+export function viewSpan(zoom: number) {
+  const k = baseScale() * zoom;
+  return { lon: Math.min(360, viewW / k), lat: Math.min(180, viewH / k) };
+}
+
 /** Screen position (CSS pixels, relative to the map) to latitude/longitude. */
 export function screenToLatLon(x: number, y: number): { lat: number; lon: number } {
   const f = getState().focus;
@@ -98,15 +107,8 @@ export function screenToLatLon(x: number, y: number): { lat: number; lon: number
   return { lat: clamp(f.lat - (y - viewH / 2) / k, -90, 90), lon: wrapLon(f.lon + (x - viewW / 2) / k) };
 }
 
-/** While the Bahrain close-up is open, the sound listens to its area instead of the map view. */
-let region: { west: number; east: number; south: number; north: number } | null = null;
-export function setRegion(r: typeof region) {
-  region = r;
-}
-
 /** The part of the world on screen, in degrees. west can be greater than east across 180°. */
 export function viewBounds() {
-  if (region) return { ...region, lonSpan: region.east - region.west };
   const f = getState().focus;
   const k = baseScale() * f.zoom;
   const halfLon = Math.min(180, viewW / 2 / k);
