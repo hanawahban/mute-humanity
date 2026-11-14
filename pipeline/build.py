@@ -12,6 +12,7 @@ import json
 import numpy as np
 
 from . import config, readers, regions as regmod, render, sampling, splice
+from . import regrid as regrid_mod
 from .normalize import normalize_series
 
 
@@ -110,9 +111,24 @@ def build_record(record_id, years_filter=None, png=True, cover=False):
         norm[lid] = n
         lm = {"id": lid, "group": layer_cfg[lid]["group"], "units": layer_cfg[lid]["units"],
               "scale": layer_cfg[lid]["scale"], **m}
+        for k in ("displayUnit", "displayDivisor"):
+            if k in layer_cfg[lid]:
+                lm[k] = layer_cfg[lid][k]
         if layer_cfg[lid].get("caveat"):
             lm["caveat"] = layer_cfg[lid]["caveat"]
         layer_meta.append(lm)
+
+    pc = rec.get("peak_check")
+    if pc:  # where is each year's raw maximum? it must fall in the expected box
+        mask = regmod.region_mask(pc["bbox"])
+        lat, lon = regrid_mod.cell_centres()
+        for t, m in enumerate(ymeta):
+            a = raw[pc["layer"]][t]
+            if np.isfinite(a).any():
+                i, j = np.unravel_index(np.nanargmax(a), a.shape)
+                m["peak"] = {"lat": float(lat[i]), "lon": float(lon[j]), "inExpectedBox": bool(mask[i, j])}
+        bad = [m["year"] for m in ymeta if "peak" in m and not m["peak"]["inExpectedBox"]]
+        print(f"peak check ({pc['label']}): {'all years OK' if not bad else 'OUTSIDE box in ' + str(bad)}")
 
     stats = regmod.all_region_stats(norm, regions)
     human = [l["id"] for l in rec["layers"] if l["group"] == "human"]

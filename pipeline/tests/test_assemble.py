@@ -13,7 +13,7 @@ def test_assemble_splices_and_nulls_sparse_years():
     rec = src["records"]["no2"]
     per = {
         "sfc_no2": {y: _res(1.0, src="SFC") for y in range(2000, 2011)},
-        "omno2d": {y: _res(2.0, src="OMI") for y in range(2004, 2012)},
+        "omno2d": {y: _res(2.0, src="OMI") for y in range(2005, 2012)},
     }
     per["omno2d"][2007] = _res(2.0, planned=2, used=0, src="OMI")      # < 50% -> null
     per["omno2d"][2011]["partial"] = True
@@ -24,4 +24,4 @@ def test_assemble_splices_and_nulls_sparse_years():
     assert np.allclose(s[i(2005)], 2.0)            # OMI as is
     assert np.isnan(s[i(2007)]).all() and "samples" in meta[i(2007)]["nullReason"]
     assert meta[i(2011)]["partial"] is True
-    assert smeta[0]["from"] == "sfc_no2" and smeta[0]["year"] == 2004
+    assert smeta[0]["from"] == "sfc_no2" and smeta[0]["year"] == 2005

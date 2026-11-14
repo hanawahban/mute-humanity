@@ -63,16 +63,19 @@ records:
     group: human
     cover_svs: 5533
     layers:
-      - {id: no2, group: human, units: "molec/cm2", rawMin: 1.0e14, rawMax: 1.0e16, scale: log}
+      - {id: no2, group: human, units: "molec/cm2", displayUnit: "1e15 molec/cm2", displayDivisor: 1.0e15,
+         rawMin: 1.0e14, rawMax: 1.0e16, scale: log}
     datasets:
       - {reader: sfc_no2, short_name: SFC_NITROGEN_DIOXIDE_CONC, variable: TODO_verify,
-         years: [1990, 2010], sampling: {annual: true}}     # read through 2010 for the overlap; used < 2004
+         years: [1990, 2010], sampling: {annual: true}}     # read through 2010 for the overlap; used < 2005
       - {reader: omno2d, short_name: OMNO2d, version: "003",
          variable: ColumnAmountNO2TropCloudScreened,
          hdfeos_path: "HDFEOS/GRIDS/ColumnAmountNO2/Data Fields/ColumnAmountNO2TropCloudScreened",
-         years: [2004, null], sampling: {days_per_month: 2, days: [5, 20]}}
+         use_weight: true,   # Weight field, if present, weights days when averaging
+         years: [2005, null], sampling: {days_per_month: 2, days: [5, 20]}}   # OMI data starts Oct 2004
     splice:
-      - {from: sfc_no2, to: omno2d, year: 2004, method: ratio_median, overlap: [2005, 2010], smooth: 3}
+      - {from: sfc_no2, to: omno2d, year: 2005, method: ratio_median, overlap: [2005, 2010], smooth: 3}
+    peak_check: {layer: no2, bbox: {south: 30, north: 40, west: 110, east: 120}, label: eastern China}
     sanity:
       - {region: eastern_china, layer: no2, expect: above_global}
       - {region: sahara,        layer: no2, expect: below_global}
