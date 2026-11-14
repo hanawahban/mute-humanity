@@ -9,3 +9,10 @@ pipeline/cache/
 __pycache__/
 .DS_Store
 *.pyc
+
+# SVS media (large)
+public/eic/**/*.mp4
+public/eic/**/*.mov
+public/eic/**/frames/
+public/eic/*/samples/
+public/eic/*/frames/

@@ -1,0 +1,70 @@
+# The six NASA SVS (EIC) visualizations. Crop box, projection and colorbar stay null until the sample
+# frames have been confirmed (pipeline/inspect_frames.py). Nothing else is analysed.
+grid:
+  equirect: {rows: 90, cols: 180, res: 2, lat0: 90, lon0: -180}   # 2 degree cells over the map crop
+  image:    {rows: 18, cols: 32}                                   # non-equirect: cells over the crop
+
+# Equirect regions (lat/lon boxes). Non-equirect records use pixel boxes, added after confirmation.
+regions:
+  - {id: global,         name: Global,         bbox: {south: -90, north: 90, west: -180, east: 180}}
+  - {id: arabian_gulf,   name: Arabian Gulf,   bbox: {south: 24,  north: 30, west: 48,   east: 57}}
+  - {id: sahara,         name: Sahara,         bbox: {south: 15,  north: 30, west: -15,  east: 35}}
+  - {id: amazon,         name: Amazon,         bbox: {south: -12, north: 4,  west: -75,  east: -52}}
+  - {id: india,          name: India,          bbox: {south: 8,   north: 28, west: 70,   east: 88}}
+  - {id: eastern_china,  name: Eastern China,  bbox: {south: 24,  north: 40, west: 110,  east: 122}}
+  - {id: europe,         name: Europe,         bbox: {south: 36,  north: 60, west: -10,  east: 30}}
+  - {id: us_east,        name: US East,        bbox: {south: 28,  north: 46, west: -90,  east: -70}}
+
+records:
+  ocean:
+    svs: 3912
+    side: nature
+    frames: {set: null}          # use the 2:1 flat-map set (2048x1024)
+    projection: null             # equirect expected; confirm
+    crop: null                   # [x0, y0, x1, y1] pixels, map area without labels/logos
+    layers:
+      - {id: sst,           side: nature, method: colorbar_decode, colorbar: sst_ecco2_cbar.png, units: degC}
+      - {id: current_speed, side: nature, method: optical_flow,    units: pixels/frame}
+      - {id: current_dir,   side: nature, method: optical_flow,    units: degrees}
+  rain_clouds:
+    svs: 5149
+    side: nature
+    frames: {set: null}
+    projection: null
+    crop: null
+    layers:                      # confirm from samples how clouds, rain and snow are coloured
+      - {id: clouds,        side: nature, method: brightness,      note: white/gray}
+      - {id: precipitation, side: nature, method: colorbar_decode, colorbar: Precipitation_colorbar.png, units: mm/hr}
+  lightning:
+    svs: 5011
+    side: nature
+    frames: {set: null, source: mp4}   # no frame folder; extract from the flat 4096x2048 MP4 with ffmpeg
+    projection: null
+    crop: null
+    layers:
+      - {id: flashes, side: nature, method: frame_differencing, units: events}
+  city_lights:
+    svs: 5313
+    side: human
+    frames: {set: nightlights_2012-2023_change_flat_eic}   # one frame per year 2012-2023 + change map; no zoom sequences
+    projection: null
+    crop: null
+    layers:
+      - {id: brightness, side: human, method: brightness, units: relative}
+      - {id: change,     side: human, method: hue,        note: purple = more light, orange = less light}
+  co2_emissions:
+    svs: 5121
+    side: human
+    frames: {source: still}      # emissionsGlobe_12_2021.png, a single month (Dec 2021): steady layer
+    projection: null
+    crop: null
+    layers:
+      - {id: co2, side: human, method: colorbar_decode, colorbar: null, units: null}
+  nox:
+    svs: 5154
+    side: human
+    frames: {set: null}
+    projection: null
+    crop: null
+    layers:
+      - {id: nox, side: human, method: colorbar_decode, colorbar: NOx_colorbar.png, units: null}
