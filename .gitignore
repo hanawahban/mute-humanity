@@ -1,0 +1,6 @@
+node_modules
+dist
+.DS_Store
+*.log
+# Mock data is generated locally with `npm run mock-data`
+public/data/mock
