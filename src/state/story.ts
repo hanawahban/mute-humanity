@@ -1,11 +1,11 @@
-// "Play the story": a guided tour of about 90 seconds. It flies between places, turns
+// "Play the story": a guided tour of about three minutes. It flies between places, turns
 // records on, switches listening modes and ends by muting humanity. It is the demo, and the
 // hands-free way in for screen-reader users (the narration is spoken when "Narrate" is on).
 
 import type { RecordId } from '../config/records';
 import type { Mode } from './store';
 import { getState, setState } from './store';
-import { announce, ensureAudio, fadeHumanity, goToPlace, resetView, setMode, toggleRecord } from './actions';
+import { announce, closeCloseUp, ensureAudio, fadeHumanity, goToPlace, openCloseUp, resetView, setMode, toggleRecord } from './actions';
 import { LINES, say, stopSpeaking } from '../audio/speech';
 
 interface Step {
@@ -14,19 +14,23 @@ interface Step {
   place?: string;
   mode?: Mode;
   humanity?: number;
+  closeUp?: boolean; // open or close the Bahrain close-up
   ms: number;
 }
 
 const STEPS: Step[] = [
-  { text: LINES['story-0'], records: ['ocean'], place: 'the whole planet', mode: 'listen', humanity: 1, ms: 9000 },
-  { text: LINES['story-1'], records: ['ocean'], place: 'the Gulf Stream', ms: 10000 },
-  { text: LINES['story-2'], records: ['ocean', 'rain'], place: 'India', ms: 10000 },
-  { text: LINES['story-3'], records: ['rain', 'lightning'], place: 'the Congo Basin', mode: 'scan', ms: 10000 },
-  { text: LINES['story-4'], records: ['ocean', 'lights'], place: 'the Nile Delta', mode: 'listen', ms: 10000 },
-  { text: LINES['story-5'], records: ['co2', 'nox'], place: 'eastern China', ms: 10000 },
-  { text: LINES['story-6'], records: ['ocean', 'rain', 'lights', 'co2', 'nox'], place: 'Bahrain', ms: 10000 },
-  { text: LINES['story-7'], records: ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'], place: 'the whole planet', humanity: 0, ms: 12000 },
-  { text: LINES['story-8'], records: ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'], ms: 9000 },
+  { text: LINES['story-0'], records: ['ocean'], place: 'the whole planet', mode: 'listen', humanity: 1, closeUp: false, ms: 9000 },
+  { text: LINES['story-1'], records: ['ocean'], place: 'the whole planet', ms: 10000 },
+  { text: LINES['story-2'], records: ['ocean'], place: 'the Gulf Stream', ms: 10000 },
+  { text: LINES['story-3'], records: ['ocean', 'rain'], place: 'India', ms: 10000 },
+  { text: LINES['story-4'], records: ['rain', 'lightning'], place: 'the Congo Basin', mode: 'scan', ms: 12000 },
+  { text: LINES['story-5'], records: ['ocean', 'rain', 'lightning'], place: 'the whole planet', mode: 'listen', ms: 10000 },
+  { text: LINES['story-6'], records: ['ocean', 'lights'], place: 'the Nile Delta', ms: 10000 },
+  { text: LINES['story-7'], records: ['co2', 'nox'], place: 'eastern China', ms: 10000 },
+  { text: LINES['story-8'], records: ['ocean', 'rain', 'lights', 'co2', 'nox'], closeUp: true, ms: 12000 },
+  { text: LINES['story-9'], records: ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'], place: 'the whole planet', closeUp: false, ms: 8000 },
+  { text: LINES['story-10'], records: ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'], humanity: 0, ms: 12000 },
+  { text: LINES['story-11'], records: ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'], ms: 8000 },
 ];
 
 let timer = 0;
@@ -41,10 +45,12 @@ async function run(i: number) {
     const want = step.records.includes(id);
     if (getState().playing[id] !== want) await toggleRecord(id, want);
   }
+  if (step.closeUp === true && !getState().closeUp) void openCloseUp();
+  if (step.closeUp === false && getState().closeUp) closeCloseUp();
   if (step.place === 'the whole planet') resetView();
   else if (step.place) goToPlace(step.place);
   if (step.mode) setMode(step.mode);
-  if (step.humanity != null) fadeHumanity(step.humanity, step.humanity === 0 ? 5000 : 800);
+  if (step.humanity != null) fadeHumanity(step.humanity, step.humanity === 0 ? 6000 : 800);
   announce(step.text);
   const seconds = getState().settings.narrate ? await say(`story-${i}`) : 0;
   if (!getState().story.running) return;

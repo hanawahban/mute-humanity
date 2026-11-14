@@ -3,7 +3,6 @@
 
 import { useState } from 'react';
 import { RECORDS, RECORD_BY_ID } from '../config/records';
-import { layers } from '../eic/layers';
 import { hapticPatternName } from '../input/haptics';
 import { describeValue } from '../state/actions';
 import { setState, useStore } from '../state/store';
@@ -63,14 +62,19 @@ export function Legend() {
         <>
           <ul>
             {on.map((r) => {
-              const cb = layers.get(r.id)?.colorbarUrl;
               const muted = r.side === 'human' && humanity === 0;
               return (
                 <li key={r.id} className={muted ? 'muted' : ''}>
-                  <span className="dot" style={{ background: r.colour }} aria-hidden="true" />
-                  <span className="legend-name">{r.short}</span>
-                  <span className="legend-period">{r.period.replace(/\s*\(.*\)/, '')}</span>
-                  {cb && <img className="legend-key" src={cb} alt={`${r.name} colour key`} />}
+                  <div className="legend-row">
+                    <span className="dot" style={{ background: r.colour }} aria-hidden="true" />
+                    <span className="legend-name">{r.short}</span>
+                    <span className="legend-period">{r.period.replace(/\s*\(.*\)/, '')}</span>
+                  </div>
+                  <div className={`legend-bar ${r.scale.lightBar ? 'light' : ''}`} style={{ background: `linear-gradient(to right, ${r.scale.colours.join(', ')})` }} aria-hidden="true" />
+                  <div className="legend-ends" aria-label={`${r.name}: from ${r.scale.low} to ${r.scale.high}`}>
+                    <span>{r.scale.low}</span>
+                    <span>{r.scale.high}</span>
+                  </div>
                 </li>
               );
             })}

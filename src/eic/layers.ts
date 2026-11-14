@@ -211,47 +211,80 @@ function buildLut(stops: Array<[number, number, number, number]>, maxDistance: n
   return lut;
 }
 
-function decodeFrame(layer: Layer) {
-  const { data } = layer.ctx.getImageData(0, 0, GRID_W, GRID_H);
-  const out = layer.grid;
+/** One pixel's colour -> value (NaN = no data). `cloud` receives the cloud amount for rain. */
+function decodePixel(layer: Layer, r: number, g: number, b: number, lat: number, cloud?: { v: number }): number {
   const d = layer.decode;
-  for (let i = 0, o = 0; i < CELLS; i++, o += 4) {
-    const r = data[o];
-    const g = data[o + 1];
-    const b = data[o + 2];
-    const mx = Math.max(r, g, b);
-    switch (d.kind) {
-      case 'colorbar': {
-        const v = layer.lut![((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)];
-        out[i] = Number.isNaN(v) && layer.rec.empty === 'zero' ? 0 : v;
-        break;
-      }
-      case 'bright':
-        out[i] = Math.max(0, (mx / 255 - d.floor) / (1 - d.floor));
-        break;
-      case 'colourful': {
-        const sat = mx ? (mx - Math.min(r, g, b)) / mx : 0;
-        out[i] = Math.min(1, Math.max(0, (sat - 0.35) / 0.5) * (mx / 255) * 1.6);
-        break;
-      }
-      case 'warm': {
-        const warm = (r - b) / 255;
-        out[i] = Math.max(0, Math.min(1, (warm - 0.28) / 0.55)) * (r / 255);
-        break;
-      }
-      case 'precip': {
-        const mn = Math.min(r, g, b);
-        const sat = mx ? (mx - mn) / mx : 0;
-        const lat = 90 - (Math.floor(i / GRID_W) + 0.5) / PER_DEG;
-        // clouds: bright and grey (ice sheets look the same, so skip the polar caps)
-        layer.second![i] = sat < 0.2 && mx > 140 && Math.abs(lat) < 66 ? (mx - 140) / 115 : 0;
-        // rain: the colour key if we have one, otherwise bright saturated blue-to-pink
-        const v = layer.lut ? layer.lut[((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)] : NaN;
-        out[i] = Number.isNaN(v) ? (sat > 0.35 && mx > 120 && b >= g ? Math.min(1, (mx - 120) / 135) : 0) : v;
-        break;
-      }
+  const mx = Math.max(r, g, b);
+  switch (d.kind) {
+    case 'colorbar': {
+      const v = layer.lut![((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)];
+      return Number.isNaN(v) && layer.rec.empty === 'zero' ? 0 : v;
+    }
+    case 'bright':
+      return Math.max(0, (mx / 255 - d.floor) / (1 - d.floor));
+    case 'colourful': {
+      const sat = mx ? (mx - Math.min(r, g, b)) / mx : 0;
+      return Math.min(1, Math.max(0, (sat - 0.35) / 0.5) * (mx / 255) * 1.6);
+    }
+    case 'warm': {
+      const warm = (r - b) / 255;
+      return Math.max(0, Math.min(1, (warm - 0.28) / 0.55)) * (r / 255);
+    }
+    case 'precip': {
+      const mn = Math.min(r, g, b);
+      const sat = mx ? (mx - mn) / mx : 0;
+      // clouds: bright and grey (ice sheets look the same, so skip the polar caps)
+      if (cloud) cloud.v = sat < 0.2 && mx > 140 && Math.abs(lat) < 66 ? (mx - 140) / 115 : 0;
+      // rain: the colour key if we have one, otherwise bright saturated blue-to-pink
+      const v = layer.lut ? layer.lut[((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)] : NaN;
+      return Number.isNaN(v) ? (sat > 0.35 && mx > 120 && b >= g ? Math.min(1, (mx - 120) / 135) : 0) : v;
     }
   }
+}
+
+function decodeFrame(layer: Layer) {
+  const { data } = layer.ctx.getImageData(0, 0, GRID_W, GRID_H);
+  const cloud = { v: 0 };
+  for (let i = 0, o = 0; i < CELLS; i++, o += 4) {
+    const lat = 90 - (Math.floor(i / GRID_W) + 0.5) / PER_DEG;
+    layer.grid[i] = decodePixel(layer, data[o], data[o + 1], data[o + 2], lat, cloud);
+    if (layer.second) layer.second[i] = cloud.v;
+  }
+}
+
+const regionCanvas = document.createElement('canvas');
+const regionCtx = regionCanvas.getContext('2d', { willReadFrequently: true })!;
+/**
+ * Values for a small area at the visualization's own resolution (for the Bahrain close-up):
+ * every value is one real pixel of the NASA frame.
+ */
+export function regionValues(id: RecordId, b: { west: number; east: number; south: number; north: number }) {
+  const layer = layers.get(id);
+  const el = layer?.el;
+  if (!layer?.ready || !el) return null;
+  const W = el instanceof HTMLVideoElement ? el.videoWidth : el.naturalWidth;
+  const H = el instanceof HTMLVideoElement ? el.videoHeight : el.naturalHeight;
+  if (!W || !H) return null;
+  const [ax0, ay0, ax1, ay1] = layer.rec.area;
+  const sx0 = (ax0 + ((b.west + 180) / 360) * (ax1 - ax0)) * W;
+  const sx1 = (ax0 + ((b.east + 180) / 360) * (ax1 - ax0)) * W;
+  const sy0 = (ay0 + ((90 - b.north) / 180) * (ay1 - ay0)) * H;
+  const sy1 = (ay0 + ((90 - b.south) / 180) * (ay1 - ay0)) * H;
+  const w = Math.max(2, Math.round(sx1 - sx0));
+  const h = Math.max(2, Math.round(sy1 - sy0));
+  regionCanvas.width = w;
+  regionCanvas.height = h;
+  regionCtx.drawImage(el, sx0, sy0, sx1 - sx0, sy1 - sy0, 0, 0, w, h);
+  const { data } = regionCtx.getImageData(0, 0, w, h);
+  const values = new Float32Array(w * h);
+  const clouds = layer.second ? new Float32Array(w * h) : null;
+  const cloud = { v: 0 };
+  for (let i = 0, o = 0; i < w * h; i++, o += 4) {
+    const lat = b.north - ((Math.floor(i / w) + 0.5) / h) * (b.north - b.south);
+    values[i] = decodePixel(layer, data[o], data[o + 1], data[o + 2], lat, cloud);
+    if (clouds) clouds[i] = cloud.v;
+  }
+  return { w, h, values, clouds, pixelDeg: 360 / ((ax1 - ax0) * W) };
 }
 
 /** Reads the current frame into the grid (at most every `minMs`). */

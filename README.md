@@ -31,15 +31,16 @@ The layers line up in place, not in time: each keeps its real dates, shown on th
 
 ## How the map stacks six visualizations
 
-The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equirectangular world map, so one shader places them all. Each layer's background is made transparent in the shader (black space for lights, lightning and CO₂; grey land under the ocean flows; the base map under rain and clouds; light green "clean air" for NOx), so all six can be layered while the data stays visible. NASA logos and date stamps burned into the frames are masked out of both the picture and the sound.
+The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equirectangular world map, so one shader places them all. Each layer's background is made transparent in the shader (black space for lights, lightning and CO₂; grey land under the ocean flows; the base map under rain and clouds; light green "clean air" for NOx, which is redrawn as dark smog), so all six can be layered while the data stays visible. NASA logos and date stamps burned into the frames are masked out of both the picture and the sound.
 
 ## How it's sonified
 
 1. **Pixels to numbers.** Each frame is drawn into a 360 × 180 grid (1° cells). Each pixel's colour is matched to the visualization's colour key (`src/eic/layers.ts`), giving a value from 0 to 1, or "no data" (land under the ocean layer).
 2. **Three ways to listen** (`src/audio/conductor.ts`), all on a 16th-note grid at 80 BPM:
    - **Listen**: the view's average, hotspot strength and coverage drive each instrument while its video plays.
-   - **Scan**: the videos pause and a needle sweeps the view in one bar, driven by the audio clock so it moves smoothly. Each strong point plays exactly when the needle reaches it, and flashes on the map: higher on screen = higher pitch, stronger = louder, left/right = stereo.
-   - **Probe**: the value under the probe plays on every beat.
+   - **Scan**: the videos pause and a needle sweeps the view in three bars (about 9 seconds), driven by the audio clock so it moves smoothly. Each strong point plays exactly when the needle reaches it, and flashes on the map: higher on screen = higher pitch, stronger = louder, left/right = stereo.
+   - **Probe**: the value under the probe plays on every beat. Clicking a spot makes the narrator say where it is and what each playing record shows there.
+   - **Bahrain close-up** (`B`, the gold pin, or Go to): a detailed 1:10m coastline of Bahrain, Qatar and the Saudi coast with the records drawn on top at NASA's native resolution, and the sound listens only to that area. EIC frames are 2048 px wide (about 19 km per pixel), so the panel shows the NASA pixel grid and says plainly that Bahrain is only a handful of readings.
 3. **Harmony.** Under the Earth records, a slow A major progression (A, F#m, D, E) on viola with a deep synth root changes every two bars. When humanity is muted, it swells and the hall opens up.
 4. **Mix rules.** Earth records use A major pentatonic, the key the instruments were recorded in, with reverb. Humanity records use notes that clash with it (A#, D#, F, G), dry with a little grit. The humanity lever scales their volume; Mute Humanity fades them out.
 
@@ -67,7 +68,8 @@ The story and key moments are narrated with **Kokoro**, an open neural text-to-s
 | Humanity | `↑` `↓`, `M` to mute | D-pad ↑ ↓ | "mute humanity", "humanity to 50 percent" |
 | Listen / Scan / Probe | `L` `S` `P` | `Y` cycles | "scan", "probe", "listen" |
 | Move probe | arrows (Probe mode) or mouse | left stick (Probe mode) | |
-| Places | `G` next place; chips in the dock | triggers | "go to Bahrain" |
+| Places | `G` next place; Go to list | triggers | "go to Bahrain" |
+| Bahrain close-up | `B` (Escape closes) | | "Bahrain close-up" |
 | Solo | `O` | View | "solo NOx" |
 | Story | `T` | Start | "play the story" |
 | Map | Shift + arrows, `+` `-` `0`, mouse | left stick, right stick / bumpers zoom | "zoom in" |
@@ -79,7 +81,7 @@ The story and key moments are narrated with **Kokoro**, an open neural text-to-s
 ## Accessibility
 
 - Every control is a real button or slider with a label; the screen reader hears what each record sounds like.
-- "Play the story" is a hands-free, narrated 90-second tour.
+- "Play the story" is a hands-free, narrated tour of about three minutes that explains how each map becomes sound; the music ducks while the narrator speaks.
 - `D` describes what you're hearing; captions describe the music for deaf and hard-of-hearing users.
 - Keyboard and switch access for everything, controller vibration, voice commands.
 - High contrast and reduced motion (also follows the system setting).

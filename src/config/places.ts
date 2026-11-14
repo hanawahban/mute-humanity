@@ -91,3 +91,18 @@ export function nameRegion(lat: number, lon: number, zoom: number): string {
   const ew = lon >= 0 ? 'E' : 'W';
   return `${Math.abs(Math.round(lat))}°${ns}, ${Math.abs(Math.round(lon))}°${ew}`;
 }
+
+/** The closest named place within maxDeg degrees, if any. */
+export function nearestPlace(lat: number, lon: number, maxDeg: number): Place | null {
+  let best: Place | null = null;
+  let bestD = Infinity;
+  for (const p of PLACES) {
+    if (p.zoom <= 1) continue;
+    const d = angularDistance(lat, lon, p.lat, p.lon);
+    if (d < bestD) {
+      bestD = d;
+      best = p;
+    }
+  }
+  return best && bestD < maxDeg ? best : null;
+}

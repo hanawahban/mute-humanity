@@ -98,8 +98,15 @@ export function screenToLatLon(x: number, y: number): { lat: number; lon: number
   return { lat: clamp(f.lat - (y - viewH / 2) / k, -90, 90), lon: wrapLon(f.lon + (x - viewW / 2) / k) };
 }
 
+/** While the Bahrain close-up is open, the sound listens to its area instead of the map view. */
+let region: { west: number; east: number; south: number; north: number } | null = null;
+export function setRegion(r: typeof region) {
+  region = r;
+}
+
 /** The part of the world on screen, in degrees. west can be greater than east across 180°. */
 export function viewBounds() {
+  if (region) return { ...region, lonSpan: region.east - region.west };
   const f = getState().focus;
   const k = baseScale() * f.zoom;
   const halfLon = Math.min(180, viewW / 2 / k);
