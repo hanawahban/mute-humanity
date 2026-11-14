@@ -91,7 +91,7 @@ records:
       - {id: ind_fire_frp, group: human, units: "MW (sum FRP)", rawMin: 1, rawMax: 2000, scale: log}
       - {id: ind_fire_count, group: human, units: "count", rawMin: 1, rawMax: 200, scale: log}
     datasets:
-      - {reader: firms, dir: pipeline/cache/firms, satellite: T, min_confidence: 30,
+      - {reader: firms, dir: pipeline/cache/firms, satellite: Terra, min_confidence: 30,
          type_map: {veg: [0], industrial: [2, 3], ignored: [1]},   # type 1 = volcano, ignored
          years: [2001, null], sampling: {annual: true}}
     splice: []

@@ -6,10 +6,49 @@ import pandas as pd
 
 from . import config
 
-COLS = ["latitude", "longitude", "acq_date", "frp", "confidence", "type", "satellite"]
+COLS = ["latitude", "longitude", "acq_date", "acq_time", "frp", "confidence", "type", "satellite"]
 
 
-def load_csvs(directory, satellite="T", min_confidence=30):
+SAT_NAMES = {"T": {"T", "Terra"}, "Terra": {"T", "Terra"}, "A": {"A", "Aqua"}, "Aqua": {"A", "Aqua"}}
+DEDUP = ["latitude", "longitude", "acq_date", "acq_time", "satellite"]
+
+
+def keep_rows(df, satellite="Terra", min_confidence=30):
+    """Wanted satellite (accepts 'T' or 'Terra' spellings) and confidence >= min_confidence."""
+    names = SAT_NAMES.get(satellite, {satellite})
+    return df[df["satellite"].astype(str).str.strip().isin(names) & (df["confidence"] >= min_confidence)]
+
+
+def dedup(df):
+    """Drop duplicate detections (same lat, lon, date, time, satellite), e.g. border pixels in two countries."""
+    return df.drop_duplicates(subset=[c for c in DEDUP if c in df.columns])
+
+
+def load_year_zip(zip_path, satellite="Terra", min_confidence=30):
+    """One yearly country ZIP (one CSV per country inside) -> deduplicated, filtered DataFrame.
+    Returns (df, stats) with row counts before and after filtering and dedup."""
+    import zipfile
+    parts, n_raw = [], 0
+    with zipfile.ZipFile(zip_path) as z:
+        for name in sorted(n for n in z.namelist() if n.lower().endswith(".csv")):
+            with z.open(name) as f:
+                df = pd.read_csv(f, usecols=lambda c: c in COLS, dtype={"satellite": str, "acq_time": str})
+            n_raw += len(df)
+            parts.append(keep_rows(df, satellite, min_confidence))
+    out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=COLS)
+    n_filtered = len(out)
+    out = dedup(out)
+    return out, {"rows_raw": n_raw, "rows_filtered": n_filtered, "rows_dedup": len(out), "files": len(parts)}
+
+
+def cell_ids(df, step=0.1):
+    """Integer id of the step-degree cell of each detection (for coverage estimates)."""
+    r = np.floor((90 - df["latitude"].to_numpy()) / step).astype(int)
+    c = np.floor((df["longitude"].to_numpy() + 180) / step).astype(int)
+    return r * int(360 / step) + c
+
+
+def load_csvs(directory, satellite="Terra", min_confidence=30):
     """Read every CSV in directory (archive may come in chunks). Keeps only the
     wanted satellite and confidence >= min_confidence. Returns a DataFrame."""
     files = sorted(Path(directory).glob("*.csv"))
@@ -17,10 +56,9 @@ def load_csvs(directory, satellite="T", min_confidence=30):
         raise FileNotFoundError(f"no FIRMS CSVs in {directory}")
     parts = []
     for f in files:
-        df = pd.read_csv(f, usecols=lambda c: c in COLS, dtype={"satellite": str})
+        df = pd.read_csv(f, usecols=lambda c: c in COLS, dtype={"satellite": str, "acq_time": str})
         n0 = len(df)
-        df = df[df["satellite"].str.strip() == satellite]
-        df = df[df["confidence"] >= min_confidence]
+        df = keep_rows(df, satellite, min_confidence)
         print(f"firms: {f.name}: {len(df)}/{n0} rows kept")
         parts.append(df)
     out = pd.concat(parts, ignore_index=True)

@@ -79,8 +79,15 @@ def main(name):
     first = (sampling.plan_dates(y, ds["sampling"]) or [None])[0] if "days" in ds["sampling"] else None
     start, end = (first.isoformat(),) * 2 if first else (f"{y}-01-01", f"{y}-12-31")
     found = access.find(ds["short_name"], start, end, version=ds.get("version"), count=1)
+    if not found:  # product may start mid-year: widen to the whole start year, then the next
+        print(f"no granule for {start}..{end}; widening search")
+        for yy in (y, y + 1):
+            found = access.find(ds["short_name"], f"{yy}-01-01", f"{yy}-12-31", version=ds.get("version"), count=1)
+            if found:
+                break
     if not found:
-        sys.exit(f"no granules for {ds['short_name']} {start}..{end}")
+        sys.exit(f"no granules for {ds['short_name']} (version {ds.get('version')}) near {y}. "
+                 f"Check the short name: search with earthaccess.search_datasets(keyword=...)")
     print("granule:", access.granule_name(found[0]))
     path = access.download(found[0], config.CACHE / "inspect" / name)
     print("file:", path)

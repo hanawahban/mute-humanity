@@ -128,3 +128,17 @@ def test_splice_ratio_recovers_known_factor():
     assert np.allclose(r, 2.5, atol=1e-6)
     r = splice.compute_ratio(to, frm, "ratio_of_means", smooth=3, clip=[0.5, 2.0])
     assert np.allclose(r, 2.0)  # clipped
+
+
+def test_firms_zip_dedup_and_terra_names(tmp_path):
+    import zipfile
+    cols = "latitude,longitude,acq_date,acq_time,satellite,confidence,frp,type\n"
+    a = cols + "10.0,20.0,2019-01-01,0137,Terra,90,5,0\n11.0,21.0,2019-01-01,0137,Aqua,90,5,0\n12.0,22.0,2019-01-01,0137,Terra,10,5,0\n"
+    b = cols + "10.0,20.0,2019-01-01,0137,Terra,90,5,0\n13.0,23.0,2019-01-02,0900,Terra,80,2,2\n"  # first row = border duplicate
+    zp = tmp_path / "modis_2019_all_countries.zip"
+    with zipfile.ZipFile(zp, "w") as z:
+        z.writestr("modis/2019/modis_2019_A.csv", a)
+        z.writestr("modis/2019/modis_2019_B.csv", b)
+    df, st = fires.load_year_zip(zp, "Terra", 30)
+    assert st["rows_raw"] == 5 and st["rows_filtered"] == 3 and st["rows_dedup"] == 2
+    assert set(df["type"]) == {0, 2}
