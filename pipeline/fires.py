@@ -24,17 +24,29 @@ def dedup(df):
     return df.drop_duplicates(subset=[c for c in DEDUP if c in df.columns])
 
 
-def load_year_zip(zip_path, satellite="Terra", min_confidence=30):
-    """One yearly country ZIP (one CSV per country inside) -> deduplicated, filtered DataFrame.
-    Returns (df, stats) with row counts before and after filtering and dedup."""
+def _csv_sources(path):
+    """Yield (name, binary file object) for each CSV in a yearly ZIP or an extracted folder."""
     import zipfile
+    path = Path(path)
+    if path.is_dir():
+        for f in sorted(path.rglob("*.csv")):
+            with f.open("rb") as fh:
+                yield f.name, fh
+    else:
+        with zipfile.ZipFile(path) as z:
+            for name in sorted(n for n in z.namelist() if n.lower().endswith(".csv")):
+                with z.open(name) as fh:
+                    yield name, fh
+
+
+def load_year_zip(zip_path, satellite="Terra", min_confidence=30):
+    """One yearly country ZIP (or extracted folder; one CSV per country) -> deduplicated, filtered DataFrame.
+    Returns (df, stats) with row counts before and after filtering and dedup."""
     parts, n_raw = [], 0
-    with zipfile.ZipFile(zip_path) as z:
-        for name in sorted(n for n in z.namelist() if n.lower().endswith(".csv")):
-            with z.open(name) as f:
-                df = pd.read_csv(f, usecols=lambda c: c in COLS, dtype={"satellite": str, "acq_time": str})
-            n_raw += len(df)
-            parts.append(keep_rows(df, satellite, min_confidence))
+    for _, f in _csv_sources(zip_path):
+        df = pd.read_csv(f, usecols=lambda c: c in COLS, dtype={"satellite": str, "acq_time": str})
+        n_raw += len(df)
+        parts.append(keep_rows(df, satellite, min_confidence))
     out = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame(columns=COLS)
     n_filtered = len(out)
     out = dedup(out)

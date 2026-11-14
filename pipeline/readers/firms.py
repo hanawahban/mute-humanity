@@ -2,6 +2,7 @@
 
 Inputs in pipeline/cache/firms/ (nothing is downloaded by the pipeline):
   modis_<year>_all_countries.zip   one CSV per country inside; duplicates across countries dropped
+  modis_<year>_all_countries/      same, as an extracted folder (zip or folder both work; symlinks fine)
   *.csv                            archive CSV (e.g. the partial current year), any years inside
 Columns confirmed on a real file: latitude, longitude, brightness, scan, track, acq_date, acq_time,
 satellite ("Terra"/"Aqua"), instrument, confidence, version, bright_t31, frp, daynight, type.
@@ -38,8 +39,8 @@ def inventory(directory):
     """{year: ('zip', path)} for country ZIPs, plus the archive CSV paths."""
     zips, csvs = {}, []
     for p in sorted(Path(directory).iterdir()):
-        m = re.search(r"modis_(\d{4})_", p.name)
-        if p.suffix.lower() == ".zip" and m:
+        m = re.search(r"modis_(\d{4})(?:_|$)", p.name)
+        if m and (p.is_dir() or p.suffix.lower() == ".zip"):
             zips[int(m.group(1))] = p
         elif p.suffix.lower() == ".csv":
             csvs.append(p)
