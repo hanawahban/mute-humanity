@@ -1,18 +1,21 @@
 // Keyboard control for the whole app. Switch devices send key presses too, so they work here.
 //
-//   1-6           play/stop a record          F       flip the chosen record (side A / B)
-//   Left/Right    previous/next year          Up/Down humanity lever
-//   M             mute / unmute humanity      P       play/pause the 75-year timeline
-//   + / -         zoom in / out               Shift + arrows  move around the map
-//   D             "what am I hearing?"        V (hold) talk: voice command
-//   0             whole planet                C captions, H help
+//   1-6           play/stop a record          Left/Right  choose a record
+//   Up/Down       humanity lever              M           mute / unmute humanity
+//   L / S / P     Listen, Scan, Probe         arrows in Probe mode move the probe
+//   G             next place for the record   O           solo the chosen record
+//   T             play / stop the story       Shift + arrows  move the map
+//   + / - / 0     zoom in, out, whole planet  D           "what am I hearing?"
+//   V (hold)      talk: voice command         C captions, H help
 //
 // When a slider or text field has focus, it keeps its own arrow keys.
 
 import { RECORDS } from '../config/records';
 import {
-  announce, describe, flipRecord, nudgeYear, panBy, resetView, setAutoplay, setHumanity, toggleMuteHumanity, toggleRecord, zoomBy,
+  announce, cycleMode, describe, moveProbe, nextHotspot, panBy, resetView, selectRecord, setHumanity, setMode,
+  toggleMuteHumanity, toggleRecord, toggleSolo, zoomBy,
 } from '../state/actions';
+import { startStory, stopStory } from '../state/story';
 import { getState, setState } from '../state/store';
 import { startListening, stopListening } from './voice';
 
@@ -37,20 +40,16 @@ export function initKeyboard() {
       e.preventDefault();
       return;
     }
-    if (e.shiftKey && e.key.startsWith('Arrow')) {
+    if (e.key.startsWith('Arrow') && !arrowsTaken) {
       const step = 6 / s.focus.zoom;
-      if (e.key === 'ArrowUp') panBy(step, 0);
-      if (e.key === 'ArrowDown') panBy(-step, 0);
-      if (e.key === 'ArrowLeft') panBy(0, -step * 1.5);
-      if (e.key === 'ArrowRight') panBy(0, step * 1.5);
+      const dy = e.key === 'ArrowUp' ? 1 : e.key === 'ArrowDown' ? -1 : 0;
+      const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (e.shiftKey) panBy(dy * step, dx * step * 1.5);
+      else if (s.mode === 'probe') moveProbe(dy * step * 0.5, dx * step * 0.6);
+      else if (dx) selectRecord(dx);
+      else setHumanity(s.humanity + dy * 0.1);
       e.preventDefault();
       return;
-    }
-    if (!arrowsTaken) {
-      if (e.key === 'ArrowLeft') return void (nudgeYear(-1), e.preventDefault());
-      if (e.key === 'ArrowRight') return void (nudgeYear(1), e.preventDefault());
-      if (e.key === 'ArrowUp') return void (setHumanity(s.humanity + 0.1), e.preventDefault());
-      if (e.key === 'ArrowDown') return void (setHumanity(s.humanity - 0.1), e.preventDefault());
     }
     if (arrowsTaken && (e.target as HTMLInputElement).type === 'text') return;
 
@@ -58,11 +57,30 @@ export function initKeyboard() {
       case 'm':
         toggleMuteHumanity();
         break;
-      case 'f':
-        void flipRecord(s.selected);
+      case 'l':
+        setMode('listen');
+        break;
+      case 's':
+        setMode('scan');
         break;
       case 'p':
-        setAutoplay(!s.autoplay);
+        setMode('probe');
+        break;
+      case 'tab':
+        return;
+      case 'g':
+        nextHotspot(e.shiftKey ? -1 : 1);
+        break;
+      case 'o':
+        toggleSolo();
+        break;
+      case 't':
+        if (s.story.running) stopStory();
+        else void startStory();
+        break;
+      case 'enter':
+        if (e.target === document.body) void toggleRecord(s.selected);
+        else return;
         break;
       case '+':
       case '=':
@@ -88,6 +106,9 @@ export function initKeyboard() {
         break;
       case 'v':
         if (!e.repeat) startListening();
+        break;
+      case 'y':
+        cycleMode();
         break;
       default:
         return;

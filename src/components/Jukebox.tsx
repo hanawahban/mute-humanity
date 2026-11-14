@@ -1,112 +1,78 @@
-// The jukebox dock: six records, the humanity lever and the timeline.
+// The jukebox dock: six records, the humanity lever, how to listen, places, and the story.
 // Built from real buttons and range inputs, so keyboard and screen readers work by default.
 
-import { useMemo, type CSSProperties } from 'react';
-import { RECORDS, YEAR_MAX, YEAR_MIN, type RecordDef } from '../config/records';
-import { flipRecord, muteHumanity, setAutoplay, setHumanity, setYear, toggleRecord, unmuteHumanity } from '../state/actions';
-import { useStore } from '../state/store';
-import { hasYear } from '../data/sample';
-
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const pct = (y: number) => ((y - YEAR_MIN) / (YEAR_MAX - YEAR_MIN)) * 100;
-
-/** Warming stripes from the temperature prologue layer: the timeline's track. */
-function useWarmingStripes(): string | undefined {
-  const data = useStore((s) => s.data);
-  return useMemo(() => {
-    const layer = data?.layers.get('temperature');
-    if (!data || !layer) return undefined;
-    const cells = data.cells;
-    const means = layer.meta.years.map((_, t) => {
-      let sum = 0;
-      let n = 0;
-      for (let i = t * cells; i < (t + 1) * cells; i++) {
-        if (layer.yearly[i] === 255) continue;
-        sum += layer.yearly[i];
-        n++;
-      }
-      return n ? sum / n / 254 : 0.5;
-    });
-    const lo = Math.min(...means);
-    const hi = Math.max(...means);
-    const stops = means.map((m, i) => {
-      const t = (m - lo) / (hi - lo || 1);
-      const colour = t < 0.5
-        ? `rgb(${Math.round(40 + t * 2 * 200)}, ${Math.round(90 + t * 2 * 150)}, ${Math.round(190 + t * 2 * 40)})`
-        : `rgb(${Math.round(240 - (t - 0.5) * 2 * 60)}, ${Math.round(240 - (t - 0.5) * 2 * 210)}, ${Math.round(230 - (t - 0.5) * 2 * 200)})`;
-      return `${colour} ${pct(layer.meta.years[i]).toFixed(1)}%`;
-    });
-    return `linear-gradient(to right, ${stops.join(', ')})`;
-  }, [data]);
-}
+import { type CSSProperties } from 'react';
+import { HOTSPOTS } from '../config/places';
+import { RECORDS, type RecordDef } from '../config/records';
+import { bringToTop, goToPlace, muteHumanity, setHumanity, setMode, toggleRecord, toggleSolo, unmuteHumanity } from '../state/actions';
+import { startStory, stopStory, storyLength } from '../state/story';
+import { useStore, visible, type Mode } from '../state/store';
 
 function Vinyl({ rec, index }: { rec: RecordDef; index: number }) {
-  const data = useStore((s) => s.data);
   const isOn = useStore((s) => s.playing[rec.id]);
-  const isA = useStore((s) => s.sideA === rec.id);
   const selected = useStore((s) => s.selected === rec.id);
-  const level = useStore((s) => s.mix[rec.id]?.value ?? 0);
-  const year = useStore((s) => s.year);
-  const layer = data?.layers.get(rec.layer);
-  const available = isA || (layer ? hasYear(layer, year) : false);
-  const startYear = layer?.meta.years[0];
-  const status = !available ? `no data yet, starts ${startYear ?? 'later'}` : isOn ? (isA ? 'playing side A' : 'playing') : 'stopped';
+  const solo = useStore((s) => s.solo);
+  const level = useStore((s) => s.levels[rec.id]?.value ?? 0);
+  const onMap = useStore((s) => visible(s).includes(rec.id));
+  const progress = useStore((s) => s.progress[rec.id]);
+  const silenced = solo != null && solo !== rec.id;
+  const status = isOn ? (silenced ? 'playing, silenced by solo' : onMap ? 'playing, on the map' : 'playing, sound only') : 'stopped';
 
   return (
     <div
-      className={`vinyl ${isOn ? 'on' : ''} ${selected ? 'selected' : ''} ${available ? '' : 'dark'}`}
+      className={`vinyl ${isOn ? 'on' : ''} ${selected ? 'selected' : ''} ${silenced ? 'dark' : ''}`}
       style={{ '--rec': rec.colour, '--level': `${Math.round(level * 100)}%` } as CSSProperties}
     >
       <button
         type="button"
         className="vinyl-disc"
         aria-pressed={isOn}
-        aria-label={`${rec.name}, ${rec.side === 'earth' ? 'Earth' : 'humanity'} record, ${status}. Key ${index + 1}.`}
+        aria-label={`${rec.name}, ${rec.side === 'earth' ? 'Earth' : 'humanity'} record, ${status}. ${rec.hear} Key ${index + 1}.`}
+        title={`${rec.eicTitle} (NASA SVS ${rec.svs}) · ${rec.period}`}
         onClick={() => void toggleRecord(rec.id)}
       >
         <span className="disc" aria-hidden="true">
           <span className="label">{index + 1}</span>
         </span>
       </button>
-      <span className="vinyl-name" aria-hidden="true">{rec.name}</span>
-      {!available ? (
-        <span className="vinyl-note" aria-hidden="true">from {startYear}</span>
-      ) : isOn ? (
-        <button
-          type="button"
-          className={`flip ${isA ? 'is-a' : ''}`}
-          aria-pressed={isA}
-          aria-label={isA ? `${rec.name}: back to side B, NASA data on the map` : `${rec.name}: flip to side A, the visualization ${rec.eic.title}`}
-          onClick={() => void flipRecord(rec.id)}
-        >
-          {isA ? 'Side A' : 'Side B'}
+      <span className="vinyl-name" aria-hidden="true">{rec.short}</span>
+      {isOn && !onMap && !silenced ? (
+        <button type="button" className="flip" onClick={() => bringToTop(rec.id)} aria-label={`Show ${rec.name} on the map`}>
+          Show
         </button>
       ) : (
-        <span className="vinyl-note" aria-hidden="true">&nbsp;</span>
+        <span className="vinyl-note" aria-hidden="true">
+          {isOn && progress != null ? <span className="progress" style={{ '--p': `${Math.round(progress * 100)}%` } as CSSProperties} /> : rec.period.replace(/\s*\(.*\)/, '')}
+        </span>
       )}
     </div>
   );
 }
 
+const MODES: Array<{ id: Mode; label: string; hint: string }> = [
+  { id: 'listen', label: 'Listen', hint: 'Hear everything in view (L)' },
+  { id: 'scan', label: 'Scan', hint: 'A needle sweeps the view (S)' },
+  { id: 'probe', label: 'Probe', hint: 'Hear the spot under the cursor (P)' },
+];
+
 export function Jukebox() {
-  const year = useStore((s) => s.year);
-  const month = useStore((s) => s.month);
   const humanity = useStore((s) => s.humanity);
-  const autoplay = useStore((s) => s.autoplay);
-  const stripes = useWarmingStripes();
-  const shownYear = Math.round(year);
-  const yearText = month != null ? `${MONTHS[month]} ${Math.floor(year)}` : `${shownYear}`;
+  const mode = useStore((s) => s.mode);
+  const selected = useStore((s) => s.selected);
+  const solo = useStore((s) => s.solo);
+  const story = useStore((s) => s.story);
   const earth = RECORDS.filter((r) => r.side === 'earth');
   const human = RECORDS.filter((r) => r.side === 'human');
+  const sel = RECORDS.find((r) => r.id === selected)!;
 
   return (
     <section className="dock" aria-label="Jukebox">
       <div className="dock-row">
-        <div className="group earth" role="group" aria-label="Earth records">
+        <div className="group earth" role="group" aria-label="Earth records, in tune">
           <h2>Earth</h2>
           <div className="vinyls">{earth.map((r) => <Vinyl key={r.id} rec={r} index={RECORDS.indexOf(r)} />)}</div>
         </div>
-        <div className="group human" role="group" aria-label="Humanity records">
+        <div className="group human" role="group" aria-label="Humanity records, out of key">
           <h2>Humanity</h2>
           <div className="vinyls">{human.map((r) => <Vinyl key={r.id} rec={r} index={RECORDS.indexOf(r)} />)}</div>
         </div>
@@ -132,51 +98,33 @@ export function Jukebox() {
         </div>
       </div>
 
-      <div className="timeline">
+      <div className="controls-row">
+        <div className="modes" role="group" aria-label="How to listen">
+          {MODES.map((m) => (
+            <button key={m.id} type="button" aria-pressed={mode === m.id} title={m.hint} onClick={() => setMode(m.id)}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        <div className="places" role="group" aria-label={`Places for ${sel.name}`}>
+          <span className="places-label" aria-hidden="true">{sel.short}:</span>
+          {(HOTSPOTS[selected] ?? []).map((p) => (
+            <button key={p} type="button" className="chip" onClick={() => goToPlace(p)}>
+              {p.replace(/^the /, '')}
+            </button>
+          ))}
+          <button type="button" className="chip" aria-pressed={solo === selected} onClick={() => toggleSolo(selected)} title="Hear only this record (O)">
+            Solo
+          </button>
+        </div>
         <button
           type="button"
-          className="play"
-          onClick={() => setAutoplay(!autoplay)}
-          aria-pressed={autoplay}
-          aria-label={autoplay ? 'Pause the timeline' : 'Play 75 years, 1950 to today'}
-          title={autoplay ? 'Pause (P)' : 'Play 75 years (P)'}
+          className={`story ${story.running ? 'running' : ''}`}
+          onClick={() => (story.running ? stopStory() : void startStory())}
+          title="A guided 90-second tour (T)"
         >
-          {autoplay ? (
-            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
-          ) : (
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l11-6.5z" /></svg>
-          )}
+          {story.running ? `Stop the story · ${story.step + 1}/${storyLength}` : 'Play the story'}
         </button>
-        <div className="track">
-          <div className="eras" aria-hidden="true">
-            <span style={{ left: '0%' }}>1950 · prologue</span>
-            <span style={{ left: `${pct(1979)}%` }}>1979 · satellites</span>
-            <span style={{ left: `${pct(2000)}%` }}>2000 · full mix</span>
-          </div>
-          <label htmlFor="year" className="visually-hidden">Year</label>
-          <input
-            id="year"
-            type="range"
-            min={YEAR_MIN}
-            max={YEAR_MAX}
-            step="any"
-            value={year}
-            style={stripes ? { background: stripes } : undefined}
-            aria-valuetext={`Year ${yearText}`}
-            onChange={(e) => setYear(Number(e.target.value), { dragging: true })}
-            onPointerUp={(e) => setYear(Math.round(Number((e.target as HTMLInputElement).value)), { quiet: true })}
-            onKeyUp={(e) => setYear(Math.round(Number((e.target as HTMLInputElement).value)), { quiet: true })}
-          />
-          <div className="ticks" aria-hidden="true">
-            {[1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020].map((y) => (
-              <span key={y} style={{ left: `${pct(y)}%` }}>{y}</span>
-            ))}
-          </div>
-        </div>
-        <div className="year-display" aria-hidden="true">
-          <span className="year-big">{Math.floor(month != null ? year : shownYear)}</span>
-          <span className="year-month">{month != null ? MONTHS[month] : 'yearly'}</span>
-        </div>
       </div>
     </section>
   );

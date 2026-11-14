@@ -1,40 +1,42 @@
 import { useEffect, useState } from 'react';
 import { Jukebox } from './components/Jukebox';
 import { MapView } from './components/MapView';
-import { SideA } from './components/SideA';
 import { HelpDialog } from './components/Settings';
-import { Captions, Feeling, Legend, TopBar } from './components/Overlays';
-import { loadData } from './data/loader';
-import { startMixer } from './audio/mixer';
+import { Captions, Feeling, Legend, ProbeReadout, TopBar } from './components/Overlays';
+import { loadLayers } from './eic/layers';
+import { startConductor } from './audio/conductor';
 import { initKeyboard } from './input/keyboard';
 import { initGamepad } from './input/gamepad';
 import { ensureAudio, toggleRecord } from './state/actions';
-import { setState, useStore } from './state/store';
+import { startStory } from './state/story';
+import { useStore } from './state/store';
 
 let initialised = false;
 
 export function App() {
   const audioOn = useStore((s) => s.audioOn);
-  const loadError = useStore((s) => s.loadError);
   const highContrast = useStore((s) => s.settings.highContrast);
   const reducedMotion = useStore((s) => s.settings.reducedMotion);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
+    if (audioOn) startConductor(); // also when sound is started by a key or the controller
+  }, [audioOn]);
+
+  useEffect(() => {
     if (initialised) return;
     initialised = true;
-    loadData()
-      .then((d) => setState({ data: d }))
-      .catch((e: Error) => setState({ loadError: e.message }));
+    void loadLayers();
     initKeyboard();
     initGamepad();
-    startMixer();
   }, []);
 
-  const start = async () => {
+  const start = async (story: boolean) => {
     setStarting(true);
     await ensureAudio();
-    await toggleRecord('ocean', true);
+    startConductor();
+    if (story) await startStory();
+    else await toggleRecord('ocean', true);
   };
 
   return (
@@ -42,15 +44,14 @@ export function App() {
       <main className="stage">
         <MapView />
         <TopBar />
-        <SideA />
         <div className="map-bottom">
           <Legend />
           <div className="map-bottom-centre">
             <Captions />
             <Feeling />
           </div>
+          <ProbeReadout />
         </div>
-        {loadError && <p className="error" role="alert">{loadError}</p>}
       </main>
       <Jukebox />
       <HelpDialog />
@@ -60,11 +61,16 @@ export function App() {
           <div className="start-card">
             <p className="start-kicker">NASA Space Apps 2026 · Earth Information Jukebox</p>
             <h1>Mute Humanity</h1>
-            <p className="start-sub">Six records. 75 years of NASA data. Earth plays in tune, humanity plays out of key.</p>
-            <button type="button" className="start-button" onClick={() => void start()} disabled={starting} autoFocus>
-              Start the jukebox
-            </button>
-            <p className="start-hint">Sound starts with one click or key press. Play with the mouse, keyboard, your voice (hold V) or an Xbox controller. Press H for help.</p>
+            <p className="start-sub">Six NASA Earth Information Center maps, played as music. Earth plays in tune. Humanity plays out of key.</p>
+            <div className="start-buttons">
+              <button type="button" className="start-button" onClick={() => void start(true)} disabled={starting} autoFocus>
+                Play the story
+              </button>
+              <button type="button" className="start-button secondary" onClick={() => void start(false)} disabled={starting}>
+                Explore on my own
+              </button>
+            </div>
+            <p className="start-hint">The story is a 90-second guided tour, spoken aloud. Play with the mouse, keyboard, your voice (hold V) or an Xbox controller. Press H for help.</p>
           </div>
         </div>
       )}

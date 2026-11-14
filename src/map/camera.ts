@@ -5,7 +5,7 @@
 import { getState, setState, type Focus } from '../state/store';
 
 export const ZOOM_MIN = 1;
-export const ZOOM_MAX = 10;
+export const ZOOM_MAX = 6; // the EIC frames are 2048-4096 px wide: further in is just blur
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
@@ -96,4 +96,29 @@ export function screenToLatLon(x: number, y: number): { lat: number; lon: number
   const f = getState().focus;
   const k = baseScale() * f.zoom;
   return { lat: clamp(f.lat - (y - viewH / 2) / k, -90, 90), lon: wrapLon(f.lon + (x - viewW / 2) / k) };
+}
+
+/** The part of the world on screen, in degrees. west can be greater than east across 180°. */
+export function viewBounds() {
+  const f = getState().focus;
+  const k = baseScale() * f.zoom;
+  const halfLon = Math.min(180, viewW / 2 / k);
+  const halfLat = Math.min(90, viewH / 2 / k);
+  return {
+    west: wrapLon(f.lon - halfLon),
+    east: wrapLon(f.lon + halfLon),
+    lonSpan: halfLon * 2,
+    south: Math.max(-90, f.lat - halfLat),
+    north: Math.min(90, f.lat + halfLat),
+  };
+}
+
+/** Screen position (CSS pixels) of a latitude/longitude, picking the copy of the world nearest the centre. */
+export function latLonToScreen(lat: number, lon: number) {
+  const f = getState().focus;
+  const k = baseScale() * f.zoom;
+  let d = lon - f.lon;
+  if (d > 180) d -= 360;
+  if (d < -180) d += 360;
+  return { x: viewW / 2 + d * k, y: viewH / 2 - (lat - f.lat) * k };
 }

@@ -5,19 +5,19 @@
 //    motors just made a blur.
 // 2. Each record has its own rhythm, matching its sound. Earth records are smooth and
 //    regular; humanity records are rough and irregular:
-//      Ocean    slow swell, rising and falling with the waves     (strong motor)
-//      Plants   soft breathing pulse on the beat                    (light motor)
-//      Rain     light random drops, more drops = more rain          (light motor)
-//      NO2      Geiger-counter clicks, faster = more pollution      (strong motor)
-//      Fires    sharp crackling bursts, more bursts = more fires    (both motors)
-//      Plastic  gritty, uneven rattle                               (light motor)
-//    Strength and speed follow the data where you are listening, so moving the map over a
-//    city or a fire makes the controller react.
-// 3. Short cues confirm actions: two taps = record on, one soft tap = off, a notch every
-//    decade while you scrub through time, a long fade when humanity is muted.
+//      Ocean      slow swell, rising and falling with the waves     (strong motor)
+//      Rain       light random drops, more drops = more rain          (light motor)
+//      Lightning  sharp single strikes, more often = more lightning   (both motors)
+//      Lights     soft flicker, faster = brighter                     (light motor)
+//      CO2        low steady rumble, stronger = more emissions        (strong motor)
+//      NOx        Geiger-counter clicks, faster = more pollution      (strong motor)
+//    Strength and speed follow what's in view, under the probe, or under the scan needle,
+//    so moving over a city or a storm makes the controller react.
+// 3. Short cues confirm actions: two taps = record on, one soft tap = off, a long fade when
+//    humanity is muted.
 
 import { RECORDS, BPM, type RecordId } from '../config/records';
-import { getState, type MixEntry } from '../state/store';
+import { getState, type Level } from '../state/store';
 
 type Pulse = [ms: number, strong: number, weak: number, gapAfter?: number];
 
@@ -73,7 +73,7 @@ export function cue(name: Cue) {
 }
 
 /** The record the controller is "listening" to. */
-export function feltRecord(mix: Partial<Record<RecordId, MixEntry | null>>): RecordId | null {
+export function feltRecord(mix: Partial<Record<RecordId, Level>>): RecordId | null {
   const { selected, playing } = getState();
   if (playing[selected] && (mix[selected]?.value ?? 0) > 0.02) return selected;
   let best: RecordId | null = null;
@@ -91,7 +91,7 @@ export function feltRecord(mix: Partial<Record<RecordId, MixEntry | null>>): Rec
 const chance = (perSecond: number, dt: number) => Math.random() < 1 - Math.exp(-perSecond * dt);
 
 /** Called by the mixer about 20 times a second. */
-export function hapticTick(mix: Partial<Record<RecordId, MixEntry | null>>, now: number) {
+export function hapticTick(mix: Partial<Record<RecordId, Level>>, now: number) {
   const dt = Math.min(0.2, (now - lastTick) / 1000);
   lastTick = now;
   if (now < busyUntil || !pad()) return;
@@ -107,35 +107,29 @@ export function hapticTick(mix: Partial<Record<RecordId, MixEntry | null>>, now:
       rumble(90, v * (0.15 + 0.7 * wave), v * 0.1 * wave);
       break;
     }
-    case 'plants': {
-      const beat = (now % (BEAT_MS * 2)) / (BEAT_MS * 2);
-      const breath = Math.sin(beat * Math.PI) ** 2;
-      if (breath > 0.05) rumble(90, 0, v * 0.55 * breath);
-      break;
-    }
     case 'rain':
       if (chance(2 + 16 * v, dt)) rumble(28, 0, 0.35 + 0.45 * v);
       break;
-    case 'no2':
+    case 'lightning':
+      if (chance(0.5 + 8 * v, dt)) play([[35, 0.9, 0.7]]);
+      break;
+    case 'lights':
+      if (chance(1 + 10 * v, dt)) rumble(40, 0, 0.2 + 0.4 * v * Math.random());
+      break;
+    case 'co2':
+      rumble(90, 0.15 + 0.6 * v, 0.05);
+      break;
+    case 'nox':
       if (chance(0.8 + 18 * v ** 1.2, dt)) rumble(22, 0.75 + 0.25 * v, 0.15);
-      break;
-    case 'fires':
-      if (chance(0.6 + 6 * v, dt)) {
-        const n = 2 + Math.floor(Math.random() * 3);
-        play(Array.from({ length: n }, () => [18, 0.5 + 0.5 * Math.random(), 0.6 + 0.4 * Math.random(), 25 + Math.random() * 50] as Pulse));
-      }
-      break;
-    case 'plastic':
-      rumble(70, 0, (0.15 + 0.45 * v) * (0.5 + Math.random() * 0.6));
       break;
   }
 }
 
 export const hapticPatternName: Record<RecordId, string> = {
   ocean: 'slow swell',
-  plants: 'soft breathing pulse',
   rain: 'light drops',
-  no2: 'Geiger-counter clicks',
-  fires: 'crackling bursts',
-  plastic: 'gritty rattle',
+  lightning: 'sharp strikes',
+  lights: 'soft flicker',
+  co2: 'low rumble',
+  nox: 'Geiger-counter clicks',
 };

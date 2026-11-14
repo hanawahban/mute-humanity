@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "mock-data": "node scripts/make-mock-data.mjs"
+    "placeholders": "node scripts/make-mock-data.mjs && python3 scripts/make_placeholders.py",
+    "eic": "python3 scripts/download_eic.py"
   },
   "dependencies": {
     "@fontsource/fraunces": "^5.3.0",
