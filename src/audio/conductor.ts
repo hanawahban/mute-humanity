@@ -19,7 +19,7 @@ import { columnPeaks, layers, sample, valueAt, viewStats } from '../eic/layers';
 import { viewBounds, latLonToScreen } from '../map/camera';
 import { outputLatency, play, previewNote, setGain, setSpace, type VoiceKey } from './engine';
 import { bend, clamp01, detuneCents, dragSixteenths } from './harmony';
-import { hapticTick } from '../input/haptics';
+import { hapticStep } from '../input/haptics';
 import { describeNow } from '../state/actions';
 
 const EARTH = [0, 2, 4, 7, 9]; // A B C# E F#: both sides start from these notes
@@ -144,7 +144,6 @@ function analyze() {
     levels[rec.id] = { raw, value: raw * scale, coverage: st.coverage, second: st.second };
   }
   setState({ levels, probeValues });
-  hapticTick(levels, now);
 
   if (now - lastProgress > 500) {
     lastProgress = now;
@@ -190,6 +189,7 @@ function tick(time: number) {
   if (s.screen !== 'map' || s.paused) return; // the jukebox screen, or paused: silence
   const ids = audible(s);
   const st = step++ % 16;
+  hapticStep(st, time); // the beat-locked vibration pattern, on the same clock as the notes
   const b = viewBounds();
 
   if (s.mode === 'scan') {
