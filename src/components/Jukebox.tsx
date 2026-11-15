@@ -59,13 +59,13 @@ export function FactorsDrawer() {
         <h2>Factors</h2>
         <div role="group" aria-labelledby="f-natural">
           <h3 id="f-natural">
-            Natural <span>in tune</span>
+            Natural <span>acoustic instruments</span>
           </h3>
           <ul>{earth.map((r) => <Factor key={r.id} rec={r} index={RECORDS.indexOf(r)} />)}</ul>
         </div>
         <div role="group" aria-labelledby="f-human">
           <h3 id="f-human">
-            Human-made <span>out of key</span>
+            Human-made <span>synths</span>
           </h3>
           <ul>{human.map((r) => <Factor key={r.id} rec={r} index={RECORDS.indexOf(r)} />)}</ul>
         </div>

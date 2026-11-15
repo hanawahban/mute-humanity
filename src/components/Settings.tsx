@@ -29,7 +29,7 @@ export function HelpDialog() {
       <div className="help-grid">
         <section>
           <h3>The idea</h3>
-          <p>Six records, each a NASA Earth Information Center map of the whole Earth, each with its own instrument. Turn records on and they stack on one map and play together. Earth plays in tune; humanity bends it off key. Then lighten our footprint and listen to the planet when we tread lightly.</p>
+          <p>Six records, each a NASA Earth Information Center map of the whole Earth, each with its own instrument. Turn records on and they stack on one map and play together. Nature plays acoustic instruments; humanity plays synths. Then lighten our footprint and listen to the planet when we tread lightly.</p>
           <p>Every layer keeps its real dates: they line up in place, not in time. The sound comes from the pixels, read through each visualization's color key.</p>
           <h3>Three ways to listen</h3>
           <p><strong>Listen</strong>: you hear everything on screen. Zoom in to hear one place. <strong>Scan</strong>: a needle slowly sweeps the map (about 9 seconds a sweep); every bright point it crosses flashes and plays a note, higher on screen is higher in pitch. <strong>Probe</strong>: click a spot and the narrator says where it is and what each record shows there.</p>
