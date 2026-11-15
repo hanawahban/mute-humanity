@@ -101,10 +101,32 @@ void main() {
     // a see-through haze, not a black blanket: CO₂ and city lights are drawn above it and show through
     c = mix(vec3(0.42, 0.37, 0.33), vec3(0.11, 0.09, 0.08), t);
     a = smoothstep(0.05, 0.6, t) * 0.75;
-  } else if (uMode == 6) {                                                         // temperature: NASA's own blue-to-brown colors
-    // near 0 °C (white), no data (gray), relief shading and burned-in borders fade out, so the
-    // map shows through where nothing changed and the strongest warming and cooling stand out
-    a = smoothstep(0.06, 0.4, sat) * smoothstep(0.12, 0.3, mx) * 0.85;
+  } else if (uMode == 6) {                                                         // temperature: a soft warm/cool wash
+    // NASA's map is drawn in 2° blocks with borders burned in. Read a blurred neighborhood (5 x 5
+    // taps 0.9° apart, weighted toward the middle), leaving out the borders, gray "no data" and the
+    // white of "no change", then redraw it as a calm tint: ember where it got warmer, slate blue
+    // where colder, see-through where little changed, so the other layers stay readable on top.
+    vec2 st = vec2((uArea.z - uArea.x) / 360.0, (uArea.w - uArea.y) / 180.0) * 0.9;
+    float warm = 0.0;
+    float cool = 0.0;
+    float wsum = 0.0;
+    for (int dy = -2; dy <= 2; dy++) {
+      for (int dx = -2; dx <= 2; dx++) {
+        vec3 s = texture(uTex, t + vec2(float(dx), float(dy)) * st).rgb;
+        float smx = max(s.r, max(s.g, s.b));
+        float smn = min(s.r, min(s.g, s.b));
+        float ssat = smx > 0.0 ? (smx - smn) / smx : 0.0;
+        float w = smoothstep(0.04, 0.22, ssat) * smoothstep(0.08, 0.25, smx) * exp(-0.35 * float(dx * dx + dy * dy));
+        float k = clamp((1.0 - smn - 0.15) / 0.8, 0.0, 1.0); // how far from white: how big the change
+        if (s.r > s.b) warm += w * k; else cool += w * k;
+        wsum += w;
+      }
+    }
+    float v = wsum > 0.05 ? (warm - cool) / wsum : 0.0; // -1 colder .. +1 warmer
+    vec3 ember = vec3(0.82, 0.45, 0.30);
+    vec3 slate = vec3(0.40, 0.58, 0.74);
+    c = v > 0.0 ? ember * (0.75 + 0.25 * v) : slate * (0.75 - 0.25 * v);
+    a = smoothstep(0.3, 1.0, abs(v)) * smoothstep(0.4, 3.0, wsum) * 0.5; // about +1 °C: a light wash; +2 °C: clear
   }
   c = min(vec3(1.0), c * uBoost);
   a *= uAlpha;
@@ -116,6 +138,7 @@ interface TexEntry {
   w: number;
   h: number;
   time?: number;
+  again?: number; // uploads left after a jump, until the new frame has surely arrived
 }
 
 export class MapRenderer {
@@ -152,8 +175,20 @@ export class MapRenderer {
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   }
 
+  private still: HTMLCanvasElement | null = null;
   private upload(src: TexImageSource, mipmap: boolean, entry?: TexEntry): TexEntry {
     const gl = this.gl;
+    // A paused video that was just moved (Then / Now, scrubbing) can hand WebGL an old frame in
+    // Chrome while a 2D canvas already gets the new one: go through a canvas for paused videos.
+    if (src instanceof HTMLVideoElement && src.paused && src.videoWidth) {
+      const c = (this.still ??= document.createElement('canvas'));
+      if (c.width !== src.videoWidth || c.height !== src.videoHeight) {
+        c.width = src.videoWidth;
+        c.height = src.videoHeight;
+      }
+      c.getContext('2d')!.drawImage(src, 0, 0);
+      src = c;
+    }
     const e = entry ?? { tex: gl.createTexture()!, w: 0, h: 0 };
     gl.bindTexture(gl.TEXTURE_2D, e.tex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
@@ -215,8 +250,10 @@ export class MapRenderer {
       let e = this.textures.get(l.source);
       // Uploading a 2048 px video frame is expensive: only do it when the frame has changed.
       const t = l.isVideo ? (l.source as HTMLVideoElement).currentTime : 0;
-      if (!e || (l.isVideo && e.time !== t)) {
+      if (!e || (l.isVideo && (e.time !== t || (e.again ?? 0) > 0))) {
+        const moved = !e || e.time !== t;
         e = this.upload(l.source, false, e);
+        e.again = moved ? 12 : (e.again ?? 1) - 1;
         e.time = t;
         this.textures.set(l.source, e);
       } else gl.bindTexture(gl.TEXTURE_2D, e.tex);

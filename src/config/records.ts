@@ -89,7 +89,7 @@ export const RECORDS: RecordDef[] = [
     svs: 5603,
     eicTitle: 'Global Temperature Anomalies from 1880 to 2025',
     period: '1880 – 2025',
-    shows: "How much warmer or colder each place was than its 1951–1980 average, every year from 1880 to 2025 (NASA GISTEMP v4). Blue is colder, brown is warmer, gray had no measurements yet.",
+    shows: "How much warmer or colder each place was than its 1951–1980 average, every year from 1880 to 2025 (NASA GISTEMP v4). Blue is colder, orange is warmer, clear means little change or no measurements yet.",
     hear: 'A cello. Warmer than it used to be plays higher, colder plays lower. Where a place has warmed more than 1 °C, it slips slightly off the key.',
     kind: 'movie',
     // NASA's color map ("vik"), sampled from the color bar of SVS 5603's labeled map. The flat
@@ -108,7 +108,8 @@ export const RECORDS: RecordDef[] = [
     },
     instrument: 'cello',
     voice: 'sustain',
-    scale: { low: '−2 °C', high: '+2 °C', colors: ['#02206a', '#2d7ba5', '#adcddd', '#e7e7e7', '#e9c9b6', '#bf6a39', '#5b0007'] },
+    // the map redraws NASA's colors as a calmer tint (see the 'anomaly' mode in map/gl.ts); the key matches it
+    scale: { low: 'colder, −2 °C', high: 'warmer, +2 °C', colors: ['#6194c2', '#9cb6cc', '#d8cfc6', '#dc9a76', '#dc6b40'] },
     empty: 'nodata',
     keying: 'anomaly',
     keyingPlaceholder: 'anomaly',
