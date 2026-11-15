@@ -176,12 +176,19 @@ button { cursor: pointer; }
 .topbar > * { pointer-events: auto; }
 .topbar-left { display: flex; align-items: center; gap: 14px; }
 .back-button {
-  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; flex: none;
-  border: 2px solid var(--gold); background: var(--mahogany-glass); color: var(--gold);
+  /* just a thin arrow: no circle, small, with a 30px target so it is still easy to hit */
+  width: 30px; height: 30px; display: grid; place-items: center; flex: none; padding: 0;
+  border: 0; border-radius: 6px; background: none; color: var(--gold); opacity: 0.85;
 }
-.back-button svg { width: 18px; height: 18px; fill: currentColor; margin-left: -2px; }
-.back-button:hover { background: var(--gold); color: var(--mahogany); }
-.brand { margin: 0; display: flex; align-items: center; gap: 0.55rem; }
+.back-button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.back-button:hover { color: var(--papaya); opacity: 1; }
+.brand { margin: 0; display: flex; align-items: center; }
+.brand-home {
+  display: flex; align-items: center; gap: 0.55rem; padding: 4px 10px 4px 6px; margin: -4px -6px -4px -6px;
+  border: 0; border-radius: 12px; background: none; color: inherit; font: inherit; cursor: pointer; text-align: left;
+  transition: background 0.15s;
+}
+.brand-home:hover { background: rgba(255, 215, 36, 0.12); }
 .brand-logo { width: 3.1rem; height: auto; color: var(--gold); flex: none; }
 .brand-name { font-family: var(--display); font-size: 1.55rem; letter-spacing: 0.02em; color: var(--papaya); }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
