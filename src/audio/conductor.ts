@@ -10,8 +10,9 @@
 //
 // Everything plays A, B, C# and E, leaning on A and E, over a held A: the sound of the team's
 // full arrangement (all.mp3, measured in pipeline/audio_tools/analyze_all.py). Earth records
-// use traditional instruments. Humanity records are the same notes on synths that now and then
-// bend off the key and drift a few cents out of tune as the humanity lever goes up (harmony.ts).
+// use traditional instruments. Humanity records are the same notes on synths that very rarely
+// bend slightly off the key (nearly always a mild G or C) and drift a few cents out of tune as
+// the humanity lever goes up (harmony.ts).
 
 import * as Tone from 'tone';
 import { RECORDS, RECORD_BY_ID, type RecordDef, type RecordId } from '../config/records';
