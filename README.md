@@ -128,3 +128,21 @@ Type: **Anton** for headings and **Alexandria** for everything else, served from
 ## Brand
 
 Logo artwork is in `public/brand/` (black and white PNGs from the team). `public/logo.svg` and the in-app logo (`src/components/logoPath.ts`) are vector traces of it, so it stays sharp and can take any color. The favicon is `public/favicon.svg`.
+
+## Deployment
+
+The site is static, and GitHub Pages hosts it.
+
+- **Automatic deploys:** `.github/workflows/deploy.yml` builds and publishes on every push to `main`. Merging a PR redeploys within about two minutes.
+- **One-time setup:** in repository Settings → Pages, set Source to **GitHub Actions**.
+- **Paths:** the build uses relative paths (`base: './'` in `vite.config.ts`, and `asset()` for files in `public/`). The same build therefore works at `https://hanawahban.github.io/sonific-8/` and at the root of a custom domain.
+
+### Custom domain (GoDaddy)
+
+1. **GitHub:** in Settings → Pages → Custom domain, enter the domain (for example `yourdomain.space`) and save.
+2. **GoDaddy:** go to My Products → the domain → DNS, and add:
+   - Four `A` records for `@`: `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153`. First delete GoDaddy's default `A` record for `@` ("Parked").
+   - A `CNAME` record for `www` pointing to `hanawahban.github.io`.
+3. **HTTPS:** after the DNS check passes (minutes to a few hours), tick **Enforce HTTPS** in Settings → Pages. HTTPS is needed for voice commands and the microphone.
+
+Each visitor downloads about 110 MB of NASA clips, and GitHub Pages allows about 100 GB a month. That is plenty for judging and demos.

@@ -6,6 +6,7 @@
 import * as Tone from 'tone';
 import { BPM, INSTRUMENT_NOTES, RECORDS, type InstrumentId, type RecordId } from '../config/records';
 import { hapticNote } from '../input/haptics';
+import { asset } from '../config/asset';
 
 export type VoiceKey = RecordId | `${RecordId}:2` | 'bed' | 'sub';
 
@@ -24,7 +25,7 @@ let reverb: Tone.Reverb | null = null;
 export const notesPlayed: Record<string, number> = {};
 if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__notes = notesPlayed;
 
-const url = (id: InstrumentId) => `/sounds/${id}.mp3`;
+const url = (id: InstrumentId) => asset(`/sounds/${id}.mp3`);
 
 function makeChannel(instrument: InstrumentId, bus: Tone.ToneAudioNode, opts: { attack: number; release: number; lowpass?: number }) {
   const gain = new Tone.Gain(0).connect(bus);

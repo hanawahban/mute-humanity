@@ -5,6 +5,7 @@
 
 import narration from '../config/narration.json';
 import { duck } from './engine';
+import { asset } from '../config/asset';
 
 export const LINES = narration.lines as Record<string, string>;
 
@@ -13,7 +14,7 @@ let current: HTMLAudioElement | null = null;
 /** Play a recorded line. Resolves with its length in seconds (0 if it couldn't play). */
 export function say(id: string): Promise<number> {
   stopSpeaking();
-  const a = new Audio(`/voice/${id}.mp3`);
+  const a = new Audio(asset(`/voice/${id}.mp3`));
   current = a;
   return new Promise((resolve) => {
     a.addEventListener('loadedmetadata', () => resolve(a.duration || 0), { once: true });
