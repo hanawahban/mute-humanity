@@ -82,7 +82,7 @@ export function HelpDialog() {
         <section>
           <h3>Xbox controller</h3>
           <dl className="keys">
-            <dt>D-pad ← →</dt><dd>choose a record (the controller vibrates for it)</dd>
+            <dt>D-pad ← →</dt><dd>choose which record the controller feels</dd>
             <dt><kbd>A</kbd></dt><dd>play or stop it</dd>
             <dt><kbd>Y</kbd></dt><dd>Listen → Scan → Probe</dd>
             <dt>D-pad ↑ ↓</dt><dd>humanity lever</dd>
@@ -94,7 +94,7 @@ export function HelpDialog() {
             <dt>View</dt><dd>solo</dd>
             <dt>Start</dt><dd>play the story</dd>
           </dl>
-          <p className="small">Vibration: the ocean swells, rain patters, lightning strikes, city lights flicker, CO₂ rumbles and NOx clicks like a Geiger counter. Faster and stronger means more.</p>
+          <p className="small">Vibration follows the sound of one record at a time (choose it with the D-pad): the ocean swells, rain taps, lightning cracks, city lights flicker, CO₂ hums and NOx stutters. Humanity's records go quiet when our footprint is lightened.</p>
         </section>
 
         <section className="wide">

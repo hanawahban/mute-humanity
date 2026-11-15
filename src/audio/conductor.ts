@@ -21,7 +21,6 @@ import { columnPeaks, layers, sample, valueAt, viewStats } from '../eic/layers';
 import { viewBounds, latLonToScreen } from '../map/camera';
 import { outputLatency, play, previewNote, setGain, setSpace, type VoiceKey } from './engine';
 import { bend, clamp01, detuneCents, dragSixteenths, settle } from './harmony';
-import { hapticStep } from '../input/haptics';
 import { describeNow } from '../state/actions';
 
 const EARTH = [0, 2, 4, 7]; // A B C# E: the notes that carry 96% of all.mp3. Both sides start from these
@@ -187,7 +186,6 @@ function tick(time: number) {
   if (s.screen !== 'map' || s.paused) return; // the jukebox screen, or paused: silence
   const ids = audible(s);
   const st = step++ % 16;
-  hapticStep(st, time); // the beat-locked vibration pattern, on the same clock as the notes
   const b = viewBounds();
 
   if (s.mode === 'scan') {
