@@ -1,0 +1,387 @@
+{
+ "records": [
+  {
+   "id": "3912",
+   "title": "Global Sea Surface Currents and Temperature",
+   "pageUrl": "https://svs.gsfc.nasa.gov/3912/",
+   "releaseDate": "2012-03-16T10:00:00-04:00",
+   "updateDate": "2025-02-18T00:01:26.447913-05:00",
+   "credits": [
+    {
+     "role": "Animator",
+     "people": [
+      "Greg Shirah (NASA/GSFC)",
+      "Horace Mitchell (NASA/GSFC)",
+      "Eric Sokolowsky (Global Science and Technology, Inc.)"
+     ]
+    },
+    {
+     "role": "Project support",
+     "people": [
+      "Eric Sokolowsky (Global Science and Technology, Inc.)"
+     ]
+    },
+    {
+     "role": "Producer",
+     "people": [
+      "Michael Starobin (HTSI)"
+     ]
+    },
+    {
+     "role": "Scientist",
+     "people": [
+      "Hong Zhang (UCLA)",
+      "Dimitris Menemenlis (NASA/JPL CalTech)"
+     ]
+    }
+   ],
+   "dateRange": {
+    "start": "2007-03-25T12:00Z",
+    "end": "2008-03-03T12:00Z",
+    "source": "frame-set note (alt_text)"
+   },
+   "liveDashboard": false,
+   "note": null,
+   "localFiles": [
+    {
+     "name": "api.json",
+     "kind": "api",
+     "bytes": 69752
+    },
+    {
+     "name": "ecco2_and_grid.jpg",
+     "kind": "still",
+     "bytes": 13471763
+    },
+    {
+     "name": "ecco2_sst_flow.mp4",
+     "kind": "movie",
+     "bytes": 256266335
+    },
+    {
+     "name": "sst_ecco2_cbar.png",
+     "kind": "still",
+     "bytes": 8867
+    }
+   ],
+   "framesSets": [
+    {
+     "name": "orig",
+     "width": 2048,
+     "height": 1024,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/frames/2048x1024_1x1_30p/orig/",
+     "note": "Global sea surface currents colored by temperature. These are the assembled (contiguous) versions of the animation. There are several resolutions to choose from, some are cropped for various purposes. The 6840x3420 version is the complete, "
+    },
+    {
+     "name": "with_colorbar",
+     "width": 2048,
+     "height": 1024,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/frames/2048x1024_1x1_30p/with_colorbar/",
+     "note": "Global sea surface currents colored by temperature. These are the assembled (contiguous) versions of the animation. There are several resolutions to choose from, some are cropped for various purposes. The 6840x3420 version is the complete, "
+    },
+    {
+     "name": "6840x3420_1x1_30p",
+     "width": 6840,
+     "height": 3420,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/frames/6840x3420_1x1_30p/",
+     "note": "Global sea surface currents colored by temperature. These are the assembled (contiguous) versions of the animation. There are several resolutions to choose from, some are cropped for various purposes. The 6840x3420 version is the complete, "
+    },
+    {
+     "name": "6840x2304_1x1_30p",
+     "width": 6840,
+     "height": 2304,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/frames/6840x2304_1x1_30p/",
+     "note": "Sea Surface currents of the northern Atlantic Ocean. This version was produced for a 5x3 hyperwall."
+    },
+    {
+     "name": "pacific",
+     "width": 1920,
+     "height": 1080,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/frames/1920x1080_16x9_30p/pacific/",
+     "note": "This visualization shows the sea surface currents and temperatures in the eastern Pacific Ocean."
+    },
+    {
+     "name": "pacific_bare",
+     "width": 1920,
+     "height": 1080,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a003900/a003912/frames/1920x1080_16x9_30p/pacific_bare/",
+     "note": "This visualization shows the sea surface currents and temperatures in the eastern Pacific Ocean."
+    }
+   ]
+  },
+  {
+   "id": "5149",
+   "title": "GEOS-FP Precipitation and Clouds",
+   "pageUrl": "https://svs.gsfc.nasa.gov/5149/",
+   "releaseDate": "2023-09-26T17:00:00-04:00",
+   "updateDate": "2026-11-14T02:00:49.687402-05:00",
+   "credits": [
+    {
+     "role": "Visualizer",
+     "people": [
+      "Joseph V. Ardizzone (NASA/GSFC)"
+     ]
+    }
+   ],
+   "dateRange": {
+    "start": null,
+    "end": null,
+    "source": null
+   },
+   "liveDashboard": true,
+   "note": "EIC dashboard visual (model output); frames change as it updates. Record the exact datetime of every frame used.",
+   "localFiles": [
+    {
+     "name": "MC03_stage3_GMAO_precipitation_2048x1024_en.00001_print.jpg",
+     "kind": "still",
+     "bytes": 286626
+    },
+    {
+     "name": "MC03_stage3_GMAO_precipitation_2048x1024_en.mp4",
+     "kind": "movie",
+     "bytes": 87365608
+    },
+    {
+     "name": "Precipitation_colorbar.png",
+     "kind": "still",
+     "bytes": 11069
+    },
+    {
+     "name": "Precipitation_colorbar_plain.png",
+     "kind": "still",
+     "bytes": 6083
+    },
+    {
+     "name": "api.json",
+     "kind": "api",
+     "bytes": 27321
+    }
+   ],
+   "framesSets": [
+    {
+     "name": "MC03_stage3_GMAO_precipitation_2048x1024_en-hwtool",
+     "width": 2048,
+     "height": 1024,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a005100/a005149/frames/2048x1024_2x1_12p/MC03_stage3_GMAO_precipitation_2048x1024_en-hwtool/",
+     "note": "Precipitation and clouds are calculated using fields from NASA\u2019s GEOS-FP system. GEOS-FP combines millions of weather observations with a predictive model to create a global best estimate of weather conditions, which can be used to estimate"
+    }
+   ]
+  },
+  {
+   "id": "5011",
+   "title": "Lightning Events Detected from the International Space Station (ISS) 2017-2023",
+   "pageUrl": "https://svs.gsfc.nasa.gov/5011/",
+   "releaseDate": "2023-10-19T00:00:00-04:00",
+   "updateDate": "2025-03-28T00:14:18.798297-04:00",
+   "credits": [
+    {
+     "role": "Visualizer",
+     "people": [
+      "Michala Garrison (SSAI)",
+      "Greg Shirah (NASA/GSFC)",
+      "Kel Elkins (USRA)",
+      "Alex Kekesi (Global Science and Technology, Inc.)"
+     ]
+    }
+   ],
+   "dateRange": {
+    "start": "January 2017",
+    "end": "July 2023",
+    "source": "description"
+   },
+   "liveDashboard": false,
+   "note": null,
+   "localFiles": [
+    {
+     "name": "api.json",
+     "kind": "api",
+     "bytes": 21953
+    },
+    {
+     "name": "iss_lightning_SOS_thumb.jpg",
+     "kind": "still",
+     "bytes": 269038
+    },
+    {
+     "name": "iss_lightning_sphere_07312023.mp4",
+     "kind": "movie",
+     "bytes": 133203670
+    }
+   ],
+   "framesSets": []
+  },
+  {
+   "id": "5313",
+   "title": "Change in Night Lights between 2012 and 2023 - EIC Version",
+   "pageUrl": "https://svs.gsfc.nasa.gov/5313/",
+   "releaseDate": "2024-06-14T00:00:00-04:00",
+   "updateDate": "2024-06-14T15:53:06.224162-04:00",
+   "credits": [
+    {
+     "role": "Visualizer",
+     "people": [
+      "Kel Elkins (USRA)"
+     ]
+    },
+    {
+     "role": "Scientist",
+     "people": [
+      "Zhuosen Wang (University of Maryland)",
+      "Miguel Rom\u00e1n (Leidos)",
+      "Ranjay Shrestha (SSAI)",
+      "Srija Chakraborty (USRA)",
+      "Virginia Kalb (NASA)"
+     ]
+    }
+   ],
+   "dateRange": {
+    "start": "2012",
+    "end": "2023",
+    "source": "title/description"
+   },
+   "liveDashboard": false,
+   "note": null,
+   "localFiles": [
+    {
+     "name": "api.json",
+     "kind": "api",
+     "bytes": 17683
+    },
+    {
+     "name": "nightlights_flat_series_and_change_wZooms_13_EIC.02599_print.jpg",
+     "kind": "still",
+     "bytes": 63503
+    }
+   ],
+   "framesSets": [
+    {
+     "name": "nightlights_2012-2023_change_flat_eic",
+     "width": 0,
+     "height": 0,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a005300/a005313/frames/7680x2160_32x9_30p/nightlights_2012-2023_change_flat_eic/",
+     "note": "This global, flat map view of night lights data begins with a time series depicting annual averages from 2012 to 2023. The lights then fade away to reveal night lights change between 2012 and 2023, with regions of more light depicted in pur"
+    }
+   ]
+  },
+  {
+   "id": "5121",
+   "title": "ODIAC: a map of human made carbon dioxide emissions",
+   "pageUrl": "https://svs.gsfc.nasa.gov/5121/",
+   "releaseDate": "2023-06-30T00:00:00-04:00",
+   "updateDate": "2025-05-29T14:20:05.512646-04:00",
+   "credits": [
+    {
+     "role": "Visualizer",
+     "people": [
+      "Mark SubbaRao (NASA/GSFC)"
+     ]
+    },
+    {
+     "role": "Technical support",
+     "people": [
+      "Laurence Schuler (ADNET Systems, Inc.)",
+      "Ian Jones (ADNET Systems, Inc.)"
+     ]
+    },
+    {
+     "role": "Scientist",
+     "people": [
+      "Lesley Ott (NASA/GSFC)",
+      "Tomohiro Oda (USRA/EfSI)"
+     ]
+    }
+   ],
+   "dateRange": {
+    "start": "December 2021",
+    "end": "December 2021",
+    "source": "description"
+   },
+   "liveDashboard": false,
+   "note": null,
+   "localFiles": [
+    {
+     "name": "api.json",
+     "kind": "api",
+     "bytes": 19383
+    },
+    {
+     "name": "emissionsGlobe_12_2021.png",
+     "kind": "still",
+     "bytes": 3578802
+    }
+   ],
+   "framesSets": [
+    {
+     "name": "2160x2160_1x1_60p",
+     "width": 2160,
+     "height": 2160,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a005100/a005121/frames/2160x2160_1x1_60p/",
+     "note": "ODIAC (Open-source Data Inventory for Anthropogenic CO2) map for December 2021."
+    }
+   ]
+  },
+  {
+   "id": "5154",
+   "title": "Nitrogen Oxides (NOx)",
+   "pageUrl": "https://svs.gsfc.nasa.gov/5154/",
+   "releaseDate": "2023-09-26T17:00:00-04:00",
+   "updateDate": "2026-11-14T02:01:12.293142-05:00",
+   "credits": [
+    {
+     "role": "Visualizer",
+     "people": [
+      "Joseph V. Ardizzone (NASA/GSFC)"
+     ]
+    }
+   ],
+   "dateRange": {
+    "start": null,
+    "end": null,
+    "source": null
+   },
+   "liveDashboard": true,
+   "note": "EIC dashboard visual (model output); frames change as it updates. Record the exact datetime of every frame used.",
+   "localFiles": [
+    {
+     "name": "MC04_stage4_GMAO_NO2_2048x1024_en.00001_print.jpg",
+     "kind": "still",
+     "bytes": 221866
+    },
+    {
+     "name": "MC04_stage4_GMAO_NO2_2048x1024_en.mp4",
+     "kind": "movie",
+     "bytes": 30325685
+    },
+    {
+     "name": "NOx_colorbar.png",
+     "kind": "still",
+     "bytes": 7977
+    },
+    {
+     "name": "NOx_colorbar_plain.png",
+     "kind": "still",
+     "bytes": 4355
+    },
+    {
+     "name": "NitrousOxides_GMAO.png",
+     "kind": "still",
+     "bytes": 3586
+    },
+    {
+     "name": "api.json",
+     "kind": "api",
+     "bytes": 37823
+    }
+   ],
+   "framesSets": [
+    {
+     "name": "MC04_stage4_GMAO_NO2_2048x1024_en-hwtool",
+     "width": 2048,
+     "height": 1024,
+     "url": "https://svs.gsfc.nasa.gov/vis/a000000/a005100/a005154/frames/2048x1024_2x1_12p/MC04_stage4_GMAO_NO2_2048x1024_en-hwtool/",
+     "note": "Near surface concentration of Nitrogen Oxides (NOx) estimated from concentrations of nitrogen oxide and nitrogen dioxide produced by NASA\u2019s GEOS-CF model."
+    }
+   ]
+  }
+ ]
+}

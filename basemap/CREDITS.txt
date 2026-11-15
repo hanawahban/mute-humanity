@@ -1,0 +1,3 @@
+blue-marble.jpg: NASA Blue Marble (NASA Earth Observatory / Visible Earth), equirectangular,
+4096 x 2048, 180W-180E, 90N-90S. Public domain NASA imagery. Copy taken from the
+three-globe npm package examples and re-encoded.
