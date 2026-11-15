@@ -5,6 +5,7 @@
 
 import * as Tone from 'tone';
 import { BPM, INSTRUMENT_NOTES, RECORDS, type InstrumentId, type RecordId } from '../config/records';
+import { hapticNote } from '../input/haptics';
 import { asset } from '../config/asset';
 
 export type VoiceKey = RecordId | `${RecordId}:2` | 'bed' | 'sub';
@@ -86,6 +87,7 @@ export function play(key: VoiceKey, note: string | number, duration: Tone.Unit.T
   // glide the pan instead of jumping it: a jump moves every note still ringing and clicks
   if (pan != null) ch.panner.pan.linearRampTo(Math.max(-1, Math.min(1, pan)), 0.04, t);
   ch.sampler.triggerAttackRelease(note, duration, t, vel);
+  hapticNote(key, note, vel, t); // the controller feels the note when it sounds
   if (import.meta.env.DEV) notesPlayed[key] = (notesPlayed[key] ?? 0) + 1;
 }
 

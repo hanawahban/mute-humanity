@@ -95,9 +95,13 @@ export function JukeboxScreen() {
   return (
     <section className={`jukebox-screen ${shown ? 'shown' : ''}`} aria-labelledby="jb-title">
       <div className="jb-arch">
-        <div className="jb-inner">
+        <div className="jb-inner" style={{ '--count': count } as CSSProperties}>
           <header className="jb-head">
-            <Logo className="jb-logo" title="Melodic Earth Jukebox logo" />
+            {/* a record turns behind the logo while anything is picked */}
+            <div className={`jb-window ${count ? 'spin' : ''}`}>
+              <span className="jb-disc" aria-hidden="true" />
+              <Logo className="jb-logo" title="Melodic Earth Jukebox logo" />
+            </div>
             <h1 id="jb-title">Melodic Earth Jukebox</h1>
             <p className="jb-sub">Six NASA maps, each played by its own instrument. Pick your records.</p>
           </header>
@@ -105,7 +109,7 @@ export function JukeboxScreen() {
           <div className="jb-columns">
             <div className="jb-col" role="group" aria-labelledby="jb-natural">
               <h2 id="jb-natural">
-                Natural <span>plays in tune</span>
+                Natural
               </h2>
               <ul>
                 {earth.map((r) => (
@@ -115,7 +119,7 @@ export function JukeboxScreen() {
             </div>
             <div className="jb-col" role="group" aria-labelledby="jb-human">
               <h2 id="jb-human">
-                Human-made <span>plays out of key</span>
+                Human-made
               </h2>
               <ul>
                 {human.map((r) => (
@@ -143,6 +147,8 @@ export function JukeboxScreen() {
           <p id="jb-count" className={`jb-count ${hint && !count ? 'warn' : ''}`} aria-live="polite">
             {count ? `${count} record${count > 1 ? 's' : ''} picked` : 'Pick at least one record to play'}
           </p>
+
+          <div className="jb-grille" aria-hidden="true" />
 
           <nav className="jb-foot" aria-label="More">
             <button type="button" onClick={() => setState({ howOpen: true })}>

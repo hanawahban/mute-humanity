@@ -1,30 +1,30 @@
-// Controller vibration, designed to be read, not just felt.
+// Controller vibration, designed to be felt in time with the music.
 //
 // 1. You feel ONE record at a time: the record you have selected (D-pad left/right), or the
 //    loudest playing record if the selected one is stopped. Summing six records into two
 //    motors just made a blur.
-// 2. Each record has its own rhythm, matching its sound. Earth records are smooth and
-//    regular; humanity records are rough and irregular:
-//      Ocean      slow swell, rising and falling with the waves     (strong motor)
-//      Rain       light random drops, more drops = more rain          (light motor)
-//      Lightning  sharp single strikes, more often = more lightning   (both motors)
-//      Lights     soft flicker, faster = brighter                     (light motor)
-//      CO2        low steady rumble, stronger = more emissions        (strong motor)
-//      NOx        Geiger-counter clicks, faster = more pollution      (strong motor)
-//    Strength and speed follow what's in view, under the probe, or under the scan needle,
-//    so moving over a city or a storm makes the controller react.
+// 2. The pad follows the same 16th-note clock as the notes (rules in hapticRhythm.ts):
+//      notes   every note of that record pulses the pad the moment it sounds: low notes in the
+//              big motor, high notes in the small one, held notes with a fading tail
+//      beats   each record also has a pattern locked to the beat, so it is felt between notes:
+//                Ocean      swells on beats 1 and 3
+//                CO2        thumps like a kick drum
+//                NOx        clicks on the 16ths, denser with more pollution
+//                Lights     sparkles on the off-beats
+//                Rain, Lightning  no beat pattern: their notes are the rhythm
+//    Strength follows what's in view, under the probe, or under the scan needle, so moving
+//    over a city or a storm makes the controller react.
 // 3. Short cues confirm actions: two taps = record on, one soft tap = off, a long fade when
 //    our footprint is lightened.
 
-import { RECORDS, BPM, type RecordId } from '../config/records';
+import * as Tone from 'tone';
+import { RECORDS, RECORD_BY_ID, type RecordId } from '../config/records';
 import { getState, type Level } from '../state/store';
+import { binOf, mergePulse, notePulses, stepPulse, type Pulse as RhythmPulse } from './hapticRhythm';
 
 type Pulse = [ms: number, strong: number, weak: number, gapAfter?: number];
 
-const BEAT_MS = 60000 / BPM;
-let busyUntil = 0; // while a cue or burst plays, the continuous pattern waits
-let lastTick = 0;
-let swellPhase = 0;
+let busyUntil = 0; // while a cue plays, the rhythm waits
 
 function pad(): Gamepad | null {
   for (const gp of navigator.getGamepads?.() ?? []) if (gp?.vibrationActuator) return gp;
@@ -88,48 +88,44 @@ export function feltRecord(mix: Partial<Record<RecordId, Level>>): RecordId | nu
   return best;
 }
 
-const chance = (perSecond: number, dt: number) => Math.random() < 1 - Math.exp(-perSecond * dt);
+// ---------- rhythm: pulses are scheduled at the audio time they belong to ----------
+const pending = new Map<number, RhythmPulse>();
 
-/** Called by the mixer about 20 times a second. */
-export function hapticTick(mix: Partial<Record<RecordId, Level>>, now: number) {
-  const dt = Math.min(0.2, (now - lastTick) / 1000);
-  lastTick = now;
-  if (now < busyUntil || !pad()) return;
-  const id = feltRecord(mix);
+/** Fire a pulse when its sound does (Tone's Draw runs callbacks at the audio time). Pulses within 20 ms merge. */
+function queue(time: number, p: RhythmPulse) {
+  const bin = binOf(time);
+  const had = pending.get(bin);
+  pending.set(bin, had ? mergePulse(had, p) : p);
+  if (had) return;
+  Tone.getDraw().schedule(() => {
+    const q = pending.get(bin);
+    pending.delete(bin);
+    if (q && performance.now() >= busyUntil) rumble(q.ms, q.strong, q.weak);
+  }, time);
+}
+
+/** Called on every 16th note (step 0-15 of the bar) with its audio time: the beat-locked pattern. */
+export function hapticStep(step: number, time: number) {
+  if (!pad()) return;
+  const { levels } = getState();
+  const id = feltRecord(levels);
   if (!id) return;
-  const v = Math.min(1, mix[id]?.value ?? 0);
-  if (v < 0.03) return;
+  const p = stepPulse(id, step, Math.min(1, levels[id]?.value ?? 0));
+  if (p) queue(time, p);
+}
 
-  switch (id) {
-    case 'ocean': {
-      swellPhase += dt / ((BEAT_MS * 4) / 1000); // one wave every bar
-      const wave = 0.5 - 0.5 * Math.cos(swellPhase * 2 * Math.PI);
-      rumble(90, v * (0.15 + 0.7 * wave), v * 0.1 * wave);
-      break;
-    }
-    case 'rain':
-      if (chance(2 + 16 * v, dt)) rumble(28, 0, 0.35 + 0.45 * v);
-      break;
-    case 'lightning':
-      if (chance(0.5 + 8 * v, dt)) play([[35, 0.9, 0.7]]);
-      break;
-    case 'lights':
-      if (chance(1 + 10 * v, dt)) rumble(40, 0, 0.2 + 0.4 * v * Math.random());
-      break;
-    case 'co2':
-      rumble(90, 0.15 + 0.6 * v, 0.05);
-      break;
-    case 'nox':
-      if (chance(0.8 + 18 * v ** 1.2, dt)) rumble(22, 0.75 + 0.25 * v, 0.15);
-      break;
-  }
+/** Called for every note played: the felt record's notes pulse the pad when they sound. */
+export function hapticNote(key: string, note: string | number, velocity: number, time: number) {
+  if (key !== feltRecord(getState().levels) || !pad()) return; // 'rain:2' (clouds), the bed and other records stay silent
+  const freq = Tone.Frequency(note).toFrequency();
+  for (const p of notePulses(RECORD_BY_ID[key as RecordId].voice, freq, velocity)) queue(time + p.delay, p);
 }
 
 export const hapticPatternName: Record<RecordId, string> = {
-  ocean: 'slow swell',
-  rain: 'light drops',
-  lightning: 'sharp strikes',
-  lights: 'soft flicker',
-  co2: 'low rumble',
-  nox: 'Geiger-counter clicks',
+  ocean: 'swell on the beat',
+  rain: 'drops on the notes',
+  lightning: 'strikes on the flashes',
+  lights: 'off-beat sparkle',
+  co2: 'kick-drum thump',
+  nox: 'rhythmic clicks',
 };

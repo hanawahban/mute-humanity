@@ -21,12 +21,14 @@ export function TopBar() {
       <div className="topbar-left">
         <button type="button" className="back-button" onClick={backToJukebox} aria-label="Back to the jukebox" title="Back to the jukebox (J)">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M16 5v14L5 12z" />
+            <path d="M15 5l-7 7 7 7" />
           </svg>
         </button>
         <p className="brand">
-          <Logo live className="brand-logo" />
-          <span className="brand-name">Melodic Earth Jukebox</span>
+          <button type="button" className="brand-home" onClick={backToJukebox} aria-label="Melodic Earth Jukebox, back to the jukebox" title="Back to the jukebox (J)">
+            <Logo live className="brand-logo" />
+            <span className="brand-name">Melodic Earth Jukebox</span>
+          </button>
         </p>
       </div>
       <div className="topbar-right">
