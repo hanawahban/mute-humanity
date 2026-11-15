@@ -35,7 +35,6 @@ export interface AppState {
   solo: RecordId | null;
   mode: Mode;
   humanity: number; // 0-1
-  lastHumanity: number;
   focus: Focus;
   probe: { lat: number; lon: number };
   scanX: number | null; // 0-1 across the view while the needle runs
@@ -50,7 +49,6 @@ export interface AppState {
   settings: Settings;
   controller: string | null;
   helpOpen: boolean;
-  closeUp: boolean; // the Bahrain close-up is open
 }
 
 const each = <T,>(v: T) => Object.fromEntries(RECORDS.map((r) => [r.id, v])) as Record<RecordId, T>;
@@ -63,7 +61,6 @@ export const useStore = create<AppState>(() => ({
   solo: null,
   mode: 'listen',
   humanity: 1,
-  lastHumanity: 1,
   focus: { lat: 15, lon: 20, zoom: 1 },
   probe: { lat: 26, lon: 50.5 },
   scanX: null,
@@ -84,7 +81,6 @@ export const useStore = create<AppState>(() => ({
   },
   controller: null,
   helpOpen: false,
-  closeUp: false,
 }));
 
 export const getState = useStore.getState;

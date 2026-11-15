@@ -54,7 +54,7 @@ export async function startAudio() {
   const echo = new Tone.PingPongDelay({ delayTime: '8n.', feedback: 0.22, wet: 0.16 });
   const earthBus = new Tone.Gain(1).chain(echo, reverb, master);
   // Humanity: dry, close and a little rough.
-  const grit = new Tone.Distortion({ distortion: 0.15, wet: 0.2 });
+  grit = new Tone.Distortion({ distortion: 0.15, wet: 0.2 });
   const humanBus = new Tone.Gain(1).chain(grit, new Tone.Reverb({ decay: 1.2, wet: 0.12 }), master);
 
   for (const rec of RECORDS) {
@@ -82,15 +82,29 @@ export function play(key: VoiceKey, note: string, duration: Tone.Unit.Time, time
   // a touch of human timing and touch, so it doesn't sound mechanical
   const t = time + Math.random() * 0.012;
   const vel = Math.max(0.05, Math.min(1, velocity * (0.92 + Math.random() * 0.16)));
-  if (pan != null) ch.panner.pan.setValueAtTime(Math.max(-1, Math.min(1, pan)), t);
+  // glide the pan instead of jumping it: a jump moves every note still ringing and clicks
+  if (pan != null) ch.panner.pan.linearRampTo(Math.max(-1, Math.min(1, pan)), 0.04, t);
   ch.sampler.triggerAttackRelease(note, duration, t, vel);
   if (import.meta.env.DEV) notesPlayed[key] = (notesPlayed[key] ?? 0) + 1;
 }
 
 /** Channel volume (0-1), smoothed. */
+const lastGain = new Map<VoiceKey, number>();
 export function setGain(key: VoiceKey, v: number, time?: number) {
   const ch = channels.get(key);
-  if (ch) ch.gain.gain.rampTo(Math.max(0, Math.min(1.2, v)), 0.2, time);
+  const g = Math.max(0, Math.min(1.2, v));
+  // only when it really changes: re-scheduling ramps ten times a second piles up automation
+  if (!ch || Math.abs((lastGain.get(key) ?? -1) - g) < 0.01) return;
+  lastGain.set(key, g);
+  ch.gain.gain.rampTo(g, 0.25, time);
+}
+
+let grit: Tone.Distortion | null = null;
+/** Make humanity harsher (the story's "hear us over everything" moment). 0 = normal. */
+export function setHarsh(amount: number) {
+  if (!grit) return;
+  grit.wet.rampTo(0.2 + 0.4 * amount, 2);
+  grit.distortion = 0.15 + 0.35 * amount;
 }
 
 export function releaseAll(key: VoiceKey) {

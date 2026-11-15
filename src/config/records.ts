@@ -41,7 +41,14 @@ export interface RecordDef {
   voice: Voice;
   /** Second instrument for a second part of the picture (clouds under the rain). */
   second?: { instrument: InstrumentId; voice: Voice; label: string };
-  /** The map key: what low and high look like and mean (also used to colour the Bahrain close-up). */
+  /** The map key: what low and high look like and mean. */
+  /** Only pixels with this tint are data (for keys that run through one colour). */
+  tint?: 'green';
+  /**
+   * Only this part of the colour key counts (0-1 along the key). NOx's key is logarithmic, so
+   * almost all land sits in its upper half; only the top of it is real pollution worth a note.
+   */
+  contrast?: [number, number];
   scale: { low: string; high: string; colours: string[]; lightBar?: boolean };
   /** Pixels that don't match the colour key: "nodata" (land under the ocean layer) or "zero" (no pollution, no rain). */
   empty: 'nodata' | 'zero';
@@ -187,9 +194,11 @@ export const RECORDS: RecordDef[] = [
     hear: 'An oboe, out of key. More pollution is louder and harsher.',
     kind: 'movie',
     decode: { kind: 'warm' },
+    tint: 'green',
+    contrast: [0.6, 0.95],
     instrument: 'oboe',
     voice: 'sustain',
-    scale: { low: 'clean', high: 'polluted', colours: ['rgba(90,70,54,0)', '#5a4636', '#0d0907'], lightBar: true },
+    scale: { low: 'clean', high: 'polluted', colours: ['rgba(107,94,84,0)', '#6b5e54', '#1c1714'], lightBar: true },
     empty: 'zero',
     keying: 'darkgreen',
     keyingPlaceholder: 'warm',

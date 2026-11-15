@@ -1,4 +1,4 @@
-/* Mute Humanity: visual identity by the multimedia team.
+/* Sonific-8: visual identity by the multimedia team.
    Rich Mahogany #450101 · Lavender Blush #FFEEED · Papaya Whip #FFF0D1 · Gold #FFD724 */
 
 :root {
@@ -37,7 +37,6 @@ button { cursor: pointer; }
 .map { position: absolute; inset: 0; }
 .map canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
 .map canvas.map-gl, .map canvas.map-outline { pointer-events: none; }
-.map canvas.over-pin { cursor: pointer; }
 .map canvas.grabbing { cursor: grabbing; }
 
 .glass {
@@ -58,7 +57,10 @@ button { cursor: pointer; }
 .topbar h1 {
   margin: 0; font-family: var(--display); font-weight: 600; font-size: 1.6rem; color: var(--blush); letter-spacing: 0.01em;
 }
-.topbar h1 span {
+.topbar h1.brand { display: flex; align-items: center; gap: 0.55rem; }
+.topbar h1 .brand-name { margin: 0; font: inherit; font-size: inherit; letter-spacing: 0.01em; text-transform: none; color: var(--blush); }
+.brand-logo { width: 3.4rem; height: auto; color: var(--gold); flex: none; }
+.topbar h1 span.brand-sub {
   display: inline-block; margin-left: 0.6rem; font-family: inherit; font-size: 0.72rem; font-weight: 600;
   letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); vertical-align: middle;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -252,6 +254,7 @@ input[type='range']::-moz-range-thumb {
   background: radial-gradient(circle at 50% 40%, rgba(69, 1, 1, 0.9), rgba(25, 0, 0, 0.97));
 }
 .start-card { max-width: 40rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.9rem; }
+.start-logo { width: min(26rem, 80vw); height: auto; color: var(--gold); filter: drop-shadow(0 0 22px rgba(255, 215, 36, 0.35)); }
 .start-kicker { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
 .start h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.8rem, 7vw, 4.8rem); color: var(--blush); line-height: 1; }
 .start-sub { margin: 0; font-size: 1.15rem; color: var(--papaya); }
@@ -318,71 +321,13 @@ kbd {
   .year-big { font-size: 2rem; }
 }
 
-/* ---------- Bahrain close-up ---------- */
-.closeup-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgba(4, 8, 14, 0.55);
-  backdrop-filter: blur(2px);
-}
-.closeup {
-  width: min(1100px, 100%);
-  max-height: 100%;
-  overflow: auto;
-  background: #0d1520;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
-  color: #eef3f8;
-}
-.closeup-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 0.9rem 1.1rem 0.6rem;
-}
-.closeup-head h2 { margin: 0; font-size: 1.35rem; }
-.closeup-head p { margin: 0.2rem 0 0; opacity: 0.8; }
-.closeup-close {
-  min-width: 44px;
-  min-height: 44px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.06);
-  color: inherit;
-  font-size: 1.1rem;
-  cursor: pointer;
-}
-.closeup-close:focus-visible { outline: 3px solid #ffd166; outline-offset: 2px; }
-.closeup-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 290px;
-  gap: 1rem;
-  padding: 0 1.1rem 1.1rem;
-}
-.closeup-map {
-  position: relative;
-  width: 100%;
-  max-height: 68vh;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-.closeup-map canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.closeup-over { cursor: crosshair; }
-.closeup-side h3 { margin: 0 0 0.5rem; font-size: 1rem; }
-.closeup-readings { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.45rem; }
-.closeup-readings li { display: grid; grid-template-columns: 12px auto 1fr; gap: 0.5rem; align-items: center; font-size: 0.95rem; }
-.closeup-readings .dot { width: 12px; height: 12px; border-radius: 50%; }
-.closeup-readings span:last-child { opacity: 0.85; }
-.closeup-note, .closeup-tip, .closeup-empty { font-size: 0.88rem; line-height: 1.45; opacity: 0.85; margin: 0 0 0.7rem; }
-.closeup-note { padding: 0.6rem 0.7rem; border-radius: 8px; background: rgba(255, 255, 255, 0.05); }
-@media (max-width: 800px) {
-  .closeup-body { grid-template-columns: 1fr; }
-}
-.high-contrast .closeup { background: #000; border-color: #fff; }
+/* ---------- the Sonific-8 logo ---------- */
+.logo { display: block; overflow: visible; }
+/* glows with the music */
+.logo.live { --pulse: 0; filter: drop-shadow(0 0 calc(2px + var(--pulse) * 12px) rgba(255, 215, 36, calc(0.25 + var(--pulse) * 0.6))); transition: filter 0.15s linear; }
+/* sweeps in from left to right, like the scan needle */
+.logo.reveal { animation: logo-sweep 2.2s cubic-bezier(0.6, 0, 0.3, 1) both; }
+@keyframes logo-sweep { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.reduced-motion .logo.reveal { animation: none; }
+@media (prefers-reduced-motion: reduce) { .logo.reveal { animation: none; } .logo.live { transition: none; } }
+.help-logo { width: 7rem; color: var(--gold); margin-bottom: 0.25rem; }

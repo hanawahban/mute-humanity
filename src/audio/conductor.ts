@@ -34,6 +34,11 @@ const RANGE: Record<RecordId, { root: number; steps: number; from?: number }> = 
 };
 const BASE_GAIN: Record<RecordId, number> = { ocean: 0.75, rain: 0.6, lightning: 0.55, lights: 0.5, co2: 0.75, nox: 0.3 };
 const CLOUD_GAIN = 0.35;
+/** The story turns humanity up for one moment, so you feel how much it clashes. */
+let humanBoost = 1;
+export function setHumanBoost(v: number) {
+  humanBoost = v;
+}
 
 function noteOf(rec: RecordDef, degree: number): string {
   const { root, steps, from = 0 } = RANGE[rec.id];
@@ -48,6 +53,7 @@ let stats: Partial<Record<RecordId, ReturnType<typeof viewStats>>> = {};
 let step = 0;
 let lastCaption = 0;
 let lastProgress = 0;
+let lastRead = 0;
 
 /**
  * One loudness number per record. Dense layers (the ocean covers everything) use the average.
@@ -74,10 +80,12 @@ function analyse() {
   stats = {};
   // Reading a video frame back from the GPU is the slowest thing we do, so only one layer is
   // read per tick (the one read longest ago); the others use their last reading. Stills are read once.
-  const due = ids
+  // ...and at most four times a second: the maps change slowly, the main thread is precious.
+  const due = now - lastRead < 250 ? undefined : ids
     .map((id) => layers.get(id))
     .filter((l) => l?.ready && (l.rec.kind === 'movie' || !l.sampledAt))
     .sort((a, c) => a!.sampledAt - c!.sampledAt)[0]?.rec.id;
+  if (due) lastRead = now;
 
   for (const rec of RECORDS) {
     const layer = layers.get(rec.id);
@@ -87,7 +95,7 @@ function analyse() {
     if (v && !shouldPlay && !v.paused) v.pause();
 
     const on = ids.includes(rec.id);
-    const scale = rec.side === 'human' ? s.humanity : 1;
+    const scale = rec.side === 'human' ? s.humanity * humanBoost : 1;
     setGain(rec.id, on ? BASE_GAIN[rec.id] * scale : 0);
     if (rec.second) setGain(`${rec.id}:2`, on ? CLOUD_GAIN * scale : 0);
     if (!on) continue;

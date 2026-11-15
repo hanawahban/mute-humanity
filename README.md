@@ -1,6 +1,8 @@
-# Mute Humanity: The Earth Jukebox
+<p align="center"><img src="public/logo.svg" width="320" alt="Sonific-8 logo: a sound wave that loops into an 8"></p>
 
-NASA Space Apps 2026, challenge "Earth Information Jukebox". Team from Bahrain.
+# Sonific-8: The Earth Jukebox
+
+NASA Space Apps 2026, challenge "Earth Information Jukebox". By team Sonific-8, from Bahrain.
 
 Six NASA Earth Information Center (EIC) visualizations, all flat maps of the whole Earth, are the six records of a jukebox. Turn records on and they stack on one shared map and play together; zoom anywhere to hear just that place. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.
 
@@ -40,7 +42,6 @@ The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equ
    - **Listen**: the view's average, hotspot strength and coverage drive each instrument while its video plays.
    - **Scan**: the videos pause and a needle sweeps the view in three bars (about 9 seconds), driven by the audio clock so it moves smoothly. Each strong point plays exactly when the needle reaches it, and flashes on the map: higher on screen = higher pitch, stronger = louder, left/right = stereo.
    - **Probe**: the value under the probe plays on every beat. Clicking a spot makes the narrator say where it is and what each playing record shows there.
-   - **Bahrain close-up** (`B`, the gold pin, or Go to): a detailed 1:10m coastline of Bahrain, Qatar and the Saudi coast with the records drawn on top at NASA's native resolution, and the sound listens only to that area. EIC frames are 2048 px wide (about 19 km per pixel), so the panel shows the NASA pixel grid and says plainly that Bahrain is only a handful of readings.
 3. **Harmony.** Under the Earth records, a slow A major progression (A, F#m, D, E) on viola with a deep synth root changes every two bars. When humanity is muted, it swells and the hall opens up.
 4. **Mix rules.** Earth records use A major pentatonic, the key the instruments were recorded in, with reverb. Humanity records use notes that clash with it (A#, D#, F, G), dry with a little grit. The humanity lever scales their volume; Mute Humanity fades them out.
 
@@ -69,7 +70,6 @@ The story and key moments are narrated with **Kokoro**, an open neural text-to-s
 | Listen / Scan / Probe | `L` `S` `P` | `Y` cycles | "scan", "probe", "listen" |
 | Move probe | arrows (Probe mode) or mouse | left stick (Probe mode) | |
 | Places | `G` next place; Go to list | triggers | "go to Bahrain" |
-| Bahrain close-up | `B` (Escape closes) | | "Bahrain close-up" |
 | Solo | `O` | View | "solo NOx" |
 | Story | `T` | Start | "play the story" |
 | Map | Shift + arrows, `+` `-` `0`, mouse | left stick, right stick / bumpers zoom | "zoom in" |
@@ -81,7 +81,7 @@ The story and key moments are narrated with **Kokoro**, an open neural text-to-s
 ## Accessibility
 
 - Every control is a real button or slider with a label; the screen reader hears what each record sounds like.
-- "Play the story" is a hands-free, narrated tour of about three minutes that explains how each map becomes sound; the music ducks while the narrator speaks.
+- "Play the story" is a hands-free guided listen of about two and a half minutes, with very few words. Each Earth record plays alone first, zoomed into wherever its NASA map is densest at that moment (found from the data by `densest()` in `src/eic/layers.ts`), then joins the others. Then each humanity record alone, then all six at once, louder and rougher, then humanity is muted. The music ducks while the narrator speaks.
 - `D` describes what you're hearing; captions describe the music for deaf and hard-of-hearing users.
 - Keyboard and switch access for everything, controller vibration, voice commands.
 - High contrast and reduced motion (also follows the system setting).
@@ -107,3 +107,7 @@ pipeline/                 the earlier gridded-data pipeline (shelved)
 ## Credits
 
 Visualizations: NASA Earth Information Center and NASA's Scientific Visualization Studio. Base map: NASA Blue Marble. Instruments recorded by our multimedia team.
+
+## Brand
+
+Logo artwork is in `public/brand/` (black and white PNGs from the team). `public/logo.svg` and the in-app logo (`src/components/logoPath.ts`) are vector traces of it, so it stays sharp and can take any colour. The favicon is `public/favicon.svg`.

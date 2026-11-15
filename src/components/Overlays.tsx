@@ -2,6 +2,7 @@
 // readout and the caption line.
 
 import { useState } from 'react';
+import { Logo } from './Logo';
 import { RECORDS, RECORD_BY_ID } from '../config/records';
 import { hapticPatternName } from '../input/haptics';
 import { describeValue } from '../state/actions';
@@ -15,8 +16,9 @@ export function TopBar() {
   const placeholders = RECORDS.filter((r) => sources[r.id] === 'placeholder').length;
   return (
     <header className="topbar">
-      <h1>
-        Mute Humanity <span>The Earth Jukebox</span>
+      <h1 className="brand">
+        <Logo live className="brand-logo" />
+        <span className="brand-name">Sonific-8</span> <span className="brand-sub">The Earth Jukebox</span>
       </h1>
       <div className="topbar-right">
         {placeholders > 0 && (

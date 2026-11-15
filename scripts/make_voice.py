@@ -30,7 +30,8 @@ only = set(sys.argv[3:])
 for key, text in cfg["lines"].items():
     if only and key not in only:
         continue
-    samples, sr = k.create(text, voice=cfg["voice"], speed=0.93, lang="en-us")
+    speed = float(__import__("os").environ.get("VOICE_SPEED", "0.93"))
+    samples, sr = k.create(text, voice=cfg["voice"], speed=speed, lang="en-us")
     with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
         sf.write(tmp.name, samples, sr)
         subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp.name, "-af", "apad=pad_dur=0.2", "-b:a", "96k", str(out / f"{key}.mp3")])
