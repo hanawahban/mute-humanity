@@ -15,10 +15,10 @@ test('tension 0 changes nothing: humanity blends into the Earth', () => {
   assert.equal(dragSixteenths(0), 0);
 });
 
-test('bend chance rises with tension and stays below one half', () => {
+test('bend chance rises with tension but stays gentle: about 1 in 5 at the most', () => {
   const c = [0, 0.25, 0.5, 0.75, 1].map(bendChance);
   for (let i = 1; i < c.length; i++) assert.ok(c[i] > c[i - 1]);
-  assert.ok(c[4] < 0.5 && c[2] > 0.15 && c[2] < 0.25, JSON.stringify(c));
+  assert.ok(c[4] > 0.15 && c[4] < 0.3 && c[2] > 0.05 && c[2] < 0.12, JSON.stringify(c));
 });
 
 test('a bent note always ends outside the key, within two semitones', () => {
@@ -31,12 +31,12 @@ test('a bent note always ends outside the key, within two semitones', () => {
   }
 });
 
-test('at full tension about half the notes are bent, so most stay in the key', () => {
+test('at full tension about one note in five is bent, so four in five stay in the key', () => {
   const r = rng(3); const base = [57, 61, 64, 66, 69];
   let bent = 0; const N = 20000;
   for (let i = 0; i < N; i++) { const b = base[i % 5]; if (bend(b, 1, r) !== b) bent++; }
   const share = bent / N;
-  assert.ok(share > 0.4 && share < 0.55, `share ${share}`);
+  assert.ok(share > 0.17 && share < 0.28, `share ${share}`);
 });
 
 test('mild blue notes (C, G) dominate at low tension, harsh ones at high', () => {
@@ -48,7 +48,13 @@ test('mild blue notes (C, G) dominate at low tension, harsh ones at high', () =>
   assert.ok(harshShare(0.2) < harshShare(1), `${harshShare(0.2)} vs ${harshShare(1)}`);
 });
 
-test('detune and drag stay small', () => {
+test('detune and drag stay small: at most 14 cents and a sixth of a 16th note', () => {
   const r = rng(5);
-  for (let i = 0; i < 500; i++) { assert.ok(Math.abs(detuneCents(1, r)) <= 34); const d = dragSixteenths(1, r); assert.ok(d >= 0 && d <= 0.3); }
+  for (let i = 0; i < 500; i++) { assert.ok(Math.abs(detuneCents(1, r)) <= 14); const d = dragSixteenths(1, r); assert.ok(d >= 0 && d <= 0.15); }
+});
+
+test('even at full tension most bent notes are the mild blue notes (C and G), not the harsh ones', () => {
+  const r = rng(21); let mild = 0, bentN = 0;
+  for (let i = 0; i < 60000; i++) { const b = [57, 61, 64, 66, 69][i % 5]; const o = bend(b, 1, r); if (o !== b) { bentN++; if ([3, 10].includes(pc(o))) mild++; } }
+  assert.ok(mild / bentN > 0.4, `mild share ${mild / bentN}`);
 });

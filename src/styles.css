@@ -229,6 +229,8 @@ button { cursor: pointer; }
 .brand-home:hover { background: rgba(255, 215, 36, 0.12); }
 .brand-logo { width: 3.1rem; height: auto; color: var(--gold); flex: none; }
 .brand-name { font-family: var(--display); font-size: 1.55rem; letter-spacing: 0.02em; color: var(--papaya); }
+/* the name is always Anton: never a synthesized bold or a fallback weight */
+#jb-title, .brand-name, #help-title { font-family: var(--display); font-weight: 400; font-synthesis: none; }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 
 .pill {
