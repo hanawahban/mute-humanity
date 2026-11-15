@@ -256,7 +256,7 @@ input[type='range']::-moz-range-thumb {
 .start-card { max-width: 40rem; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.9rem; }
 .start-logo { width: min(26rem, 80vw); height: auto; color: var(--gold); filter: drop-shadow(0 0 22px rgba(255, 215, 36, 0.35)); }
 .start-kicker { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold); }
-.start h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.8rem, 7vw, 4.8rem); color: var(--blush); line-height: 1; }
+.start h1 { margin: 0; font-family: var(--display); font-weight: 600; font-size: clamp(2.2rem, 5.5vw, 3.8rem); color: var(--blush); line-height: 1; }
 .start-sub { margin: 0; font-size: 1.15rem; color: var(--papaya); }
 .start-button {
   margin-top: 0.6rem; font-size: 1.25rem; font-weight: 700; padding: 0.95rem 2.2rem; border-radius: 999px; border: 0;

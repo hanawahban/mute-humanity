@@ -63,9 +63,9 @@ export function App() {
       {!audioOn && (
         <div className="start">
           <div className="start-card">
-            <Logo reveal className="start-logo" title="Sonific-8 logo" />
+            <Logo reveal className="start-logo" title="Melodic Earth Jukebox logo" />
             <p className="start-kicker">NASA Space Apps 2026 · Earth Information Jukebox</p>
-            <h1>Sonific-8</h1>
+            <h1>Melodic Earth Jukebox</h1>
             <p className="start-sub">Six NASA Earth Information Center maps, played as music. Earth plays in tune. Humanity bends it off key. Then you lighten our footprint, and hear the difference.</p>
             <div className="start-buttons">
               <button type="button" className="start-button" onClick={() => void start(true)} disabled={starting} autoFocus>

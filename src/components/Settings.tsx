@@ -22,7 +22,7 @@ export function HelpDialog() {
     <dialog ref={ref} className="help" aria-labelledby="help-title" onClose={() => setState({ helpOpen: false })}>
       <div className="help-head">
         <Logo className="help-logo" />
-        <h2 id="help-title">How to play Sonific-8</h2>
+        <h2 id="help-title">How to play Melodic Earth Jukebox</h2>
         <button type="button" className="icon-button" aria-label="Close" onClick={() => setState({ helpOpen: false })}>×</button>
       </div>
 

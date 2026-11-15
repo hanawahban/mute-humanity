@@ -20,7 +20,7 @@ export function TopBar() {
     <header className="topbar">
       <h1 className="brand">
         <Logo live className="brand-logo" />
-        <span className="brand-name">Sonific-8</span> <span className="brand-sub">The Earth Jukebox</span>
+        <span className="brand-name">Melodic Earth Jukebox</span>
       </h1>
       <div className="topbar-right">
         {placeholders > 0 && (

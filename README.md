@@ -1,6 +1,6 @@
-<p align="center"><img src="public/logo.svg" width="320" alt="Sonific-8 logo: a sound wave that loops into an 8"></p>
+<p align="center"><img src="public/logo.svg" width="320" alt="Melodic Earth Jukebox logo: a sound wave that loops into an 8"></p>
 
-# Sonific-8: The Earth Jukebox
+# Melodic Earth Jukebox
 
 NASA Space Apps 2026, challenge "Earth Information Jukebox". By team Sonific-8, from Bahrain.
 
