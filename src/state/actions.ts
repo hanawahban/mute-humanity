@@ -198,7 +198,9 @@ const WORDS: Record<RecordId, [string, string, string]> = {
   co2: ['low emissions', 'medium emissions', 'high emissions'],
   nox: ['clean air', 'some pollution', 'heavy pollution'],
 };
-export const describeValue = (id: RecordId, v: number) => WORDS[id][v > 0.6 ? 2 : v > 0.25 ? 1 : 0];
+const CHANGE_WORDS = ['lights went out', 'no change', 'new lights'];
+export const describeValue = (id: RecordId, v: number) =>
+  (getState().changeView[id] ? CHANGE_WORDS : WORDS[id])[v > 0.6 ? 2 : v > 0.25 ? 1 : 0];
 
 /** The text for "what am I hearing?", and for the caption line. */
 export function describeNow(): string {

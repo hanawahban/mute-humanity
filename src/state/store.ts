@@ -51,6 +51,10 @@ export interface AppState {
   controller: string | null;
   helpOpen: boolean;
   howOpen: boolean; // the How it works view
+  /** A record held at one point of its timeline (0-1), or null to let it play. */
+  holds: Partial<Record<RecordId, number | null>>;
+  /** Records showing their change map instead of their years (city lights). */
+  changeView: Partial<Record<RecordId, boolean>>;
   screen: 'jukebox' | 'map'; // the jukebox (pick records) or the map (listen and explore)
   paused: boolean; // music paused on the map
   factorsOpen: boolean; // the Factors drawer on the map
@@ -88,6 +92,8 @@ export const useStore = create<AppState>(() => ({
   controller: null,
   helpOpen: false,
   howOpen: false,
+  holds: {},
+  changeView: {},
   screen: 'jukebox',
   paused: false,
   factorsOpen: true,

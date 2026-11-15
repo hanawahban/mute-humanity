@@ -29,7 +29,7 @@ export function HelpDialog() {
       <div className="help-grid">
         <section>
           <h3>The idea</h3>
-          <p>Six records, each a NASA Earth Information Center map of the whole Earth, each with its own instrument. Turn records on and they stack on one map and play together. Earth plays in tune; humanity bends it off key. Then lighten our footprint and listen to the planet when we tread lightly.</p>
+          <p>Six records, each a NASA Earth Information Center map of the whole Earth, each with its own instrument. Turn records on and they stack on one map and play together. Nature plays acoustic instruments; humanity plays synths. Then lighten our footprint and listen to the planet when we tread lightly.</p>
           <p>Every layer keeps its real dates: they line up in place, not in time. The sound comes from the pixels, read through each visualization's color key.</p>
           <h3>Three ways to listen</h3>
           <p><strong>Listen</strong>: you hear everything on screen. Zoom in to hear one place. <strong>Scan</strong>: a needle slowly sweeps the map (about 9 seconds a sweep); every bright point it crosses flashes and plays a note, higher on screen is higher in pitch. <strong>Probe</strong>: click a spot and the narrator says where it is and what each record shows there.</p>
@@ -74,6 +74,8 @@ export function HelpDialog() {
             <dt><kbd>Shift</kbd> + arrows</dt><dd>move the map</dd>
             <dt><kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></dt><dd>zoom in, out, whole planet</dd>
             <dt><kbd>D</kbd></dt><dd>what am I hearing?</dd>
+            <dt><kbd>[</kbd> <kbd>]</kbd> <kbd>\</kbd></dt><dd>step the chosen record back / forward in time; play on</dd>
+            <dt><kbd>,</kbd> <kbd>.</kbd> <kbd>/</kbd></dt><dd>city lights: then (2012), now (2023), what changed</dd>
             <dt>hold <kbd>V</kbd></dt><dd>talk</dd>
             <dt><kbd>C</kbd> <kbd>H</kbd></dt><dd>captions, this help</dd>
           </dl>
@@ -99,7 +101,7 @@ export function HelpDialog() {
 
         <section className="wide">
           <h3>Voice (hold V or X, or turn the microphone on above)</h3>
-          <p>"Play ocean", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "lighten our footprint", "full footprint", "humanity to 50 percent", "go to Bahrain", "zoom in", "play the story", "how does it work?", "what am I hearing?", "microphone on", "help".</p>
+          <p>"Play ocean", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "lighten our footprint", "full footprint", "humanity to 50 percent", "then", "now", "what changed", "go to Bahrain", "zoom in", "play the story", "how does it work?", "what am I hearing?", "microphone on", "help".</p>
           <h3>Credits</h3>
           <p className="small">Visualizations: NASA Earth Information Center and Scientific Visualization Studio (SVS 3912, 5149, 5011, 5475, 5121, 5154). Base map: NASA Blue Marble; zoomed in, NASA Blue Marble tiles from NASA GIBS. Instruments recorded by our multimedia team. Fonts: Anton and Alexandria (SIL Open Font License).</p>
           <p className="small"><strong>Use of AI:</strong> the narrator's voice is AI-generated with Kokoro, an open text-to-speech model. Parts of the code and text were written with Claude (Anthropic), an AI assistant, and reviewed by the team. The instruments, design, logo and NASA data are not AI-generated.</p>

@@ -8,6 +8,9 @@
 //   + / - / 0     zoom in, out, whole planet  D           "what am I hearing?"
 //   V (hold)      talk: voice command         C captions, H help
 //   Space         pause / play                J  back to the jukebox
+//   [ / ]         step the chosen record back / forward in time (it holds there)
+//   \             let the chosen record's clip play again
+//   , / . / /     city lights: then (2012), now (2023), what changed
 //   (on the jukebox screen: 1-6 pick records, Enter plays, T plays the story)
 //
 // When a slider or text field has focus, it keeps its own arrow keys.
@@ -18,6 +21,7 @@ import {
   toggleMuteHumanity, toggleRecord, toggleSolo, zoomBy,
 } from '../state/actions';
 import { startStory, stopStory } from '../state/story';
+import { hold, showChange, showYear, stepTime } from '../eic/timeline';
 import { getState, setState } from '../state/store';
 import { startListening, stopListening } from './voice';
 
@@ -28,6 +32,12 @@ function ownsArrows(el: EventTarget | null): boolean {
   if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (tag === 'INPUT') return (el as HTMLInputElement).type !== 'checkbox';
   return false;
+}
+
+/** Turn city lights on if needed, then run f (so its words come after "city lights on"). */
+async function withLights(f: () => void) {
+  if (!getState().playing.lights) await toggleRecord('lights', true);
+  f();
 }
 
 export function initKeyboard() {
@@ -133,6 +143,23 @@ export function initKeyboard() {
         break;
       case 'y':
         cycleMode();
+        break;
+      case '[':
+      case ']': {
+        const said = stepTime(s.selected, e.key === ']' ? 1 : -1);
+        announce(said ? `${RECORDS.find((r) => r.id === s.selected)!.short}: ${said}` : 'This record shows one moment, so it has no timeline.');
+        break;
+      }
+      case '\\':
+        hold(s.selected, null);
+        announce('Playing');
+        break;
+      case ',':
+      case '.':
+        void withLights(() => announce(showYear('lights', e.key === ',' ? 'then' : 'now') ?? ''));
+        break;
+      case '/':
+        void withLights(() => announce(showChange('lights', !s.changeView.lights) ?? ''));
         break;
       default:
         return;

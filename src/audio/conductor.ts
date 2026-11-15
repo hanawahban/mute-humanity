@@ -19,6 +19,7 @@ import { RECORDS, RECORD_BY_ID, type RecordDef, type RecordId } from '../config/
 import { audible, getState, setState, type Level } from '../state/store';
 import { columnPeaks, layers, sample, valueAt, viewStats } from '../eic/layers';
 import { viewBounds, latLonToScreen } from '../map/camera';
+import { keepInSegment } from '../eic/timeline';
 import { outputLatency, play, previewNote, setGain, setSpace, type VoiceKey } from './engine';
 import { bend, clamp01, detuneCents, dragSixteenths, settle } from './harmony';
 import { describeNow } from '../state/actions';
@@ -98,6 +99,7 @@ function pitchFrom(rec: RecordDef, s: ReturnType<typeof viewStats>) {
 
 /** Every 100 ms: read frames, update levels, play/pause videos, gains, vibration, captions. */
 function analyze() {
+  keepInSegment(); // each clip loops inside its own span (e.g. city lights' years only)
   const s = getState();
   const now = performance.now();
   const ids = audible(s);
@@ -117,7 +119,8 @@ function analyze() {
   for (const rec of RECORDS) {
     const layer = layers.get(rec.id);
     const v = layer?.el instanceof HTMLVideoElement ? layer.el : null;
-    const shouldPlay = s.audioOn && s.screen === 'map' && !s.paused && s.playing[rec.id] && s.mode !== 'scan';
+    // held at one point of its timeline (then vs now, or scrubbing): the clip stands still
+    const shouldPlay = s.audioOn && s.screen === 'map' && !s.paused && s.playing[rec.id] && s.mode !== 'scan' && s.holds[rec.id] == null;
     if (v && shouldPlay && v.paused) void v.play().catch(() => undefined);
     if (v && !shouldPlay && !v.paused) v.pause();
 
