@@ -13,7 +13,7 @@ import { Logo } from './Logo';
 
 /** The names on the jukebox, in the team's wording. */
 const LABEL: Record<string, string> = {
-  temperature: 'Global temperature, 1880 – 2025',
+  temperature: 'Global temperature',
   rain: 'Rain and clouds',
   lightning: 'Lightning',
   lights: 'City lights',
