@@ -8,8 +8,9 @@
 //           left/right = stereo.
 //   Probe   the value under the probe (mouse, arrow keys, controller stick) plays on every beat.
 //
-// Earth records use A major pentatonic (the key of the team's recordings); humanity records
-// use notes that clash with it.
+// Earth records play A major pentatonic (the key of the team's recordings) on traditional
+// instruments. Humanity records are the same notes on synths, bent off the key and drifting out
+// of tune as the humanity lever goes up (rules in harmony.ts).
 
 import * as Tone from 'tone';
 import { RECORDS, RECORD_BY_ID, type RecordDef, type RecordId } from '../config/records';
@@ -17,22 +18,23 @@ import { audible, getState, setState, type Level } from '../state/store';
 import { columnPeaks, layers, sample, valueAt, viewStats } from '../eic/layers';
 import { viewBounds, latLonToScreen } from '../map/camera';
 import { outputLatency, play, previewNote, setGain, setSpace, type VoiceKey } from './engine';
+import { bend, clamp01, detuneCents, dragSixteenths } from './harmony';
 import { hapticTick } from '../input/haptics';
 import { describeNow } from '../state/actions';
 
-const EARTH = [0, 2, 4, 7, 9]; // A B C# E F#
-const HUMAN = [1, 6, 8, 10]; // A# D# F G: out of key
+const EARTH = [0, 2, 4, 7, 9]; // A B C# E F#: both sides start from these notes
 
 /** Lowest note (MIDI) and how many scale steps each instrument uses, kept near its recorded pitch. */
 const RANGE: Record<RecordId, { root: number; steps: number; from?: number }> = {
   ocean: { root: 45, steps: 10 }, // cello, A2 up two octaves
   rain: { root: 69, steps: 8 }, // flute, around A4-A5
   lightning: { root: 69, steps: 8, from: 3 }, // violin, from E5
-  lights: { root: 69, steps: 6 }, // clarinet
-  co2: { root: 33, steps: 3, from: 2 }, // synth drone, low
-  nox: { root: 57, steps: 6 }, // oboe, an octave lower than it was recorded: rough, not shrill
+  lights: { root: 69, steps: 6 }, // bright synth (synth1, recorded C#4), around A4
+  co2: { root: 33, steps: 3 }, // deep synth drone (synth2, recorded A1): sits on the low A
+  nox: { root: 45, steps: 8 }, // gritty synth (synth3, recorded A2), A2 up
 };
-const BASE_GAIN: Record<RecordId, number> = { ocean: 0.75, rain: 0.6, lightning: 0.55, lights: 0.5, co2: 0.75, nox: 0.3 };
+// Levels matched to how loud each recording is on its own (the synths are quieter than the winds).
+const BASE_GAIN: Record<RecordId, number> = { ocean: 0.75, rain: 0.6, lightning: 0.55, lights: 0.45, co2: 0.45, nox: 0.6 };
 const CLOUD_GAIN = 0.35;
 /** The story turns humanity up for one moment, so you feel how much it clashes. */
 let humanBoost = 1;
@@ -40,20 +42,34 @@ export function setHumanBoost(v: number) {
   humanBoost = v;
 }
 
-function noteOf(rec: RecordDef, degree: number): string {
+/** How far humanity pulls the music off course: 0 = in tune, 1 = at its most disruptive. */
+const humanTension = () => clamp01(getState().humanity * humanBoost);
+
+/**
+ * The note for a value. Earth notes are always in key. Human notes start on the same scale, then
+ * (live) get bent off the key and detuned in proportion to the humanity lever, so humanity
+ * disturbs the Earth's harmony without ever becoming noise. Not live = the clean note.
+ */
+function noteOf(rec: RecordDef, degree: number, live = true): string | number {
   const { root, steps, from = 0 } = RANGE[rec.id];
-  const scale = rec.side === 'earth' ? EARTH : HUMAN;
   const d = Math.max(0, Math.min(steps - 1, Math.round(degree))) + from;
-  const midi = root + 12 * Math.floor(d / scale.length) + scale[d % scale.length];
+  let midi = root + 12 * Math.floor(d / EARTH.length) + EARTH[d % EARTH.length];
+  if (rec.side === 'human' && live) {
+    const t = humanTension();
+    midi = bend(midi, t);
+    const cents = detuneCents(t);
+    if (cents) return Tone.Frequency(midi + cents / 100, 'midi').toFrequency(); // fractional MIDI = out of tune
+  }
   return Tone.Frequency(midi, 'midi').toNote();
 }
 
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+/** Human notes drag a little behind the beat as tension rises; Earth stays exactly on it. */
+const late = (rec: RecordDef, time: number) => (rec.side === 'human' ? time + dragSixteenths(humanTension()) * SIXTEENTH() : time);
 
 /** Every note a record can play, low to high (for the How it works view). */
 export function notesFor(id: RecordId): string[] {
   const rec = RECORD_BY_ID[id];
-  return Array.from({ length: RANGE[id].steps }, (_, i) => noteOf(rec, i));
+  return Array.from({ length: RANGE[id].steps }, (_, i) => noteOf(rec, i, false) as string);
 }
 /** The note a value (0-1 along the color key) becomes. */
 export function noteIndexFor(id: RecordId, v: number) {
@@ -224,7 +240,7 @@ function tick(time: number) {
       const v = s.probeValues[id];
       if (v == null || v < 0.03) continue;
       const rec = RECORD_BY_ID[id];
-      play(id, noteOf(rec, v * (RANGE[id].steps - 1)), rec.voice === 'strikes' ? 0.15 : '4n', time, 0.3 + 0.6 * v, pan);
+      play(id, noteOf(rec, v * (RANGE[id].steps - 1)), rec.voice === 'strikes' ? 0.15 : '4n', late(rec, time), 0.3 + 0.6 * v, pan);
     }
     return;
   }
@@ -239,40 +255,41 @@ function tick(time: number) {
     const pitch = pitchFrom(rec, sst) * (steps - 1);
     switch (rec.voice) {
       case 'sustain':
-        if (st % 8 === 0 && level > 0.03) play(id, noteOf(rec, pitch), '2n', time, 0.35 + 0.55 * level, sst.pan * 0.6);
+        if (st % 8 === 0 && level > 0.03) play(id, noteOf(rec, pitch), '2n', late(rec, time), 0.35 + 0.55 * level, sst.pan * 0.6);
         break;
       case 'drops':
         if (Math.random() < level * 0.85) {
           const deg = pitch + (Math.random() - 0.3) * 3;
-          play(id, noteOf(rec, deg), '8n', time, 0.25 + 0.5 * Math.random() * (0.4 + level), sst.pan * 0.5 + (Math.random() - 0.5) * 0.5);
+          play(id, noteOf(rec, deg), '8n', late(rec, time), 0.25 + 0.5 * Math.random() * (0.4 + level), sst.pan * 0.5 + (Math.random() - 0.5) * 0.5);
         }
         break;
       case 'strikes':
         if (Math.random() < level * 0.6) {
-          play(id, noteOf(rec, Math.random() * (steps - 1)), 0.15, time, 0.6 + 0.4 * Math.random(), sst.pan * 0.5 + (Math.random() - 0.5) * 0.6);
+          play(id, noteOf(rec, Math.random() * (steps - 1)), 0.15, late(rec, time), 0.6 + 0.4 * Math.random(), sst.pan * 0.5 + (Math.random() - 0.5) * 0.6);
         }
         break;
       case 'drone':
         if (st === 0 && level > 0.02) {
-          play(id, noteOf(rec, 0), '1m', time, 0.3 + 0.6 * level);
-          if (level > 0.45) play(id, noteOf(rec, 1), '1m', time, 0.2 + 0.5 * level);
+          play(id, noteOf(rec, 0), '1m', late(rec, time), 0.3 + 0.6 * level);
+          if (level > 0.45) play(id, noteOf(rec, 1), '1m', late(rec, time), 0.2 + 0.5 * level);
         }
         break;
     }
     if (rec.second && st === 0 && sst.second > 0.02) {
       const v = clamp01(sst.second * 3);
-      play(`${id}:2` as VoiceKey, 'A3', '1m', time, 0.15 + 0.5 * v);
-      play(`${id}:2` as VoiceKey, 'E4', '1m', time, 0.1 + 0.4 * v);
+      play(`${id}:2` as VoiceKey, 'A4', '1m', time, 0.15 + 0.5 * v);
+      play(`${id}:2` as VoiceKey, 'E5', '1m', time, 0.1 + 0.4 * v);
     }
   }
 }
 
 // ---------- the harmony bed ----------
-// A slow chord progression in A major under the Earth records (viola chords, deep synth root),
-// changing every two bars. It swells when humanity is muted: the planet opens up.
+// A slow chord progression in A major under the Earth records (viola chords, cello root; no
+// synths here, they are humanity's), changing every two bars. It swells as humanity is turned
+// down: the planet opens up.
 const CHORDS: Array<{ root: string; notes: string[] }> = [
-  { root: 'A1', notes: ['A3', 'C#4', 'E4'] },
-  { root: 'F#1', notes: ['F#3', 'A3', 'C#4'] },
+  { root: 'A2', notes: ['A3', 'C#4', 'E4'] }, // the cello was recorded on A2: roots stay near it
+  { root: 'F#2', notes: ['F#3', 'A3', 'C#4'] },
   { root: 'D2', notes: ['D3', 'F#3', 'A3'] },
   { root: 'E2', notes: ['E3', 'G#3', 'B3'] },
 ];
