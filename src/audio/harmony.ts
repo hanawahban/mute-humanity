@@ -12,9 +12,9 @@
 //             itself uses over its A in the last bars, or the flat 3rd (C), the "blue" notes
 //
 //   tension 0   humanity blends in completely
-//   tension 0.5 about one human note in 260 is bent
-//   tension 1   about one in 110, and at most 3 cents out of tune (barely audible): the
-//               faintest edge in an otherwise settled sound
+//   tension 0.5 about one human note in 680 is bent
+//   tension 1   about one in 285, and at most 1.5 cents out of tune (below what the ear
+//               notices): almost no edge in an otherwise settled sound
 
 /** Semitones above A for the notes of A major. */
 const ANCHORS = [0, 7]; // A and E: 65% of all.mp3's energy
@@ -42,7 +42,7 @@ export function settle(midi: number, strength = 0.35, rnd: () => number = Math.r
 /** Chance that a human note is bent off the key at this tension (0-1). */
 export function bendChance(tension: number): number {
   const t = clamp01(tension);
-  return 0.004 * t + 0.005 * t ** 1.5; // 0 at 0, ~0.004 at 0.5, 0.009 at 1
+  return 0.0015 * t + 0.002 * t ** 1.5; // 0 at 0, ~0.0015 at 0.5, 0.0035 at 1
 }
 
 /**
@@ -62,12 +62,12 @@ export function bend(midi: number, tension: number, rnd: () => number = Math.ran
 /** How far out of tune a human synth drifts, in cents (100 = a semitone). */
 export function detuneCents(tension: number, rnd: () => number = Math.random): number {
   const t = clamp01(tension);
-  return (rnd() * 2 - 1) * 3 * t ** 1.3 + 0; // + 0 turns -0 into 0
+  return (rnd() * 2 - 1) * 1.5 * t ** 1.3 + 0; // + 0 turns -0 into 0
 }
 
 /** How late (in 16ths) a human note drags behind the beat. Nature stays on the grid. */
 export function dragSixteenths(tension: number, rnd: () => number = Math.random): number {
-  return clamp01(tension) * 0.08 * rnd();
+  return clamp01(tension) * 0.04 * rnd();
 }
 
 export const clamp01 = (v: number) => Math.max(0, Math.min(1, v));

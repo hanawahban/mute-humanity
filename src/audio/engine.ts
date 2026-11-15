@@ -1,6 +1,6 @@
 // Sound engine: the team's 10 recorded instruments, pitch-shifted by Tone.js samplers.
 // Earth records go through a reverb bus (wide, warm). Humanity records go through a dry bus
-// with a little grit. Each record has its own channel (volume + left/right position), so the
+// with only a trace of grit. Each record has its own channel (volume + left/right position), so the
 // humanity lever, solo and the meters work per record.
 
 import * as Tone from 'tone';
@@ -56,7 +56,7 @@ export async function startAudio() {
   const echo = new Tone.PingPongDelay({ delayTime: '8n.', feedback: 0.22, wet: 0.16 });
   const earthBus = new Tone.Gain(1).chain(echo, reverb, master);
   // Humanity: dry, close and a little rough.
-  const grit = new Tone.Distortion({ distortion: 0.15, wet: 0.2 });
+  const grit = new Tone.Distortion({ distortion: 0.08, wet: 0.08 }); // just a trace of grit: the synths stay smooth
   const humanBus = new Tone.Gain(1).chain(grit, new Tone.Reverb({ decay: 1.2, wet: 0.12 }), master);
 
   for (const rec of RECORDS) {
