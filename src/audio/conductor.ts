@@ -16,7 +16,7 @@ import { RECORDS, RECORD_BY_ID, type RecordDef, type RecordId } from '../config/
 import { audible, getState, setState, type Level } from '../state/store';
 import { columnPeaks, layers, sample, valueAt, viewStats } from '../eic/layers';
 import { viewBounds, latLonToScreen } from '../map/camera';
-import { outputLatency, play, setGain, setSpace, type VoiceKey } from './engine';
+import { outputLatency, play, previewNote, setGain, setSpace, type VoiceKey } from './engine';
 import { hapticTick } from '../input/haptics';
 import { describeNow } from '../state/actions';
 
@@ -49,6 +49,20 @@ function noteOf(rec: RecordDef, degree: number): string {
 }
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+/** Every note a record can play, low to high (for the How it works view). */
+export function notesFor(id: RecordId): string[] {
+  const rec = RECORD_BY_ID[id];
+  return Array.from({ length: RANGE[id].steps }, (_, i) => noteOf(rec, i));
+}
+/** The note a value (0-1 along the color key) becomes. */
+export function noteIndexFor(id: RecordId, v: number) {
+  return Math.round(clamp01(v) * (RANGE[id].steps - 1));
+}
+/** Play that value's note on the record's instrument. */
+export function previewValue(id: RecordId, v: number) {
+  previewNote(id, notesFor(id)[noteIndexFor(id, v)], BASE_GAIN[id]);
+}
 let stats: Partial<Record<RecordId, ReturnType<typeof viewStats>>> = {};
 let step = 0;
 let lastCaption = 0;
@@ -70,7 +84,7 @@ function pitchFrom(rec: RecordDef, s: ReturnType<typeof viewStats>) {
 }
 
 /** Every 100 ms: read frames, update levels, play/pause videos, gains, vibration, captions. */
-function analyse() {
+function analyze() {
   const s = getState();
   const now = performance.now();
   const ids = audible(s);
@@ -146,7 +160,7 @@ export function scanNeedle(): number | null {
 export interface Hit {
   x: number; // 0-1 across the view
   y: number; // 0-1 down the view
-  colour: string;
+  color: string;
   v: number;
   at: number; // audio time the note sounds
 }
@@ -187,7 +201,7 @@ function tick(time: number) {
         const at = time + (p.x - x0) * SWEEP * sixteenth;
         const dur = rec.voice === 'strikes' ? 0.2 : rec.voice === 'drone' ? '4n' : '8n';
         play(id, noteOf(rec, (1 - p.y) * (steps - 1)), dur, at, 0.3 + 0.7 * p.v, p.x * 2 - 1);
-        if (humanScale > 0.05) hits.push({ x: p.x, y: p.y, colour: rec.colour, v: p.v * humanScale, at });
+        if (humanScale > 0.05) hits.push({ x: p.x, y: p.y, color: rec.color, v: p.v * humanScale, at });
       }
       if (rec.second && l.second && ss % 4 === 0) {
         const clouds = columnPeaks(l.second, b.west + (x0 + 0.5 / SWEEP) * b.lonSpan, b, 1)[0];
@@ -281,7 +295,7 @@ let startedConductor = false;
 export function startConductor() {
   if (startedConductor) return;
   startedConductor = true;
-  window.setInterval(analyse, 100);
+  window.setInterval(analyze, 100);
   new Tone.Loop((time) => tick(time), '16n').start(0);
 }
 

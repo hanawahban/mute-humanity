@@ -12,14 +12,27 @@ import { RECORD_BY_ID, type RecordId } from '../config/records';
 import { layers } from '../eic/layers';
 import { panBy, probeAt, resetView, setProbe, zoomBy } from '../state/actions';
 import { audible, getState, useStore, type AppState } from '../state/store';
-import { baseScale, latLonToScreen, screenToLatLon, setViewport, stepCamera } from '../map/camera';
+import { baseScale, latLonToScreen, screenToLatLon, setViewport, stepCamera, viewBounds } from '../map/camera';
+import { getDetail, onDetailChange, updateDetail } from '../map/detail';
 import { MapRenderer, type GlLayer } from '../map/gl';
 import { audioNow, hits, scanNeedle } from '../audio/conductor';
 
 const degrees = geoEquirectangular().scale(180 / Math.PI).translate([0, 0]).precision(0.05);
 // Outlines in two levels of detail: the light 1:110m set when zoomed out, 1:50m when zoomed in.
 type Outlines = { borders: Path2D; coast: Path2D };
-const outlines: { low: Outlines | null; high: Outlines | null } = { low: null, high: null };
+const outlines: { low: Outlines | null; high: Outlines | null; fine: Outlines | null } = { low: null, high: null, fine: null };
+let fineLoading = false;
+/** The 1:10m set (about 6 MB) only loads the first time someone zooms in close. */
+function loadFineOutlines(onDone: () => void) {
+  if (fineLoading) return;
+  fineLoading = true;
+  void Promise.all([import('world-atlas/countries-10m.json'), import('world-atlas/land-10m.json')]).then(([c, l]) => {
+    outlines.fine = buildOutlines(c.default ?? c, l.default ?? l);
+    onDone();
+  });
+}
+/** Zoom level from which the finest coastline is used. */
+const FINE_ZOOM = 9;
 function buildOutlines(c: unknown, l: unknown): Outlines {
   const ct = c as Topology<{ countries: GeometryCollection }>;
   const lt = l as Topology<{ land: GeometryCollection }>;
@@ -87,6 +100,8 @@ export function MapView() {
       console.error('WebGL2 is needed for the map', e);
     }
     let mapDirty = true;
+    let dimNow = 0.9;
+    let dimTarget = 0.9;
     let outlineDirty = true;
     let raf = 0;
     let last = performance.now();
@@ -138,6 +153,9 @@ export function MapView() {
       const f = s.focus;
       const k = baseScale() * f.zoom * glDpr();
       const on = audible(s);
+      // City lights are seen at night: when they play the base map darkens, fully when alone
+      const night = on.includes('lights') && s.humanity > 0.05;
+      dimTarget = s.settings.highContrast ? 0.45 : night ? (on.length === 1 ? 0.14 : 0.38) : on.length ? 0.72 : 0.9;
       const list: GlLayer[] = [];
       for (const id of ORDER) {
         if (!on.includes(id)) continue;
@@ -151,12 +169,12 @@ export function MapView() {
           area: rec.area,
           masks: layer.placeholder ? [] : rec.masks ?? [],
           alpha: rec.side === 'human' ? 0.15 + 0.85 * s.humanity : 1,
-          boost: rec.boost ?? 1,
-          floor: layer.placeholder || rec.decode.kind !== 'bright' ? 0.1 : Math.max(0.1, rec.decode.floor - 0.1),
+          boost: id === 'lights' ? (night ? 1.9 : 1.5) : rec.boost ?? 1,
+          floor: layer.placeholder || rec.decode.kind !== 'bright' ? 0.1 : Math.max(0.1, rec.decode.floor - (id === 'lights' ? 0.16 : 0.1)),
           grow: id === 'lightning' ? 1.5 : 0,
         });
       }
-      renderer?.draw({ lon: f.lon, lat: f.lat, k }, s.settings.highContrast ? 0.45 : list.length ? 0.72 : 0.9, list);
+      renderer?.draw({ lon: f.lon, lat: f.lat, k }, dimNow, list);
     };
 
     /**
@@ -175,7 +193,8 @@ export function MapView() {
       const w = outline.width;
       const h = outline.height;
       const k = baseScale() * f.zoom * dpr;
-      const set = (f.zoom < 2.2 ? outlines.low : outlines.high) ?? outlines.low ?? outlines.high;
+      if (f.zoom >= FINE_ZOOM && !outlines.fine) loadFineOutlines(() => (outlineDirty = true));
+      const set = (f.zoom >= FINE_ZOOM && outlines.fine) || (f.zoom < 2.2 ? outlines.low : outlines.high) || outlines.low || outlines.high;
       octx.setTransform(1, 0, 0, 1, 0, 0);
       octx.clearRect(0, 0, w, h);
       outline.style.transform = '';
@@ -251,7 +270,7 @@ export function MapView() {
         const hy = hit.y * h;
         const r = (6 + 24 * t) * dpr * (0.7 + 0.6 * hit.v);
         ctx.globalAlpha = (1 - t) * 0.95;
-        ctx.strokeStyle = hit.colour;
+        ctx.strokeStyle = hit.color;
         ctx.lineWidth = 3 * dpr * (1 - t) + 1;
         ctx.beginPath();
         ctx.arc(hx, hy, r, 0, Math.PI * 2);
@@ -296,6 +315,18 @@ export function MapView() {
         }
       }
       const motion = moving || now - focusAt < 120;
+      // sharper NASA tiles for where the map is now, once it settles
+      if (!motion && now - detailAt > 250) {
+        detailAt = now;
+        const b = viewBounds();
+        updateDetail({ west: b.west, east: b.west + b.lonSpan, south: b.south, north: b.north }, 1 / (baseScale() * s.focus.zoom * glDpr()));
+      }
+      // ease the base map darker or lighter (it goes dark like night when city lights play)
+      if (Math.abs(dimNow - dimTarget) > 0.004) {
+        dimNow += (dimTarget - dimNow) * Math.min(1, ((now - last2) / 1000) * 3);
+        mapDirty = true;
+      }
+      last2 = now;
       if (mapDirty) {
         mapDirty = false;
         drawMap();
@@ -308,6 +339,12 @@ export function MapView() {
       } else if (!motion && outline.style.transform) drawOutline();
       if (s.mode !== 'listen' || overlayHadContent) drawOverlay();
     };
+    let detailAt = 0;
+    let last2 = performance.now();
+    onDetailChange(() => {
+      renderer?.setDetail(getDetail());
+      mapDirty = true;
+    });
     raf = requestAnimationFrame(frame);
     const tick = window.setInterval(() => (mapDirty = true), 1000);
 
@@ -399,7 +436,7 @@ export function MapView() {
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><ellipse cx="12" cy="12" rx="3.6" ry="8.5" /><path d="M3.5 12h17" /></svg>
         </button>
       </div>
-      <p className="attribution">Visualizations: NASA Earth Information Center / Scientific Visualization Studio · Base map: NASA Blue Marble</p>
+      <p className="attribution">Visualizations: NASA Earth Information Center / Scientific Visualization Studio · Base map: NASA Blue Marble (zoomed in: NASA GIBS)</p>
     </div>
   );
 }

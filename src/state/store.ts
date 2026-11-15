@@ -25,6 +25,7 @@ export interface Settings {
   vibration: number; // 0-1
   captions: boolean;
   narrate: boolean; // speak the story aloud
+  alwaysListen: boolean; // microphone always on for voice commands (otherwise hold V to talk)
 }
 
 export interface AppState {
@@ -49,6 +50,7 @@ export interface AppState {
   settings: Settings;
   controller: string | null;
   helpOpen: boolean;
+  howOpen: boolean; // the How it works view
 }
 
 const each = <T,>(v: T) => Object.fromEntries(RECORDS.map((r) => [r.id, v])) as Record<RecordId, T>;
@@ -78,9 +80,11 @@ export const useStore = create<AppState>(() => ({
     vibration: 0.8,
     captions: true,
     narrate: true,
+    alwaysListen: false,
   },
   controller: null,
   helpOpen: false,
+  howOpen: false,
 }));
 
 export const getState = useStore.getState;

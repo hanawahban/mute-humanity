@@ -6,7 +6,7 @@ NASA Space Apps 2026, challenge "Earth Information Jukebox". By team Sonific-8, 
 
 Six NASA Earth Information Center (EIC) visualizations, all flat maps of the whole Earth, are the six records of a jukebox. Turn records on and they stack on one shared map and play together; zoom anywhere to hear just that place. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.
 
-Every sound comes from the pixels of the EIC frames, read through each visualization's colour key.
+Every sound comes from the pixels of the EIC frames, read through each visualization's color key.
 
 ## Quick start
 
@@ -33,11 +33,11 @@ The layers line up in place, not in time: each keeps its real dates, shown on th
 
 ## How the map stacks six visualizations
 
-The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equirectangular world map, so one shader places them all. Each layer's background is made transparent in the shader (black space for lights, lightning and CO₂; grey land under the ocean flows; the base map under rain and clouds; light green "clean air" for NOx, which is redrawn as dark smog), so all six can be layered while the data stays visible. NASA logos and date stamps burned into the frames are masked out of both the picture and the sound.
+The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equirectangular world map, so one shader places them all. Each layer's background is made transparent in the shader (black space for lights, lightning and CO₂; gray land under the ocean flows; the base map under rain and clouds; light green "clean air" for NOx, which is redrawn as dark smog), so all six can be layered while the data stays visible. NASA logos and date stamps burned into the frames are masked out of both the picture and the sound.
 
 ## How it's sonified
 
-1. **Pixels to numbers.** Each frame is drawn into a 360 × 180 grid (1° cells). Each pixel's colour is matched to the visualization's colour key (`src/eic/layers.ts`), giving a value from 0 to 1, or "no data" (land under the ocean layer).
+1. **Pixels to numbers.** Each frame is drawn into a 360 × 180 grid (1° cells). Each pixel's color is matched to the visualization's color key (`src/eic/layers.ts`), giving a value from 0 to 1, or "no data" (land under the ocean layer).
 2. **Three ways to listen** (`src/audio/conductor.ts`), all on a 16th-note grid at 80 BPM:
    - **Listen**: the view's average, hotspot strength and coverage drive each instrument while its video plays.
    - **Scan**: the videos pause and a needle sweeps the view in three bars (about 9 seconds), driven by the audio clock so it moves smoothly. Each strong point plays exactly when the needle reaches it, and flashes on the map: higher on screen = higher pitch, stronger = louder, left/right = stereo.
@@ -50,20 +50,30 @@ The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equ
 ```
 public/eic/<record>/clip.mp4       the visualization, 2048 px wide, H.264, no audio (still.png for co2)
 public/eic/<record>/colorbar.json  optional: {"stops": [[r, g, b, value0to1], ...]}  (beats the built-in guess)
-public/eic/<record>/colorbar.png   optional: the NASA colour key, shown in the map key
+public/eic/<record>/colorbar.png   optional: the NASA color key, shown in the map key
 ```
 
-Record ids: `ocean`, `rain`, `lightning`, `lights`, `co2`, `nox`. `scripts/download_eic.py` produces the clips and fetches colour key images. If a clip has titles or a colour bar inside the frame, set its `area` (the part that is the map, as fractions) in `src/config/records.ts`.
+Record ids: `ocean`, `rain`, `lightning`, `lights`, `co2`, `nox`. `scripts/download_eic.py` produces the clips and fetches color key images. If a clip has titles or a color bar inside the frame, set its `area` (the part that is the map, as fractions) in `src/config/records.ts`.
 
-Built-in decoding until `colorbar.json` exists: ocean uses the SVS colour bar description; lights, lightning and CO₂ use brightness; NOx uses warm colours; rain separates grey clouds from coloured rain.
+Built-in decoding until `colorbar.json` exists: ocean uses the SVS color bar description; lights, lightning and CO₂ use brightness; NOx uses warm colors; rain separates gray clouds from colored rain.
 
 ## Voice
 
 The story and key moments are narrated with **Kokoro**, an open neural text-to-speech model (voice `af_heart`), pre-rendered to `public/voice/` by `scripts/make_voice.py` from the text in `src/config/narration.json`. Live descriptions ("what am I hearing?") use the most natural voice installed on the computer; on a Mac, download a Premium or Enhanced voice in System Settings → Accessibility → Spoken Content for the best result.
 
+Voice commands work two ways: hold V (or the controller's X) to talk, or turn on **Microphone always on** in Settings (or say "microphone on"). With the microphone on, every sentence is checked for a command; anything said while the narrator is talking is ignored so it can't trigger itself, and unrecognized speech is ignored quietly. Headphones help. The browser shows its own microphone indicator, and Chrome sends speech to its server, so this needs internet.
+
+## How it works view
+
+The **How it works** button (or `I`) opens a step-by-step view for any record: the live NASA map, a slider along its color key, the note that position becomes, and the instrument. Dragging the slider plays each note.
+
+## Zooming in
+
+The bundled Blue Marble base map is 4096 px wide (about 10 km per pixel). Zoomed in, the map streams **NASA Blue Marble Next Generation** tiles from **NASA GIBS** (geographic tiles, up to about 500 m per pixel; `src/map/detail.ts`) and switches to Natural Earth 1:10m coastlines, so you can zoom to about 9° across the screen. The NASA EIC records themselves are about 19 km per pixel, so up close they stay soft; the detail is in the base map. If GIBS can't be reached, the bundled base map is used.
+
 ## Controls
 
-| | Keyboard | Xbox controller | Voice (hold V or X) |
+| | Keyboard | Xbox controller | Voice (hold V or X, or mic always on) |
 |---|---|---|---|
 | Play / stop a record | `1`–`6` | D-pad ← → to choose, `A` | "play ocean", "stop rain" |
 | Humanity | `↑` `↓`, `M` to mute | D-pad ↑ ↓ | "mute humanity", "humanity to 50 percent" |
@@ -81,7 +91,7 @@ The story and key moments are narrated with **Kokoro**, an open neural text-to-s
 ## Accessibility
 
 - Every control is a real button or slider with a label; the screen reader hears what each record sounds like.
-- "Play the story" is a hands-free guided listen of about two and a half minutes, with very few words. Each Earth record plays alone first, zoomed into wherever its NASA map is densest at that moment (found from the data by `densest()` in `src/eic/layers.ts`), then joins the others. Then each humanity record alone, then all six at once, louder and rougher, then humanity is muted. The music ducks while the narrator speaks.
+- "Play the story" is a hands-free guided listen of about a minute and a half, with very few words that explain how each map becomes sound. Each Earth record plays alone first, zoomed into wherever its NASA map is densest at that moment (found from the data by `densest()` in `src/eic/layers.ts`), then joins the others. Then each humanity record alone, then all six at once, louder and rougher, then humanity is muted. The music ducks while the narrator speaks.
 - `D` describes what you're hearing; captions describe the music for deaf and hard-of-hearing users.
 - Keyboard and switch access for everything, controller vibration, voice commands.
 - High contrast and reduced motion (also follows the system setting).
@@ -98,7 +108,7 @@ src/state/                store, shared actions, the story
 src/map/camera.ts         smooth zoom and pan
 src/components/           map, dock, overlays, help
 src/input/                keyboard, controller, vibration, voice
-public/sounds/            the 10 instruments (trimmed, normalised mp3) + instruments.json
+public/sounds/            the 10 instruments (trimmed, normalized mp3) + instruments.json
 public/eic-placeholder/   placeholder layers until the real clips are downloaded
 scripts/download_eic.py   downloads the EIC clips from NASA SVS
 pipeline/                 the earlier gridded-data pipeline (shelved)
@@ -110,4 +120,4 @@ Visualizations: NASA Earth Information Center and NASA's Scientific Visualizatio
 
 ## Brand
 
-Logo artwork is in `public/brand/` (black and white PNGs from the team). `public/logo.svg` and the in-app logo (`src/components/logoPath.ts`) are vector traces of it, so it stays sharp and can take any colour. The favicon is `public/favicon.svg`.
+Logo artwork is in `public/brand/` (black and white PNGs from the team). `public/logo.svg` and the in-app logo (`src/components/logoPath.ts`) are vector traces of it, so it stays sharp and can take any color. The favicon is `public/favicon.svg`.

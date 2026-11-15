@@ -77,7 +77,7 @@ const ICE = new Float32Array(CELLS);
           const B = bm.data[o + 2];
           const bright = (R + G + B) / 765;
           const isIce = bright > 0.7 && Math.abs(R - B) < 40 ? 1 : 0;
-          // Dark green = forest, tan = desert, grey-white = ice.
+          // Dark green = forest, tan = desert, gray-white = ice.
           const greenness = (G - R) / (G + R + 1) * 3 + (1 - bright) * 0.9 - 0.25;
           g += isIce ? 0 : greenness;
           ice += isIce;
@@ -291,8 +291,8 @@ function rain(year, month) {
   for (let i = 0; i < CELLS; i++) {
     const lat = LAT[i];
     const isL = LAND[i];
-    const centre = 6 + s * (isL ? 13 : 6) + (big[i] - 0.5) * 14; // the rain belt follows the sun, further over land, and meanders
-    let p = 11 * Math.exp(-(((lat - centre) / (isL ? 9 : 5.5)) ** 2)) * (0.5 + big[i]);
+    const center = 6 + s * (isL ? 13 : 6) + (big[i] - 0.5) * 14; // the rain belt follows the sun, further over land, and meanders
+    let p = 11 * Math.exp(-(((lat - center) / (isL ? 9 : 5.5)) ** 2)) * (0.5 + big[i]);
     p += 6 * K.amazon[i] * (1 - 0.6 * Math.max(0, s)) + 6 * K.congo[i] + 7 * K.maritime[i] * (1 - 0.7 * Math.max(0, e));
     const monsoon = Math.max(0, s) ** 2;
     p += 18 * K.india[i] * monsoon + 16 * K.bengal[i] * monsoon + 9 * K.meiyu[i] * Math.exp(-((monthDist(month, 6.5) / 1) ** 2));

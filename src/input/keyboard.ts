@@ -32,7 +32,7 @@ export function initKeyboard() {
   window.addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const s = getState();
-    if (s.helpOpen) return; // the dialog has its own keys (Tab, Escape)
+    if (s.helpOpen || s.howOpen) return; // the dialogs have their own keys (Tab, Escape)
     const arrowsTaken = ownsArrows(e.target);
 
     if (/^[1-6]$/.test(e.key)) {
@@ -99,6 +99,9 @@ export function initKeyboard() {
       case 'c':
         setState({ settings: { ...s.settings, captions: !s.settings.captions } });
         announce(`Captions ${s.settings.captions ? 'off' : 'on'}`);
+        break;
+      case 'i':
+        setState({ howOpen: true });
         break;
       case 'h':
       case '?':

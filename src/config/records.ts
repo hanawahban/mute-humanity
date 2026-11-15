@@ -9,13 +9,13 @@ export type RecordId = 'ocean' | 'rain' | 'lightning' | 'lights' | 'co2' | 'nox'
 export type Side = 'earth' | 'human';
 export type InstrumentId = 'cello' | 'clarinet' | 'flute' | 'oboe' | 'synth1' | 'synth2' | 'synth3' | 'viola' | 'violin' | 'all';
 
-/** How a pixel's colour becomes a 0-1 value. */
+/** How a pixel's color becomes a 0-1 value. */
 export type Decode =
   | { kind: 'colorbar'; stops: Array<[r: number, g: number, b: number, v: number]>; maxDistance?: number }
   | { kind: 'bright'; floor: number } // brightness above a dark background
-  | { kind: 'colourful' } // coloured marks over grey or black (lightning flashes)
-  | { kind: 'warm' } // warm-coloured data (yellow to red) drawn over a natural-colour base map
-  | { kind: 'precip' }; // white clouds + coloured rain
+  | { kind: 'colorful' } // colored marks over gray or black (lightning flashes)
+  | { kind: 'warm' } // warm-colored data (yellow to red) drawn over a natural-color base map
+  | { kind: 'precip' }; // white clouds + colored rain
 
 /** How the values become music in Listen mode. */
 export type Voice =
@@ -29,7 +29,7 @@ export interface RecordDef {
   name: string;
   short: string; // 1-2 words for small labels
   side: Side;
-  colour: string; // record label colour in the dock
+  color: string; // record label color in the dock
   svs: number;
   eicTitle: string;
   period: string; // the real time period of the visualization
@@ -42,25 +42,25 @@ export interface RecordDef {
   /** Second instrument for a second part of the picture (clouds under the rain). */
   second?: { instrument: InstrumentId; voice: Voice; label: string };
   /** The map key: what low and high look like and mean. */
-  /** Only pixels with this tint are data (for keys that run through one colour). */
+  /** Only pixels with this tint are data (for keys that run through one color). */
   tint?: 'green';
   /**
-   * Only this part of the colour key counts (0-1 along the key). NOx's key is logarithmic, so
+   * Only this part of the color key counts (0-1 along the key). NOx's key is logarithmic, so
    * almost all land sits in its upper half; only the top of it is real pollution worth a note.
    */
   contrast?: [number, number];
-  scale: { low: string; high: string; colours: string[]; lightBar?: boolean };
-  /** Pixels that don't match the colour key: "nodata" (land under the ocean layer) or "zero" (no pollution, no rain). */
+  scale: { low: string; high: string; colors: string[]; lightBar?: boolean };
+  /** Pixels that don't match the color key: "nodata" (land under the ocean layer) or "zero" (no pollution, no rain). */
   empty: 'nodata' | 'zero';
   /** How the map shader hides this layer's background, so all layers can be stacked. */
   keying: KeyMode;
   keyingPlaceholder?: KeyMode;
   /** Logos and date stamps burned into the real frames, as fractions [x0, y0, x1, y1]: ignored for sound and hidden on the map. */
   masks?: Array<[number, number, number, number]>;
-  /** Match colours by hue only (for maps whose colours are dimmed, like the ocean flow lines). */
+  /** Match colors by hue only (for maps whose colors are dimmed, like the ocean flow lines). */
   matchHue?: boolean;
   boost?: number;
-  /** Part of the frame that is the map, as fractions [x0, y0, x1, y1]. Titles and colour bars sit outside it. */
+  /** Part of the frame that is the map, as fractions [x0, y0, x1, y1]. Titles and color bars sit outside it. */
   area: [number, number, number, number];
   key: string; // keyboard number
 }
@@ -71,22 +71,22 @@ export const RECORDS: RecordDef[] = [
     name: 'Ocean',
     short: 'Ocean',
     side: 'earth',
-    colour: '#3fa3c9',
+    color: '#3fa3c9',
     svs: 3912,
     eicTitle: 'Global Sea Surface Currents and Temperature',
     period: 'Mar 2007 – Mar 2008',
-    shows: 'Ocean surface currents, coloured by water temperature from 0 °C (deep blue) to 32 °C (orange). We use calmer colours than the original rainbow so the land stays easy to see.',
+    shows: 'Ocean surface currents, colored by water temperature from 0 °C (deep blue) to 32 °C (orange). We use calmer colors than the original rainbow so the land stays easy to see.',
     hear: 'A cello. Warmer water plays higher notes.',
     kind: 'movie',
-    // From the SVS colour bar: blue 0 C, green 10-20 C, yellow ~25 C, red 32 C.
+    // From the SVS color bar: blue 0 C, green 10-20 C, yellow ~25 C, red 32 C.
     decode: { kind: 'colorbar', stops: [[20, 40, 160, 0], [30, 150, 90, 0.3], [140, 200, 60, 0.6], [250, 220, 40, 0.78], [220, 30, 20, 1]] },
     instrument: 'cello',
     voice: 'sustain',
-    scale: { low: '0 °C', high: '32 °C', colours: ['#1d3557', '#2a6f97', '#61a5c2', '#d9cba0', '#cf9a68', '#b9745a'] },
+    scale: { low: '0 °C', high: '32 °C', colors: ['#1d3557', '#2a6f97', '#61a5c2', '#d9cba0', '#cf9a68', '#b9745a'] },
     empty: 'nodata',
-    keying: 'ocean', // re-coloured from the rainbow to a calmer cold-to-warm palette
+    keying: 'ocean', // re-colored from the rainbow to a calmer cold-to-warm palette
     keyingPlaceholder: 'ocean',
-    masks: [[0, 0.895, 0.175, 1]], // colour bar burned into the frame
+    masks: [[0, 0.895, 0.175, 1]], // color bar burned into the frame
     matchHue: true,
     area: [0, 0, 1, 1],
     key: '1',
@@ -96,7 +96,7 @@ export const RECORDS: RecordDef[] = [
     name: 'Rain and clouds',
     short: 'Rain',
     side: 'earth',
-    colour: '#7aa8ff',
+    color: '#7aa8ff',
     svs: 5149,
     eicTitle: 'GEOS-FP Precipitation and Clouds',
     period: 'Recent days (NASA weather model)',
@@ -107,7 +107,7 @@ export const RECORDS: RecordDef[] = [
     instrument: 'flute',
     voice: 'drops',
     second: { instrument: 'synth1', voice: 'sustain', label: 'clouds' },
-    scale: { low: 'light rain', high: 'very heavy', colours: ['#22c55e', '#3b82f6', '#22d3ee', '#a855f7', '#991b1b', '#ef4444', '#f97316', '#facc15'] },
+    scale: { low: 'light rain', high: 'very heavy', colors: ['#22c55e', '#3b82f6', '#22d3ee', '#a855f7', '#991b1b', '#ef4444', '#f97316', '#facc15'] },
     empty: 'zero',
     keying: 'precip',
     masks: [[0, 0, 0.175, 0.078], [0, 0.895, 0.25, 1]], // NASA/GMAO logo and date stamp
@@ -119,19 +119,19 @@ export const RECORDS: RecordDef[] = [
     name: 'Lightning',
     short: 'Lightning',
     side: 'earth',
-    colour: '#e8f0ff',
+    color: '#e8f0ff',
     svs: 5011,
     eicTitle: 'Lightning Events Detected from the International Space Station (ISS) 2017-2023',
     period: '2017 – 2023',
     shows: 'Lightning seen by a sensor on the International Space Station, which covers the Earth between about 55° north and south.',
     hear: 'A violin. Every flash is a sharp note.',
     kind: 'movie',
-    decode: { kind: 'colourful' },
+    decode: { kind: 'colorful' },
     instrument: 'violin',
     voice: 'strikes',
-    scale: { low: 'none', high: 'many flashes', colours: ['#2a2a2a', '#8a7a20', '#ffe14d'] },
+    scale: { low: 'none', high: 'many flashes', colors: ['#2a2a2a', '#8a7a20', '#ffe14d'] },
     empty: 'zero',
-    keying: 'saturated', // yellow flashes over grey land
+    keying: 'saturated', // yellow flashes over gray land
     keyingPlaceholder: 'bright',
     boost: 1.4,
     area: [0, 0, 1, 1],
@@ -142,7 +142,7 @@ export const RECORDS: RecordDef[] = [
     name: 'City lights',
     short: 'Lights',
     side: 'human',
-    colour: '#ffd27a',
+    color: '#ffd27a',
     svs: 5475,
     eicTitle: 'Change in Night Lights between 2012 and 2023',
     period: '2012 – 2023',
@@ -152,7 +152,7 @@ export const RECORDS: RecordDef[] = [
     decode: { kind: 'bright', floor: 0.33 },
     instrument: 'clarinet',
     voice: 'drops',
-    scale: { low: 'dark', high: 'bright', colours: ['#1a1a1a', '#8a6a2a', '#ffe9a8'] },
+    scale: { low: 'dark', high: 'bright', colors: ['#1a1a1a', '#8a6a2a', '#ffe9a8'] },
     empty: 'zero',
     keying: 'bright',
     masks: [[0, 0.486, 1, 0.524]], // year labels across the middle of the frame
@@ -165,7 +165,7 @@ export const RECORDS: RecordDef[] = [
     name: 'Carbon emissions',
     short: 'CO₂',
     side: 'human',
-    colour: '#ff9a3c',
+    color: '#ff9a3c',
     svs: 5121,
     eicTitle: 'ODIAC: a map of human made carbon dioxide emissions',
     period: 'December 2021',
@@ -175,7 +175,7 @@ export const RECORDS: RecordDef[] = [
     decode: { kind: 'bright', floor: 0.12 },
     instrument: 'synth3',
     voice: 'drone',
-    scale: { low: 'low', high: 'high', colours: ['#2b0a00', '#b33a00', '#ff7a1a', '#fff2a0'] },
+    scale: { low: 'low', high: 'high', colors: ['#2b0a00', '#b33a00', '#ff7a1a', '#fff2a0'] },
     empty: 'zero',
     keying: 'bright',
     area: [0, 0, 1, 1],
@@ -186,7 +186,7 @@ export const RECORDS: RecordDef[] = [
     name: 'Traffic and industry (NOx)',
     short: 'NOx',
     side: 'human',
-    colour: '#f0642c',
+    color: '#f0642c',
     svs: 5154,
     eicTitle: 'Nitrogen Oxides (NOx)',
     period: 'Recent days (NASA air-quality model)',
@@ -198,7 +198,7 @@ export const RECORDS: RecordDef[] = [
     contrast: [0.6, 0.95],
     instrument: 'oboe',
     voice: 'sustain',
-    scale: { low: 'clean', high: 'polluted', colours: ['rgba(107,94,84,0)', '#6b5e54', '#1c1714'], lightBar: true },
+    scale: { low: 'clean', high: 'polluted', colors: ['rgba(107,94,84,0)', '#6b5e54', '#1c1714'], lightBar: true },
     empty: 'zero',
     keying: 'darkgreen',
     keyingPlaceholder: 'warm',

@@ -1,7 +1,9 @@
-// Voice commands through the browser's Web Speech API (Chrome or Edge).
-// Push to talk: hold the V key or the controller's X button. The music ducks while
-// listening so the microphone doesn't hear it. Chrome sends speech to a server by
-// default, so this needs internet unless on-device recognition is available.
+// Voice commands through the browser's Web Speech API (Chrome, Edge, Safari).
+// Two ways: push to talk (hold V or the controller's X button; the music ducks while you
+// talk), or "always listening" (Settings, or say "always listen"): the microphone stays on
+// and every sentence is checked for a command. While the narrator talks, what the microphone
+// hears is ignored, so it can't trigger its own commands. Headphones help in this mode.
+// Chrome sends speech to a server by default, so this needs internet.
 
 import { RECORDS, type RecordId } from '../config/records';
 import { duck } from '../audio/engine';
@@ -11,13 +13,14 @@ import {
 import { startStory, stopStory } from '../state/story';
 import { nameRegion } from '../config/places';
 import { getState, setState } from '../state/store';
+import { isSpeaking } from '../audio/speech';
 
 // Minimal typing for the Web Speech API, which TypeScript's DOM types don't include everywhere.
 interface RecognitionLike {
   lang: string;
   interimResults: boolean;
   continuous: boolean;
-  onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+  onresult: ((e: { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> }) => void) | null;
   onerror: ((e: { error: string }) => void) | null;
   onend: (() => void) | null;
   start(): void;
@@ -40,12 +43,36 @@ function getRecognition(): RecognitionLike | null {
   recognition.interimResults = false;
   recognition.continuous = true;
   recognition.onresult = (e) => {
+    if (always) {
+      // act on each finished sentence right away, unless it was the narrator talking
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (!e.results[i].isFinal) continue;
+        const text = e.results[i][0].transcript.trim();
+        if (text && !isSpeaking()) runCommand(text, true);
+      }
+      return;
+    }
     for (let i = 0; i < e.results.length; i++) heard = `${heard} ${e.results[i][0].transcript}`;
   };
   recognition.onerror = (e) => {
-    if (e.error !== 'no-speech' && e.error !== 'aborted') announce(`Voice error: ${e.error}`);
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      setAlwaysListen(false);
+      announce('The microphone is blocked. Allow it in the browser to use voice commands.');
+    } else if (e.error !== 'no-speech' && e.error !== 'aborted') announce(`Voice error: ${e.error}`);
   };
   recognition.onend = () => {
+    if (always) {
+      // the browser stops listening after a while: start again
+      window.setTimeout(() => {
+        if (!always) return;
+        try {
+          recognition?.start();
+        } catch {
+          /* already running */
+        }
+      }, 250);
+      return;
+    }
     setState({ listening: false });
     duck(false);
     const text = heard.trim();
@@ -55,12 +82,39 @@ function getRecognition(): RecognitionLike | null {
   return recognition;
 }
 
+let always = false;
+/** Keep the microphone on (true) or go back to push to talk (false). */
+export function setAlwaysListen(on: boolean) {
+  const r = getRecognition();
+  if (on && !r) {
+    announce('Voice commands need Chrome, Edge or Safari');
+    return;
+  }
+  const s = getState();
+  if (s.settings.alwaysListen !== on) setState({ settings: { ...s.settings, alwaysListen: on } });
+  if (always === on) return;
+  always = on;
+  try {
+    if (on) {
+      r!.interimResults = false;
+      r!.start();
+      announce('Microphone on. Just say a command, like "play rain" or "mute humanity".');
+    } else {
+      r?.stop();
+      announce('Microphone off. Hold V to talk.');
+    }
+  } catch {
+    /* already in that state */
+  }
+}
+
 export function startListening() {
   const r = getRecognition();
   if (!r) {
-    announce('Voice commands need Chrome or Edge');
+    announce('Voice commands need Chrome, Edge or Safari');
     return;
   }
+  if (always) return; // already listening all the time
   if (getState().listening) return;
   heard = '';
   setState({ listening: true });
@@ -73,7 +127,7 @@ export function startListening() {
 }
 
 export function stopListening() {
-  if (recognition && getState().listening) recognition.stop();
+  if (recognition && getState().listening && !always) recognition.stop();
 }
 
 const RECORD_WORDS: Array<[RegExp, RecordId]> = [
@@ -95,10 +149,13 @@ const HELP =
   'Say: play ocean, add lightning, stop rain, solo NOx, scan, probe, listen, mute humanity, bring humanity back, ' +
   'humanity to 50 percent, go to Bahrain, zoom in, zoom out, play the story, what am I hearing, or where am I.';
 
-export function runCommand(raw: string) {
+export function runCommand(raw: string, openMic = false) {
   const t = raw.toLowerCase().replace(/[.,!?]/g, ' ').replace(/\s+/g, ' ').trim();
-  announce(`Heard: ${raw}`);
+  if (!openMic) announce(`Heard: ${raw}`);
 
+  if (/always listen|(microphone|mic) on|keep listening/.test(t)) return setAlwaysListen(true);
+  if (/stop listening|(microphone|mic) off/.test(t)) return setAlwaysListen(false);
+  if (/how (does it|do you|it) work|how it works/.test(t)) return setState({ howOpen: true });
   if (/\bhelp\b|what can i say/.test(t)) return speak(HELP);
   if (/what am i hearing|what's playing|what is playing|describe/.test(t)) return describe('speech');
   if (/where am i/.test(t)) {
@@ -137,5 +194,6 @@ export function runCommand(raw: string) {
   if (go && goToPlace(go[1])) return;
   if (goToPlace(t)) return;
 
-  speak(`Sorry, I didn't catch that. Say help to hear the commands.`);
+  // with the microphone always on, people talk to each other too: stay quiet about the rest
+  if (!openMic) speak(`Sorry, I didn't catch that. Say help to hear the commands.`);
 }
