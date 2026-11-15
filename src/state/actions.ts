@@ -3,10 +3,12 @@
 
 import { HOTSPOTS, PLACES, findPlace, nameRegion, nearestPlace } from '../config/places';
 import { RECORDS, RECORD_BY_ID, type RecordId } from '../config/records';
-import { getState, setState, type Mode } from './store';
+import { audible, getState, setState, type Mode } from './store';
 import { playIntro, startAudio } from '../audio/engine';
 import { hasLine, say, sayQueue, speakText } from '../audio/speech';
 import { densest, layers, sample, valueAt } from '../eic/layers';
+import { isWater } from '../map/water';
+import { showYear, thenNow } from '../eic/timeline';
 import { flyTo, moveBy, viewSpan, zoomAt } from '../map/camera';
 import { cue, feelSample } from '../input/haptics';
 
@@ -191,7 +193,7 @@ export function nextHotspot(delta = 1) {
 }
 
 const WORDS: Record<RecordId, [string, string, string]> = {
-  ocean: ['cold', 'mild', 'warm'],
+  temperature: ['colder than it used to be', 'about as warm as it used to be', 'warmer than it used to be'],
   rain: ['dry', 'light rain', 'heavy rain'],
   lightning: ['no lightning', 'some lightning', 'lots of lightning'],
   lights: ['dark', 'some lights', 'bright lights'],
@@ -199,8 +201,20 @@ const WORDS: Record<RecordId, [string, string, string]> = {
   nox: ['clean air', 'some pollution', 'heavy pollution'],
 };
 const CHANGE_WORDS = ['lights went out', 'no change', 'new lights'];
-export const describeValue = (id: RecordId, v: number) =>
-  (getState().changeView[id] ? CHANGE_WORDS : WORDS[id])[v > 0.6 ? 2 : v > 0.25 ? 1 : 0];
+/** 0, 1 or 2: low, middle, high. Temperature splits at half a degree colder or warmer than 1951–1980. */
+const level = (id: RecordId, v: number) =>
+  id === 'temperature' ? (v > 0.625 ? 2 : v < 0.375 ? 0 : 1) : v > 0.6 ? 2 : v > 0.25 ? 1 : 0;
+/** Temperature's value as degrees against 1951–1980 (the clip's colors run from −2 to +2 °C). */
+export const anomalyC = (v: number) => (v - 0.5) * 4;
+export const describeValue = (id: RecordId, v: number) => {
+  if (id === 'temperature') {
+    const c = anomalyC(v);
+    const deg = Math.abs(c).toFixed(1);
+    if (Math.abs(c) < 0.15) return 'about as warm as in 1951–1980';
+    return `${Math.abs(c) > 1.9 ? '2 °C or more' : `${deg} °C`} ${c > 0 ? 'warmer' : 'colder'} than in 1951–1980`;
+  }
+  return (getState().changeView[id] ? CHANGE_WORDS : WORDS[id])[level(id, v)];
+};
 
 /** The text for "what am I hearing?", and for the caption line. */
 export function describeNow(): string {
@@ -212,7 +226,7 @@ export function describeNow(): string {
   if (!on.length) return `${place}. Nothing playing: pick a record.`;
   const parts = on.map((r) => {
     const l = s.levels[r.id];
-    const v = s.mode === 'probe' ? s.probeValues[r.id] ?? null : l?.raw ?? null;
+    const v = s.mode === 'probe' ? s.probeValues[r.id] ?? null : r.id === 'temperature' ? l?.mean ?? null : l?.raw ?? null;
     const muted = r.side === 'human' && s.humanity === 0 ? ' (silent)' : '';
     if (v == null) return `${r.short}: no data here${muted}`;
     const clouds = r.id === 'rain' && (l?.second ?? 0) > 0.08 ? ', cloudy' : '';
@@ -238,7 +252,6 @@ export function describe(via: 'screen-reader' | 'speech') {
 export const placeNames = () => PLACES.map((p) => p.name);
 
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-const level = (v: number) => (v > 0.6 ? 2 : v > 0.25 ? 1 : 0);
 
 /**
  * Probe a spot: move the probe there and, if asked, say where it is and what each playing
@@ -248,11 +261,9 @@ export function probeAt(lat: number, lon: number, speakIt: boolean) {
   setProbe(lat, lon);
   const s = getState();
   const near = nearestPlace(lat, lon, 9);
-  const ocean = layers.get('ocean');
-  if (ocean?.ready && !ocean.sampledAt) sample('ocean', 0);
-  const sea = ocean?.sampledAt ? valueAt(ocean.grid, lat, lon, 1) : null;
-  const clips: string[] = [near && hasLine(`near-${slug(near.name)}`) ? `near-${slug(near.name)}` : sea != null ? 'over-ocean' : 'over-land'];
-  const words: string[] = [near ? `Near ${near.name}.` : sea != null ? 'Over the open ocean.' : 'Over land.'];
+  const sea = isWater(lat, lon);
+  const clips: string[] = near && hasLine(`near-${slug(near.name)}`) ? [`near-${slug(near.name)}`] : sea == null ? [] : [sea ? 'over-ocean' : 'over-land'];
+  const words: string[] = [near ? `Near ${near.name}.` : sea == null ? '' : sea ? 'Over the open ocean.' : 'Over land.'];
   for (const r of RECORDS) {
     if (!s.playing[r.id] || (s.solo && s.solo !== r.id)) continue;
     const l = layers.get(r.id);
@@ -260,10 +271,10 @@ export function probeAt(lat: number, lon: number, speakIt: boolean) {
     if (!l.sampledAt) sample(r.id, 0);
     const v = valueAt(l.grid, lat, lon);
     if (v == null) continue;
-    clips.push(`${r.id}-${level(v)}`);
+    clips.push(`${r.id}-${level(r.id, v)}`);
     words.push(`${r.short}: ${describeValue(r.id, v)}.`);
   }
-  announce(words.join(' '));
+  announce(words.filter(Boolean).join(' '));
   if (speakIt && s.settings.narrate) void sayQueue(clips);
 }
 
@@ -291,4 +302,19 @@ export function togglePause() {
   if (paused && getState().story.running) void import('./story').then((m) => m.stopStory());
   setState({ paused });
   announce(paused ? 'Paused' : 'Playing');
+}
+
+/**
+ * "Then" or "now" for every playing record that has years (temperature 1880 / 2025, city lights
+ * 2012 / 2023). If none is playing, `prefer` (or temperature) is turned on first. Returns what to say.
+ */
+export async function showYears(which: 'then' | 'now', prefer?: RecordId): Promise<string> {
+  let ids = RECORDS.filter((r) => thenNow(r.id) && audible(getState()).includes(r.id)).map((r) => r.id);
+  if (prefer && thenNow(prefer)) ids = ids.includes(prefer) ? [prefer] : ids;
+  if (!ids.length) {
+    const id = prefer && thenNow(prefer) ? prefer : 'temperature';
+    await toggleRecord(id, true);
+    ids = [id];
+  }
+  return ids.map((id) => showYear(id, which)).filter(Boolean).join('. ');
 }

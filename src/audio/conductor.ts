@@ -10,25 +10,26 @@
 //
 // Everything plays A, B, C# and E, leaning on A and E, over a held A: the sound of the team's
 // full arrangement (all.mp3, measured in pipeline/audio_tools/analyze_all.py). Earth records
-// use traditional instruments. Humanity records are the same notes on synths that very rarely
-// bend slightly off the key (nearly always a mild G or C) and drift a few cents out of tune as
-// the humanity lever goes up (harmony.ts).
+// use traditional instruments. Humanity records are the same notes on synths that bend slightly
+// off the key (nearly always a mild G or C) and drift a few cents out of tune where their data is
+// strongest, scaled by the humanity lever. The temperature cello does the same where a place has
+// warmed most (harmony.ts, edgeOf below).
 
 import * as Tone from 'tone';
 import { RECORDS, RECORD_BY_ID, type RecordDef, type RecordId } from '../config/records';
 import { audible, getState, setState, type Level } from '../state/store';
-import { columnPeaks, layers, sample, valueAt, viewStats } from '../eic/layers';
+import { columnPeaks, layers, sample, upgradeLayer, valueAt, viewStats, wake } from '../eic/layers';
 import { viewBounds, latLonToScreen } from '../map/camera';
 import { keepInSegment } from '../eic/timeline';
 import { outputLatency, play, previewNote, setGain, setSpace, type VoiceKey } from './engine';
-import { bend, clamp01, detuneCents, dragSixteenths, settle } from './harmony';
+import { bend, clamp01, detuneCents, dragSixteenths, settle, tension } from './harmony';
 import { describeNow } from '../state/actions';
 
 const EARTH = [0, 2, 4, 7]; // A B C# E: the notes that carry 96% of all.mp3. Both sides start from these
 
 /** Lowest note (MIDI) and how many scale steps each instrument uses, kept near its recorded pitch. */
 const RANGE: Record<RecordId, { root: number; steps: number; from?: number }> = {
-  ocean: { root: 45, steps: 8 }, // cello, A2 up two octaves
+  temperature: { root: 45, steps: 8 }, // cello, A2 up two octaves
   rain: { root: 69, steps: 6 }, // flute, A4 to B5
   lightning: { root: 69, steps: 6, from: 3 }, // violin, from E5
   lights: { root: 69, steps: 5 }, // bright synth (synth1, recorded C#4), A4 to A5
@@ -36,24 +37,35 @@ const RANGE: Record<RecordId, { root: number; steps: number; from?: number }> = 
   nox: { root: 45, steps: 6 }, // gritty synth (synth3, recorded A2), A2 to B3
 };
 // Levels matched to how loud each recording is on its own (the synths are quieter than the winds).
-const BASE_GAIN: Record<RecordId, number> = { ocean: 0.75, rain: 0.6, lightning: 0.55, lights: 0.45, co2: 0.45, nox: 0.6 };
+const BASE_GAIN: Record<RecordId, number> = { temperature: 0.75, rain: 0.6, lightning: 0.55, lights: 0.45, co2: 0.45, nox: 0.6 };
 const CLOUD_GAIN = 0.35;
-/** How far humanity pulls the music off course: 0 = in tune, 1 = at its most disruptive. */
-const humanTension = () => clamp01(getState().humanity);
+/**
+ * How strongly the data under a note pulls it off the key (0-1), before the humanity lever:
+ * humanity's records by how much of us is there (NOx, emissions, how bright the lights are, or in
+ * the change view how new), temperature by how far a place has warmed past +1 °C (to +2 °C).
+ * The rest of the Earth never bends.
+ */
+function edgeOf(rec: RecordDef, v: number): number {
+  if (rec.id === 'temperature') return clamp01((v - 0.75) / 0.25); // +1 °C → 0, +2 °C or more → 1 (the key runs −2 to +2 °C)
+  if (rec.side !== 'human') return 0;
+  if (rec.id === 'lights' && getState().changeView.lights) return clamp01((v - 0.62) / 0.38); // new lights
+  return clamp01(v);
+}
+const tensionOf = (rec: RecordDef, v: number) => tension(getState().humanity, edgeOf(rec, v));
 
 /**
  * The note for a value. Both sides use A, B, C# and E and lean toward A and E, as the team's
- * arrangement (all.mp3) does. Human notes are then (live) now and then bent to one of the
- * arrangement's own out-of-key notes and detuned a few cents, in proportion to the humanity
- * lever. Not live = the clean note.
+ * arrangement (all.mp3) does. Then (live) a note may be bent to one of the arrangement's own
+ * out-of-key notes and detuned a few cents, in proportion to the humanity lever times the data
+ * it comes from (`data`, 0-1 along the color key; see edgeOf). Not live = the clean note.
  */
-function noteOf(rec: RecordDef, degree: number, live = true): string | number {
+function noteOf(rec: RecordDef, degree: number, live = true, data = 0): string | number {
   const { root, steps, from = 0 } = RANGE[rec.id];
   const d = Math.max(0, Math.min(steps - 1, Math.round(degree))) + from;
   let midi = root + 12 * Math.floor(d / EARTH.length) + EARTH[d % EARTH.length];
   if (live) midi = settle(midi);
-  if (rec.side === 'human' && live) {
-    const t = humanTension();
+  const t = live ? tensionOf(rec, data) : 0;
+  if (t > 0) {
     midi = bend(midi, t);
     const cents = detuneCents(t);
     if (cents) return Tone.Frequency(midi + cents / 100, 'midi').toFrequency(); // fractional MIDI = out of tune
@@ -61,8 +73,8 @@ function noteOf(rec: RecordDef, degree: number, live = true): string | number {
   return Tone.Frequency(midi, 'midi').toNote();
 }
 
-/** Human notes drag a little behind the beat as tension rises; Earth stays exactly on it. */
-const late = (rec: RecordDef, time: number) => (rec.side === 'human' ? time + dragSixteenths(humanTension()) * SIXTEENTH() : time);
+/** Human notes drag a little behind the beat where their data is strong; Earth stays exactly on it. */
+const late = (rec: RecordDef, time: number, data: number) => (rec.side === 'human' ? time + dragSixteenths(tensionOf(rec, data)) * SIXTEENTH() : time);
 
 /** Every note a record can play, low to high (for the How it works view). */
 export function notesFor(id: RecordId): string[] {
@@ -84,17 +96,17 @@ let lastProgress = 0;
 let lastRead = 0;
 
 /**
- * One loudness number per record. Dense layers (the ocean covers everything) use the average.
+ * One loudness number per record. Dense layers (temperature covers everything) use the average.
  * Sparse layers (cities, storms, pollution) are mostly empty, so they use how strong their
  * hotspots are and how much of the view they cover.
  */
 function levelFrom(rec: RecordDef, s: ReturnType<typeof viewStats>) {
-  if (rec.empty === 'nodata') return clamp01(0.7 * s.mean + 0.2 * s.peak + 0.2 * s.coverage);
+  if (rec.empty === 'nodata') return clamp01(0.7 * s.areaMean + 0.2 * s.peak + 0.2 * s.coverage);
   return clamp01(0.5 * s.hot + 0.5 * Math.sqrt(s.coverage / 0.06));
 }
-/** Which note (0-1 up the scale): warmer water, or stronger hotspots, play higher. */
+/** Which note (0-1 up the scale): warmer places, or stronger hotspots, play higher. */
 function pitchFrom(rec: RecordDef, s: ReturnType<typeof viewStats>) {
-  return rec.empty === 'nodata' ? clamp01(0.7 * s.mean + 0.3 * s.peak) : clamp01(s.hot);
+  return rec.empty === 'nodata' ? clamp01(0.7 * s.areaMean + 0.3 * s.peak) : clamp01(s.hot);
 }
 
 /** Every 100 ms: read frames, update levels, play/pause videos, gains, vibration, captions. */
@@ -115,12 +127,15 @@ function analyze() {
     .filter((l) => l?.ready && (l.rec.kind === 'movie' || !l.sampledAt))
     .sort((a, c) => a!.sampledAt - c!.sampledAt)[0]?.rec.id;
   if (due) lastRead = now;
+  // zoomed in: fetch the sharper clip for what's playing (the small one loads first)
+  if (s.focus.zoom >= 1.8 && s.screen === 'map') for (const id of ids) if (layers.get(id)?.full) void upgradeLayer(id);
 
   for (const rec of RECORDS) {
     const layer = layers.get(rec.id);
     const v = layer?.el instanceof HTMLVideoElement ? layer.el : null;
     // held at one point of its timeline (then vs now, or scrubbing): the clip stands still
     const shouldPlay = s.audioOn && s.screen === 'map' && !s.paused && s.playing[rec.id] && s.mode !== 'scan' && s.holds[rec.id] == null;
+    if (shouldPlay || (s.playing[rec.id] && s.screen === 'map')) wake(rec.id);
     if (v && shouldPlay && v.paused) void v.play().catch(() => undefined);
     if (v && !shouldPlay && !v.paused) v.pause();
 
@@ -141,7 +156,7 @@ function analyze() {
       probeValues[rec.id] = pv;
       raw = pv ?? 0;
     }
-    levels[rec.id] = { raw, value: raw * scale, coverage: st.coverage, second: st.second };
+    levels[rec.id] = { raw, value: raw * scale, coverage: st.coverage, second: st.second, mean: st.areaMean };
   }
   setState({ levels, probeValues });
 
@@ -208,7 +223,7 @@ function tick(time: number) {
         const x = x0 + (c + 0.5) / cols / SWEEP;
         for (const p of columnPeaks(l.grid, b.west + x * b.lonSpan, b, 2)) found.push({ x, y: p.y, v: p.v });
       }
-      // the ocean fills the whole map, so it plays one note every 8th; sparse layers play what they have
+      // temperature fills the whole map, so it plays one note every 8th; sparse layers play what they have
       if (rec.empty === 'nodata' && ss % 2 === 1) continue;
       const max = rec.empty === 'nodata' || rec.voice === 'drone' ? 1 : rec.voice === 'strikes' ? 3 : 2;
       const { steps } = RANGE[id];
@@ -216,7 +231,7 @@ function tick(time: number) {
       for (const p of found.sort((a, c) => c.v - a.v).slice(0, max)) {
         const at = time + (p.x - x0) * SWEEP * sixteenth;
         const dur = rec.voice === 'strikes' ? 0.2 : rec.voice === 'drone' ? '4n' : '8n';
-        play(id, noteOf(rec, (1 - p.y) * (steps - 1)), dur, at, 0.3 + 0.7 * p.v, p.x * 2 - 1);
+        play(id, noteOf(rec, (1 - p.y) * (steps - 1), true, p.v), dur, at, 0.3 + 0.7 * p.v, p.x * 2 - 1);
         if (humanScale > 0.05) hits.push({ x: p.x, y: p.y, color: rec.color, v: p.v * humanScale, at });
       }
       if (rec.second && l.second && ss % 4 === 0) {
@@ -240,7 +255,7 @@ function tick(time: number) {
       const v = s.probeValues[id];
       if (v == null || v < 0.03) continue;
       const rec = RECORD_BY_ID[id];
-      play(id, noteOf(rec, v * (RANGE[id].steps - 1)), rec.voice === 'strikes' ? 0.15 : '4n', late(rec, time), 0.3 + 0.6 * v, pan);
+      play(id, noteOf(rec, v * (RANGE[id].steps - 1), true, v), rec.voice === 'strikes' ? 0.15 : '4n', late(rec, time, v), 0.3 + 0.6 * v, pan);
     }
     return;
   }
@@ -252,26 +267,27 @@ function tick(time: number) {
     if (!sst) continue;
     const level = levelFrom(rec, sst);
     const { steps } = RANGE[id];
-    const pitch = pitchFrom(rec, sst) * (steps - 1);
+    const p01 = pitchFrom(rec, sst); // also how strong the data is, for the edge
+    const pitch = p01 * (steps - 1);
     switch (rec.voice) {
       case 'sustain':
-        if (st % 8 === 0 && level > 0.03) play(id, noteOf(rec, pitch), '2n', late(rec, time), 0.35 + 0.55 * level, sst.pan * 0.6);
+        if (st % 8 === 0 && level > 0.03) play(id, noteOf(rec, pitch, true, p01), '2n', late(rec, time, p01), 0.35 + 0.55 * level, sst.pan * 0.6);
         break;
       case 'drops':
         if (Math.random() < level * 0.85) {
           const deg = pitch + (Math.random() - 0.3) * 3;
-          play(id, noteOf(rec, deg), '8n', late(rec, time), 0.25 + 0.5 * Math.random() * (0.4 + level), sst.pan * 0.5 + (Math.random() - 0.5) * 0.5);
+          play(id, noteOf(rec, deg, true, p01), '8n', late(rec, time, p01), 0.25 + 0.5 * Math.random() * (0.4 + level), sst.pan * 0.5 + (Math.random() - 0.5) * 0.5);
         }
         break;
       case 'strikes':
         if (Math.random() < level * 0.6) {
-          play(id, noteOf(rec, Math.random() * (steps - 1)), 0.15, late(rec, time), 0.6 + 0.4 * Math.random(), sst.pan * 0.5 + (Math.random() - 0.5) * 0.6);
+          play(id, noteOf(rec, Math.random() * (steps - 1)), 0.15, late(rec, time, 0), 0.6 + 0.4 * Math.random(), sst.pan * 0.5 + (Math.random() - 0.5) * 0.6);
         }
         break;
       case 'drone':
         if (st === 0 && level > 0.02) {
-          play(id, noteOf(rec, 0), '1m', late(rec, time), 0.3 + 0.6 * level); // the low A
-          if (level > 0.45) play(id, noteOf(rec, steps - 1), '1m', late(rec, time), 0.2 + 0.5 * level); // and the E above it: an open fifth
+          play(id, noteOf(rec, 0, true, level), '1m', late(rec, time, level), 0.3 + 0.6 * level); // the low A
+          if (level > 0.45) play(id, noteOf(rec, steps - 1, true, level), '1m', late(rec, time, level), 0.2 + 0.5 * level); // and the E above it: an open fifth
         }
         break;
     }

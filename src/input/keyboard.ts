@@ -10,7 +10,8 @@
 //   Space         pause / play                J  back to the jukebox
 //   [ / ]         step the chosen record back / forward in time (it holds there)
 //   \             let the chosen record's clip play again
-//   , / . / /     city lights: then (2012), now (2023), what changed
+//   , / .         then / now: temperature 1880 / 2025, city lights 2012 / 2023
+//   /             city lights: what changed
 //   (on the jukebox screen: 1-6 pick records, Enter plays, T plays the story)
 //
 // When a slider or text field has focus, it keeps its own arrow keys.
@@ -18,10 +19,10 @@
 import { RECORDS } from '../config/records';
 import {
   announce, backToJukebox, cycleMode, describe, enterMap, togglePause, moveProbe, nextHotspot, panBy, resetView, selectRecord, setHumanity, setMode,
-  toggleMuteHumanity, toggleRecord, toggleSolo, zoomBy,
+  showYears, toggleMuteHumanity, toggleRecord, toggleSolo, zoomBy,
 } from '../state/actions';
 import { startStory, stopStory } from '../state/story';
-import { hold, showChange, showYear, stepTime } from '../eic/timeline';
+import { hold, showChange, stepTime } from '../eic/timeline';
 import { getState, setState } from '../state/store';
 import { startListening, stopListening } from './voice';
 
@@ -156,7 +157,7 @@ export function initKeyboard() {
         break;
       case ',':
       case '.':
-        void withLights(() => announce(showYear('lights', e.key === ',' ? 'then' : 'now') ?? ''));
+        void showYears(e.key === ',' ? 'then' : 'now', s.selected).then(announce);
         break;
       case '/':
         void withLights(() => announce(showChange('lights', !s.changeView.lights) ?? ''));

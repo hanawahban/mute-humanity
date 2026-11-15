@@ -22,3 +22,5 @@ public/eic/*/clip.mp4
 
 # the small web clips made by scripts/download_eic.py are part of the site
 !public/eic/*/clip.mp4
+# and their small first-load versions (1024x512)
+!public/eic/*/clip-lite.mp4

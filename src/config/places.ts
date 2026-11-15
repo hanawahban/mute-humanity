@@ -52,7 +52,7 @@ export const PLACES: Place[] = [
 
 /** Curated places to zoom into for each record: the story stops. */
 export const HOTSPOTS: Record<string, string[]> = {
-  ocean: ['the Gulf Stream', 'the Kuroshio Current', 'the Agulhas Current', 'the Arabian Gulf'],
+  temperature: ['the Arctic', 'Siberia', 'Europe', 'Bahrain'],
   rain: ['India', 'the Bay of Bengal', 'the Amazon', 'Indonesia'],
   lightning: ['the Congo Basin', 'Lake Maracaibo', 'Southeast Asia'],
   lights: ['India', 'the Nile Delta', 'the Eastern Mediterranean', 'Bahrain'],

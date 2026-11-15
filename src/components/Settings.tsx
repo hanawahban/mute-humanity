@@ -75,7 +75,8 @@ export function HelpDialog() {
             <dt><kbd>+</kbd> <kbd>−</kbd> <kbd>0</kbd></dt><dd>zoom in, out, whole planet</dd>
             <dt><kbd>D</kbd></dt><dd>what am I hearing?</dd>
             <dt><kbd>[</kbd> <kbd>]</kbd> <kbd>\</kbd></dt><dd>step the chosen record back / forward in time; play on</dd>
-            <dt><kbd>,</kbd> <kbd>.</kbd> <kbd>/</kbd></dt><dd>city lights: then (2012), now (2023), what changed</dd>
+            <dt><kbd>,</kbd> <kbd>.</kbd></dt><dd>then / now: temperature 1880 / 2025, city lights 2012 / 2023</dd>
+            <dt><kbd>/</kbd></dt><dd>city lights: what changed</dd>
             <dt>hold <kbd>V</kbd></dt><dd>talk</dd>
             <dt><kbd>C</kbd> <kbd>H</kbd></dt><dd>captions, this help</dd>
           </dl>
@@ -96,14 +97,14 @@ export function HelpDialog() {
             <dt>View</dt><dd>solo</dd>
             <dt>Start</dt><dd>play the story</dd>
           </dl>
-          <p className="small">Vibration follows the sound of one record at a time (choose it with the D-pad): the ocean swells, rain taps, lightning cracks, city lights flicker, CO₂ hums and NOx stutters. Humanity's records go quiet when our footprint is lightened.</p>
+          <p className="small">Vibration follows the sound of one record at a time (choose it with the D-pad): temperature swells, rain taps, lightning cracks, city lights flicker, CO₂ hums and NOx stutters. Humanity's records go quiet when our footprint is lightened.</p>
         </section>
 
         <section className="wide">
           <h3>Voice (hold V or X, or turn the microphone on above)</h3>
-          <p>"Play ocean", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "lighten our footprint", "full footprint", "humanity to 50 percent", "then", "now", "what changed", "go to Bahrain", "zoom in", "play the story", "how does it work?", "what am I hearing?", "microphone on", "help".</p>
+          <p>"Play temperature", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "lighten our footprint", "full footprint", "humanity to 50 percent", "then", "now", "what changed", "go to Bahrain", "zoom in", "play the story", "how does it work?", "what am I hearing?", "microphone on", "help".</p>
           <h3>Credits</h3>
-          <p className="small">Visualizations: NASA Earth Information Center and Scientific Visualization Studio (SVS 3912, 5149, 5011, 5475, 5121, 5154). Base map: NASA Blue Marble; zoomed in, NASA Blue Marble tiles from NASA GIBS. Instruments recorded by our multimedia team. Fonts: Anton and Alexandria (SIL Open Font License).</p>
+          <p className="small">Visualizations: NASA Earth Information Center and Scientific Visualization Studio (SVS 5603, 5149, 5011, 5475, 5121, 5154). Base map: NASA Blue Marble; zoomed in, NASA Blue Marble tiles from NASA GIBS. Instruments recorded by our multimedia team. Fonts: Anton and Alexandria (SIL Open Font License).</p>
           <p className="small"><strong>Use of AI:</strong> the narrator's voice is AI-generated with Kokoro, an open text-to-speech model. Parts of the code and text were written with Claude (Anthropic), an AI assistant, and reviewed by the team. The instruments, design, logo and NASA data are not AI-generated.</p>
         </section>
       </div>

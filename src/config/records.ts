@@ -1,13 +1,13 @@
 // The six records. Each one is a NASA Earth Information Center (EIC) visualization that is a
 // flat map of the whole Earth, so they all line up on one shared map. Earth records play in
 // tune (A, B, C# and E over a held A, like the team's all.mp3). Humanity records play the same
-// notes and now and then bend one off the key (see audio/harmony.ts), a hint of friction
-// without becoming noise. Earth records use only the traditional instruments, humanity records only the synths.
+// notes and bend some off the key where their data is strongest (see audio/harmony.ts), a hint
+// of friction without becoming noise. Earth records use only the traditional instruments, humanity records only the synths.
 // Each record keeps its own time period: they line up in place, not in date.
 
 import type { KeyMode } from '../map/gl';
 
-export type RecordId = 'ocean' | 'rain' | 'lightning' | 'lights' | 'co2' | 'nox';
+export type RecordId = 'temperature' | 'rain' | 'lightning' | 'lights' | 'co2' | 'nox';
 export type Side = 'earth' | 'human';
 export type InstrumentId = 'cello' | 'clarinet' | 'flute' | 'oboe' | 'synth1' | 'synth2' | 'synth3' | 'viola' | 'violin' | 'all';
 
@@ -52,7 +52,7 @@ export interface RecordDef {
    */
   contrast?: [number, number];
   scale: { low: string; high: string; colors: string[]; lightBar?: boolean };
-  /** Pixels that don't match the color key: "nodata" (land under the ocean layer) or "zero" (no pollution, no rain). */
+  /** Pixels that don't match the color key: "nodata" (gray where temperature had no measurements) or "zero" (no pollution, no rain). */
   empty: 'nodata' | 'zero';
   /** How the map shader hides this layer's background, so all layers can be stacked. */
   keying: KeyMode;
@@ -81,28 +81,39 @@ export interface RecordDef {
 
 export const RECORDS: RecordDef[] = [
   {
-    id: 'ocean',
-    name: 'Ocean',
-    short: 'Ocean',
+    id: 'temperature',
+    name: 'Global temperature',
+    short: 'Temperature',
     side: 'earth',
-    color: '#3fa3c9',
-    svs: 3912,
-    eicTitle: 'Global Sea Surface Currents and Temperature',
-    period: 'Mar 2007 – Mar 2008',
-    shows: 'Ocean surface currents, colored by water temperature from 0 °C (deep blue) to 32 °C (orange). We use calmer colors than the original rainbow so the land stays easy to see.',
-    hear: 'A cello. Warmer water plays higher notes.',
+    color: '#e0855a',
+    svs: 5603,
+    eicTitle: 'Global Temperature Anomalies from 1880 to 2025',
+    period: '1880 – 2025',
+    shows: "How much warmer or colder each place was than its 1951–1980 average, every year from 1880 to 2025 (NASA GISTEMP v4). Blue is colder, brown is warmer, gray had no measurements yet.",
+    hear: 'A cello. Warmer than it used to be plays higher, colder plays lower. Where a place has warmed more than 1 °C, it slips slightly off the key.',
     kind: 'movie',
-    // From the SVS color bar: blue 0 C, green 10-20 C, yellow ~25 C, red 32 C.
-    decode: { kind: 'colorbar', stops: [[20, 40, 160, 0], [30, 150, 90, 0.3], [140, 200, 60, 0.6], [250, 220, 40, 0.78], [220, 30, 20, 1]] },
+    // NASA's color map ("vik"), sampled from the color bar of SVS 5603's labeled map. The flat
+    // (Science On a Sphere) clip stretches it over −2 °C to +2 °C, not the labeled map's ±4 °C:
+    // matched point by point against that map, the clip's colors read 1.95 times stronger
+    // (r = 0.97), and with ±2 °C the 2025 frame averages +1.2 °C, NASA's figure for 2025.
+    // So 0 = −2 °C or colder, 0.5 = no change, 1 = +2 °C or warmer.
+    decode: {
+      kind: 'colorbar',
+      maxDistance: 55,
+      stops: [
+        [1, 21, 99, 0.007], [2, 52, 119, 0.087], [6, 85, 140, 0.167], [45, 123, 165, 0.247], [106, 164, 193, 0.327],
+        [173, 205, 221, 0.407], [204, 223, 232, 0.447], [231, 231, 231, 0.487], [238, 220, 210, 0.527], [233, 201, 182, 0.567],
+        [223, 180, 154, 0.607], [207, 142, 104, 0.687], [191, 106, 57, 0.767], [163, 62, 13, 0.847], [121, 25, 6, 0.927], [91, 0, 7, 0.995],
+      ],
+    },
     instrument: 'cello',
     voice: 'sustain',
-    scale: { low: '0 °C', high: '32 °C', colors: ['#1d3557', '#2a6f97', '#61a5c2', '#d9cba0', '#cf9a68', '#b9745a'] },
+    scale: { low: '−2 °C', high: '+2 °C', colors: ['#02206a', '#2d7ba5', '#adcddd', '#e7e7e7', '#e9c9b6', '#bf6a39', '#5b0007'] },
     empty: 'nodata',
-    keying: 'ocean', // re-colored from the rainbow to a calmer cold-to-warm palette
-    keyingPlaceholder: 'ocean',
-    masks: [[0, 0.895, 0.175, 1]], // color bar burned into the frame
-    matchHue: true,
-    timeline: { anchors: [[0, '2007-03-25T12:00Z'], [68.7, '2008-03-03T12:00Z']], unit: 'month' },
+    keying: 'anomaly',
+    keyingPlaceholder: 'anomaly',
+    // NASA's timestamp list (GISTEMPtime.txt): 12 frames a year from 1880, 2025 reached at 58 s and held
+    timeline: { unit: 'year', segment: [0, 59.8], anchors: [[0, '1880-01-01'], [58, '2025-01-01'], [59.8, '2025-12-31']] },
     area: [0, 0, 1, 1],
     key: '1',
   },

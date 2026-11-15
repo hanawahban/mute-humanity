@@ -4,9 +4,14 @@
 //
 // Real clips live in public/eic/<record>/ (from scripts/download_eic.py). Until they exist,
 // public/eic-placeholder/ is used, and the site says so.
+//
+// The big clips (rain, NOx, temperature) also come as clip-lite.mp4, 1024 x 512 and a quarter
+// of the size. That is what loads first, and it is plenty for the sound: every frame is read
+// into a 720 x 360 grid. The full 2048 x 1024 clip is fetched in the background only once you
+// zoom in on that record, where the extra detail shows, and swapped in at the same moment.
 
 import { RECORDS, type Decode, type RecordDef, type RecordId } from '../config/records';
-import { setState, getState } from '../state/store';
+import { setState, getState, type SourceStatus } from '../state/store';
 import { asset } from '../config/asset';
 
 /** Cells per degree: 2 = half-degree grid, fine enough to catch single cities and lightning flashes. */
@@ -30,18 +35,22 @@ export interface Layer {
   sampledAt: number;
   /** The record averaged over its whole clip (filled in the background after loading). */
   overall: Float32Array | null;
+  /** The sharper clip to swap in when zoomed in (null once swapped, or if there is none). */
+  full: string | null;
+  upgrading: boolean;
 }
 
 export const layers = new Map<RecordId, Layer>();
 
-async function exists(url: string, type: 'video' | 'image' | 'json'): Promise<boolean> {
+async function exists(url: string, type: 'video' | 'image' | 'json', tries = 2): Promise<boolean> {
   try {
     const r = await fetch(url, { method: 'HEAD' });
     const ct = r.headers.get('content-type') ?? '';
     // dev servers answer missing files with the HTML page, so check the type too
     return r.ok && (type === 'json' ? ct.includes('json') : ct.startsWith(type));
   } catch {
-    return false;
+    // a dropped request on a busy connection is not a missing file: try once more
+    return tries > 1 ? exists(url, type, tries - 1) : false;
   }
 }
 
@@ -63,6 +72,8 @@ function pipelineFiles(): Promise<ManifestRecord[]> {
 async function findSource(rec: RecordDef) {
   const type = rec.kind === 'movie' ? 'video' : 'image';
   const ours = asset(`/eic/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`);
+  const lite = asset(`/eic/${rec.id}/clip-lite.mp4`);
+  if (rec.kind === 'movie' && (await exists(lite, type))) return { url: lite, full: ours, dir: asset(`/eic/${rec.id}`), placeholder: false };
   if (await exists(ours, type)) return { url: ours, dir: asset(`/eic/${rec.id}`), placeholder: false };
   const entry = (await pipelineFiles()).find((m) => m.id === String(rec.svs));
   if (entry) {
@@ -89,6 +100,7 @@ async function loadLayer(rec: RecordDef): Promise<Layer> {
     rec, el: null, ready: false, placeholder: src?.placeholder ?? true, colorbarUrl: null, decode: rec.decode, lut: null,
     grid: new Float32Array(CELLS).fill(NaN), second: rec.decode.kind === 'precip' ? new Float32Array(CELLS) : null,
     canvas, ctx: canvas.getContext('2d', { willReadFrequently: true })!, sampledAt: 0, overall: null,
+    full: src && 'full' in src ? src.full ?? null : null, upgrading: false,
   };
   if (!src) {
     setState({ sources: { ...getState().sources, [rec.id]: 'missing' } });
@@ -116,19 +128,22 @@ async function loadLayer(rec: RecordDef): Promise<Layer> {
 
   const open = async (url: string) => {
     if (rec.kind === 'movie') {
-      const v = document.createElement('video');
-      v.src = url;
-      v.muted = true;
-      v.loop = true;
-      v.playsInline = true;
-      v.preload = 'auto';
-      v.crossOrigin = 'anonymous';
+      const v = makeVideo(url);
       await new Promise<void>((resolve) => {
         v.addEventListener('loadeddata', () => resolve(), { once: true });
         v.addEventListener('error', () => resolve(), { once: true });
+        // Safari on iPhone and iPad may load nothing past the size until the clip plays: the size is enough to start
+        v.addEventListener('loadedmetadata', () => setTimeout(resolve, 2500), { once: true });
         v.load();
       });
-      return { el: v, w: v.videoWidth, h: v.videoHeight, ok: v.readyState >= 2 };
+      // WebKit can report the first frame before the picture's size: wait for the size
+      if (v.readyState >= 1 && !v.videoWidth) {
+        await new Promise<void>((resolve) => {
+          v.addEventListener('resize', () => resolve(), { once: true });
+          setTimeout(resolve, 3000);
+        });
+      }
+      return { el: v, w: v.videoWidth, h: v.videoHeight, ok: v.readyState >= 1 && v.videoWidth > 0 };
     }
     const img = new Image();
     img.src = url;
@@ -143,13 +158,78 @@ async function loadLayer(rec: RecordDef): Promise<Layer> {
     const ph = asset(`/eic-placeholder/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`);
     src = { url: ph, dir: asset(`/eic-placeholder/${rec.id}`), placeholder: true };
     layer.colorbarUrl = null;
+    layer.full = null;
     opened = await open(ph);
   }
   layer.el = opened.el;
   layer.ready = opened.ok;
   layer.placeholder = src.placeholder;
-  setState({ sources: { ...getState().sources, [rec.id]: layer.ready ? (src.placeholder ? 'placeholder' : 'real') : 'missing' } });
+  const status = () => (layer.ready ? (src.placeholder ? 'placeholder' : 'real') : 'missing') as SourceStatus;
+  setState({ sources: { ...getState().sources, [rec.id]: status() } });
+  // a slow or interrupted first load (it happens in Safari) is not a missing clip: take it when it arrives
+  if (!layer.ready && opened.el instanceof HTMLVideoElement) {
+    const v = opened.el;
+    const late = () => {
+      if (layer.ready || !v.videoWidth || v.readyState < 2) return;
+      layer.ready = true;
+      setState({ sources: { ...getState().sources, [rec.id]: status() } });
+    };
+    v.addEventListener('loadeddata', late);
+    v.addEventListener('resize', late);
+  }
   return layer;
+}
+
+function makeVideo(url: string) {
+  const v = document.createElement('video');
+  v.muted = true;
+  v.loop = true;
+  v.playsInline = true; // iPhone and iPad: play in the page, not full screen
+  v.setAttribute('playsinline', '');
+  // just enough for the first frame: a record's clip streams in once it plays (see wake)
+  v.preload = 'metadata';
+  v.crossOrigin = 'anonymous';
+  v.src = url;
+  return v;
+}
+
+/**
+ * Swap a record's small first-load clip for the full 2048 x 1024 one, at the same moment of the
+ * clip, once the full one can play through. One at a time, in the background.
+ */
+let swapping = false;
+export async function upgradeLayer(id: RecordId) {
+  const l = layers.get(id);
+  if (swapping || !l?.full || l.upgrading || !(l.el instanceof HTMLVideoElement)) return;
+  swapping = true;
+  l.upgrading = true;
+  const old = l.el;
+  const v = makeVideo(l.full);
+  v.preload = 'auto';
+  try {
+    await new Promise<void>((ok, fail) => {
+      v.addEventListener('canplaythrough', () => ok(), { once: true });
+      v.addEventListener('error', () => fail(), { once: true });
+      v.load();
+    });
+    v.currentTime = old.currentTime;
+    await new Promise<void>((ok) => v.addEventListener('seeked', () => ok(), { once: true }));
+    if (!old.paused) {
+      await v.play().catch(() => undefined);
+      v.currentTime = old.currentTime; // catch up with the time the swap took
+    }
+    l.el = v;
+    l.sampledAt = 0;
+    old.pause();
+    old.removeAttribute('src');
+    old.load();
+  } catch {
+    /* keep the small clip */
+  } finally {
+    l.full = null;
+    l.upgrading = false;
+    swapping = false;
+  }
 }
 
 export async function loadLayers() {
@@ -158,61 +238,72 @@ export async function loadLayers() {
       layers.set(rec.id, await loadLayer(rec));
     }),
   );
-  const idle = (cb: () => void) => ('requestIdleCallback' in window ? window.requestIdleCallback(cb, { timeout: 4000 }) : setTimeout(cb, 1500));
-  idle(() => void profileLayers());
 }
 
+/** A record is playing: let its clip buffer ahead, and (once) average it over its whole clip. */
+export function wake(id: RecordId) {
+  const l = layers.get(id);
+  if (!l?.ready) return;
+  if (l.el instanceof HTMLVideoElement && l.el.preload !== 'auto') l.el.preload = 'auto';
+  if (!l.overall && !profiled.has(id)) {
+    profiled.add(id);
+    queue = queue.then(() => new Promise((r) => setTimeout(r, 4000))).then(() => profileLayer(l));
+  }
+}
+const profiled = new Set<RecordId>();
+let queue: Promise<void> = Promise.resolve();
+
 /**
- * Average every record over its whole clip, once, in the background: a hidden copy of each
- * video is stepped through 16 moments and read like a live frame. This is "where this record
- * is densest across the whole NASA dataset", which a single frame can't tell (one frame of
- * lightning has only a few flashes).
+ * Average a record over its whole clip, once, in the background: a hidden copy of the video is
+ * stepped through 16 moments and read like a live frame. This is "where this record is densest
+ * across the whole NASA dataset", which a single frame can't tell (one frame of lightning has
+ * only a few flashes). Only for records that play, one at a time, so it doesn't slow the start.
  */
-async function profileLayers(frames = 16) {
-  for (const layer of layers.values()) {
-    if (!layer.ready || !layer.el) continue;
-    if (!(layer.el instanceof HTMLVideoElement)) {
-      if (!layer.sampledAt) sample(layer.rec.id, 0);
-      layer.overall = layer.grid.slice();
-      continue;
-    }
-    const v = document.createElement('video');
-    v.muted = true;
-    v.preload = 'auto';
-    v.src = layer.el.currentSrc || layer.el.src;
-    try {
-      await new Promise<void>((ok, fail) => {
-        v.addEventListener('loadeddata', () => ok(), { once: true });
-        v.addEventListener('error', () => fail(), { once: true });
-      });
-      const canvas = document.createElement('canvas');
-      canvas.width = GRID_W;
-      canvas.height = GRID_H;
-      const tmp: Layer = { ...layer, el: v, canvas, ctx: canvas.getContext('2d', { willReadFrequently: true })!, grid: new Float32Array(CELLS), second: layer.second ? new Float32Array(CELLS) : null };
-      const sum = new Float32Array(CELLS);
-      const n = new Uint16Array(CELLS);
-      for (let k = 0; k < frames; k++) {
-        v.currentTime = ((k + 0.5) / frames) * (v.duration || 1);
-        await new Promise<void>((ok) => v.addEventListener('seeked', () => ok(), { once: true }));
-        readFrame(tmp);
-        for (let i = 0; i < CELLS; i++) {
-          const x = tmp.grid[i];
-          if (x === x) {
-            sum[i] += x;
-            n[i]++;
-          }
+async function profileLayer(layer: Layer, frames = 16) {
+  if (!layer.ready || !layer.el) return;
+  if (!(layer.el instanceof HTMLVideoElement)) {
+    if (!layer.sampledAt) sample(layer.rec.id, 0);
+    layer.overall = layer.grid.slice();
+    return;
+  }
+  const v = document.createElement('video');
+  v.muted = true;
+  v.preload = 'metadata'; // each seek fetches just the part it needs
+  v.src = layer.el.currentSrc || layer.el.src;
+  try {
+    await new Promise<void>((ok, fail) => {
+      v.addEventListener('loadeddata', () => ok(), { once: true });
+      v.addEventListener('error', () => fail(), { once: true });
+    });
+    const canvas = document.createElement('canvas');
+    canvas.width = GRID_W;
+    canvas.height = GRID_H;
+    const tmp: Layer = { ...layer, el: v, canvas, ctx: canvas.getContext('2d', { willReadFrequently: true })!, grid: new Float32Array(CELLS), second: layer.second ? new Float32Array(CELLS) : null };
+    const sum = new Float32Array(CELLS);
+    const n = new Uint16Array(CELLS);
+    for (let k = 0; k < frames; k++) {
+      // only the record's own span (city lights: the years, not the change map at the end)
+      const [t0, t1] = layer.rec.timeline?.segment ?? [0, v.duration || 1];
+      v.currentTime = t0 + ((k + 0.5) / frames) * (t1 - t0);
+      await new Promise<void>((ok) => v.addEventListener('seeked', () => ok(), { once: true }));
+      readFrame(tmp);
+      for (let i = 0; i < CELLS; i++) {
+        const x = tmp.grid[i];
+        if (x === x) {
+          sum[i] += x;
+          n[i]++;
         }
-        await new Promise((r) => setTimeout(r, 30)); // stay out of the music's way
       }
-      const overall = new Float32Array(CELLS);
-      for (let i = 0; i < CELLS; i++) overall[i] = n[i] ? sum[i] / n[i] : NaN;
-      layer.overall = overall;
-    } catch {
-      /* keep the live frame */
-    } finally {
-      v.removeAttribute('src');
-      v.load();
+      await new Promise((r) => setTimeout(r, 30)); // stay out of the music's way
     }
+    const overall = new Float32Array(CELLS);
+    for (let i = 0; i < CELLS; i++) overall[i] = n[i] ? sum[i] / n[i] : NaN;
+    layer.overall = overall;
+  } catch {
+    /* keep the live frame */
+  } finally {
+    v.removeAttribute('src');
+    v.load();
   }
 }
 
@@ -398,6 +489,7 @@ export interface Bounds {
 
 export interface ViewStats {
   mean: number; // average over cells with data
+  areaMean: number; // the same, weighted by real area (a flat map stretches the poles)
   peak: number; // 90th percentile
   coverage: number; // share of cells above 0.15
   hot: number; // average of those cells: how strong the hotspots are
@@ -419,8 +511,11 @@ export function viewStats(grid: Float32Array, b: Bounds, second?: Float32Array |
   let wx = 0;
   let wsum = 0;
   let sec = 0;
+  let aSum = 0;
+  let aW = 0;
   const hist = new Uint32Array(20);
   for (let r = r0; r <= r1; r += step) {
+    const area = Math.cos(((90 - (r + 0.5) / PER_DEG) * Math.PI) / 180);
     for (let k = 0; k < cols; k += step) {
       const i = r * GRID_W + ((((c0 + k) % GRID_W) + GRID_W) % GRID_W);
       if (second) sec += second[i];
@@ -428,6 +523,8 @@ export function viewStats(grid: Float32Array, b: Bounds, second?: Float32Array |
       if (Number.isNaN(v)) continue;
       sum += v;
       n++;
+      aSum += v * area;
+      aW += area;
       if (v > 0.15) {
         cov++;
         hotSum += v;
@@ -449,6 +546,7 @@ export function viewStats(grid: Float32Array, b: Bounds, second?: Float32Array |
   const total = Math.ceil(cols / step) * Math.ceil((r1 - r0 + 1) / step);
   return {
     mean: n ? sum / n : 0,
+    areaMean: aW ? aSum / aW : 0,
     peak,
     coverage: n ? cov / n : 0,
     hot: cov ? hotSum / cov : 0,
@@ -495,10 +593,9 @@ export function valueAt(grid: Float32Array, lat: number, lon: number, radius = P
 
 /**
  * Where on Earth this record is strongest right now: the center of the window (lonSpan × latSpan
- * degrees, the size of the zoomed-in view) with the highest average. For the ocean, which
- * covers everything, it looks for the most varied water instead (warm and cold side by side,
- * like the Gulf Stream), so you hear the widest range of notes. Used by the story, so it zooms
- * into the densest area of each NASA map, read from the data itself.
+ * degrees, the size of the zoomed-in view) with the highest average (for temperature: the
+ * strongest warming). Used by the story, so it zooms into the densest area of each NASA map,
+ * read from the data itself.
  */
 export function densest(
   id: RecordId,
@@ -511,26 +608,17 @@ export function densest(
   if (!live?.sampledAt && !live?.overall) return null;
   // the whole clip, averaged, if we have it: where this record is densest across the dataset
   const l = { rec: live.rec, grid: live.overall ?? live.grid };
-  const spread = l.rec.empty === 'nodata';
   const W2 = GRID_W * 2; // twice as wide, so windows can cross the date line
   const S = new Float64Array((W2 + 1) * (GRID_H + 1));
-  const Q = spread ? new Float64Array(S.length) : null;
-  const N = spread ? new Float64Array(S.length) : null;
   for (let r = 0; r < GRID_H; r++) {
     let rs = 0;
-    let rq = 0;
-    let rn = 0;
     for (let c = 0; c < W2; c++) {
       const v = l.grid[r * GRID_W + (c % GRID_W)];
       const ok = !Number.isNaN(v);
       if (ok) rs += v;
-      if (Q && ok) rq += v * v;
-      if (N && ok) rn++;
       const i = (r + 1) * (W2 + 1) + c + 1;
       const up = r * (W2 + 1) + c + 1;
       S[i] = S[up] + rs;
-      if (Q) Q[i] = Q[up] + rq;
-      if (N) N[i] = N[up] + rn;
     }
   }
   const box = (T: Float64Array, r0: number, c0: number, r1: number, c1: number) =>
@@ -543,14 +631,7 @@ export function densest(
   for (let r0 = rMin; r0 <= rMax; r0 += 2) {
     for (let c0 = 0; c0 < GRID_W; c0 += 2) {
       const sum = box(S, r0, c0, r0 + h, c0 + w);
-      let score: number;
-      if (spread) {
-        const n = box(N!, r0, c0, r0 + h, c0 + w);
-        if (n < w * h * 0.45) continue; // mostly land: not an ocean view
-        const mean = sum / n;
-        const sd = Math.sqrt(Math.max(0, box(Q!, r0, c0, r0 + h, c0 + w) / n - mean * mean));
-        score = sd + 0.25 * mean;
-      } else score = sum / (w * h);
+      const score = sum / (w * h);
       if (score > best.score) {
         let lon = (c0 + w / 2) / PER_DEG - 180;
         if (lon > 180) lon -= 360;

@@ -8,11 +8,11 @@ const P = { fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLineca
 export function RecordIcon({ id }: { id: RecordId }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className="icon">
-      {id === 'ocean' && (
+      {id === 'temperature' && (
         <g {...P}>
-          <path d="M2 9c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0" />
-          <path d="M2 14c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0" />
-          <path d="M2 19c2.5-2 4.5-2 7 0s4.5 2 7 0 4.5-2 6 0" />
+          <path d="M10 14.5V5a2 2 0 0 1 4 0v9.5a4 4 0 1 1-4 0z" />
+          <path d="M12 9v8" />
+          <path d="M17 5h3M17 9h3M17 13h2" />
         </g>
       )}
       {id === 'rain' && (

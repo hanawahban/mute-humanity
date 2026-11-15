@@ -15,6 +15,7 @@ export interface Level {
   raw: number; // 0-1 before the lever
   coverage: number; // share of the view with something in it
   second?: number; // the second part (clouds), 0-1
+  mean?: number; // the average value in view, weighted by area (0-1 along the color key)
 }
 
 export type SourceStatus = 'loading' | 'real' | 'placeholder' | 'missing';
@@ -66,7 +67,7 @@ export const useStore = create<AppState>(() => ({
   audioOn: false,
   playing: each(false),
   order: [],
-  selected: 'ocean',
+  selected: 'temperature',
   solo: null,
   mode: 'listen',
   humanity: 1,

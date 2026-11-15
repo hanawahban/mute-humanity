@@ -24,7 +24,7 @@ Without the clips, the site uses placeholder layers from `public/eic-placeholder
 
 | # | Record | Side | EIC visualization | Period | Instrument | What you hear |
 |---|---|---|---|---|---|---|
-| 1 | Ocean | Earth | [SVS 3912](https://svs.gsfc.nasa.gov/3912/) Sea Surface Currents and Temperature | Mar 2007 – Mar 2008 | Cello | warmer water = higher notes |
+| 1 | Global temperature | Earth | [SVS 5603](https://svs.gsfc.nasa.gov/5603/) Global Temperature Anomalies 1880–2025 (GISTEMP v4) | 1880 – 2025 | Cello | warmer than 1951–1980 = higher notes; past +1 °C the cello slips off the key |
 | 2 | Rain and clouds | Earth | [SVS 5149](https://svs.gsfc.nasa.gov/5149/) GEOS-FP Precipitation and Clouds | recent days | Flute + clarinet pad | more rain = more notes; thicker cloud = louder pad |
 | 3 | Lightning | Earth | [SVS 5011](https://svs.gsfc.nasa.gov/5011/) Lightning from the ISS | 2017 – 2023 | Violin | every flash = a sharp note |
 | 4 | City lights | Humanity | [SVS 5475](https://svs.gsfc.nasa.gov/5475/) Night Lights 2012–2023 (flat version of 5313) | 2012 – 2023 | Synth 1 | brighter = more and higher notes |
@@ -35,17 +35,18 @@ The layers line up in place, not in time: each keeps its real dates, shown on th
 
 ## How the map stacks six visualizations
 
-The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equirectangular world map, so one shader places them all. Each layer's background is made transparent in the shader (black space for lights, lightning and CO₂; gray land under the ocean flows; the base map under rain and clouds; light green "clean air" for NOx, which is redrawn as dark smog), so all six can be layered while the data stays visible. NASA logos and date stamps burned into the frames are masked out of both the picture and the sound.
+The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equirectangular world map, so one shader places them all. Each layer's background is made transparent in the shader (black space for lights, lightning and CO₂; near-zero white, no-data gray and burned-in borders for temperature; the base map under rain and clouds; light green "clean air" for NOx, which is redrawn as dark smog), so all six can be layered while the data stays visible. NASA logos and date stamps burned into the frames are masked out of both the picture and the sound.
 
 ## How it's sonified
 
-1. **Pixels to numbers.** Each frame is drawn into a 360 × 180 grid (1° cells). Each pixel's color is matched to the visualization's color key (`src/eic/layers.ts`), giving a value from 0 to 1, or "no data" (land under the ocean layer).
+1. **Pixels to numbers.** Each frame is drawn into a 360 × 180 grid (1° cells). Each pixel's color is matched to the visualization's color key (`src/eic/layers.ts`), giving a value from 0 to 1, or "no data" (gray, where temperature had no measurements yet).
 2. **Three ways to listen** (`src/audio/conductor.ts`), all on a 16th-note grid at 80 BPM:
    - **Listen**: the view's average, hotspot strength and coverage drive each instrument while its video plays.
    - **Scan**: the videos pause and a needle sweeps the view in three bars (about 9 seconds), driven by the audio clock so it moves smoothly. Each strong point plays exactly when the needle reaches it, and flashes on the map: higher on screen = higher pitch, stronger = louder, left/right = stereo.
    - **Probe**: the value under the probe plays on every beat. Clicking a spot makes the narrator say where it is and what each playing record shows there.
 3. **Harmony.** Under the Earth records, one held A major sound, like the team's full arrangement (`all.mp3`): a cello A underneath and viola voicings of that one chord (Asus2, A, A add9, A maj7) that change every two bars. No synths. When our footprint is lightened, it swells and the hall opens up.
-4. **Mix rules.** Everything plays A, B, C# and E (96% of `all.mp3`'s energy) and leans on A and E (65%), with reverb on the Earth side. Humanity records are synths that play the same notes and very rarely bend one slightly off the key, nearly always to a mild blue note (G, the flat 7th that `all.mp3` itself uses over its A, or C): about 1 note in 680 at 50% and about 1 in 285 at 100%, plus up to 1.5 cents of drift (below what the ear notices), a very faint drag behind the beat and only a trace of grit on the synths. Almost no edge, never noise. The lever also scales their volume; Lighten our footprint fades them down.
+4. **Mix rules.** Everything plays A, B, C# and E (96% of `all.mp3`'s energy) and leans on A and E (65%), with reverb on the Earth side. Humanity records are synths that play the same notes.
+5. **The off-key notes come from the data** (`src/audio/harmony.ts`, `edgeOf` in `src/audio/conductor.ts`). Each note's tension is the humanity lever times the strength of the data it comes from: the NOx level, the emissions, how bright the city lights are (or, in the change view, how new), and for the temperature cello how far a place has warmed past +1 °C (full at +2 °C). Clean air, dark nights and places that haven't warmed play perfectly in tune. Where the data is strong, a note may bend to a mild blue note (G, the flat 7th that `all.mp3` itself uses over its A, or C): about 1 note in 210 at half tension and 1 in 43 at full, with up to 6 cents of drift and a faint drag behind the beat. So you can hear where the dirtiest air, the brightest cities and the most warming are. The lever also scales humanity's volume; Lighten our footprint fades them down and puts everything back in tune.
 
 ## For the pipeline: what the app expects
 
@@ -55,9 +56,9 @@ public/eic/<record>/colorbar.json  optional: {"stops": [[r, g, b, value0to1], ..
 public/eic/<record>/colorbar.png   optional: the NASA color key, shown in the map key
 ```
 
-Record ids: `ocean`, `rain`, `lightning`, `lights`, `co2`, `nox`. `scripts/download_eic.py` produces the clips and fetches color key images. If a clip has titles or a color bar inside the frame, set its `area` (the part that is the map, as fractions) in `src/config/records.ts`.
+Record ids: `temperature`, `rain`, `lightning`, `lights`, `co2`, `nox`. `scripts/download_eic.py` produces the clips and fetches color key images. If a clip has titles or a color bar inside the frame, set its `area` (the part that is the map, as fractions) in `src/config/records.ts`.
 
-Built-in decoding until `colorbar.json` exists: ocean uses the SVS color bar description; lights, lightning and CO₂ use brightness; NOx uses warm colors; rain separates gray clouds from colored rain.
+Built-in decoding until `colorbar.json` exists: temperature uses NASA's "vik" color bar sampled from SVS 5603's labeled map, read as −2 to +2 °C (see the note in `src/config/records.ts`: matched point by point against the labeled ±4 °C map, the flat clip's colors are about twice as strong, and on that scale its 2025 frame averages +1.2 °C, area-weighted, NASA's figure for 2025); lights, lightning and CO₂ use brightness; NOx uses warm colors; rain separates gray clouds from colored rain.
 
 ## Voice
 
@@ -77,7 +78,7 @@ The bundled Blue Marble base map is 4096 px wide (about 10 km per pixel). Zoomed
 
 | | Keyboard | Xbox controller | Voice (hold V or X, or mic always on) |
 |---|---|---|---|
-| Play / stop a record | `1`–`6` | D-pad ← → to choose, `A` | "play ocean", "stop rain" |
+| Play / stop a record | `1`–`6` | D-pad ← → to choose, `A` | "play temperature", "stop rain" |
 | Humanity | `↑` `↓`, `M` lighten / full footprint | D-pad ↑ ↓ | "lighten our footprint", "full footprint", "humanity to 50 percent" |
 | Listen / Scan / Probe | `L` `S` `P` | `Y` cycles | "scan", "probe", "listen" |
 | Move probe | arrows (Probe mode) or mouse | left stick (Probe mode) | |
@@ -89,12 +90,12 @@ The bundled Blue Marble base map is 4096 px wide (about 10 km per pixel). Zoomed
 | Through time | `[` `]` step the chosen record, `\` play on; city lights `,` then, `.` now, `/` what changed | | "then", "now", "what changed" |
 | Captions, help | `C`, `H` | | "help" |
 
-**Controller vibration** (`src/input/haptics.ts`): you feel the chosen record. Ocean swells, rain patters, lightning strikes, city lights flicker, CO₂ rumbles, NOx clicks like a Geiger counter; faster and stronger means more. Chrome on Mac, USB cable, press a button once after loading. The controller's LEDs can't be set from a browser.
+**Controller vibration** (`src/input/haptics.ts`): you feel the chosen record. Temperature swells, rain patters, lightning strikes, city lights flicker, CO₂ rumbles, NOx clicks like a Geiger counter; faster and stronger means more. Chrome on Mac, USB cable, press a button once after loading. The controller's LEDs can't be set from a browser.
 
 ## Accessibility
 
 - Every control is a real button or slider with a label; the screen reader hears what each record sounds like.
-- "Play the story" is a hands-free guided listen of about a minute and a half, with very few words that explain how each map becomes sound. Each Earth record plays alone first, zoomed into wherever its NASA map is densest at that moment (found from the data by `densest()` in `src/eic/layers.ts`), then joins the others. Then each humanity record alone, then all six at once, louder and rougher, then our footprint is lightened. The music ducks while the narrator speaks.
+- "Play the story" is a hands-free guided listen of about a minute and a half, with very few words that explain how each map becomes sound. It opens on the temperature cello in 1880, then jumps to 2025. Each Earth record plays alone first, zoomed into wherever its NASA map is densest at that moment (found from the data by `densest()` in `src/eic/layers.ts`), then joins the others. Then each humanity record alone, then all six at once, louder and rougher, then our footprint is lightened. The music ducks while the narrator speaks.
 - `D` describes what you're hearing; captions describe the music for deaf and hard-of-hearing users.
 - Keyboard and switch access for everything, controller vibration, voice commands.
 - High contrast and reduced motion (also follows the system setting).
@@ -119,7 +120,7 @@ pipeline/                 the earlier gridded-data pipeline (shelved)
 
 ## Credits
 
-- **Visualizations:** NASA Earth Information Center and NASA's Scientific Visualization Studio: SVS [3912](https://svs.gsfc.nasa.gov/3912/), [5149](https://svs.gsfc.nasa.gov/5149/), [5011](https://svs.gsfc.nasa.gov/5011/), [5475](https://svs.gsfc.nasa.gov/5475/), [5121](https://svs.gsfc.nasa.gov/5121/), [5154](https://svs.gsfc.nasa.gov/5154/). NASA, public domain.
+- **Visualizations:** NASA Earth Information Center and NASA's Scientific Visualization Studio: SVS [5603](https://svs.gsfc.nasa.gov/5603/) (GISTEMP v4; scientific consulting Gavin A. Schmidt, visualization Mark SubbaRao), [5149](https://svs.gsfc.nasa.gov/5149/), [5011](https://svs.gsfc.nasa.gov/5011/), [5475](https://svs.gsfc.nasa.gov/5475/), [5121](https://svs.gsfc.nasa.gov/5121/), [5154](https://svs.gsfc.nasa.gov/5154/). NASA, public domain.
 - **Base map:** NASA Blue Marble (NASA Earth Observatory); zoomed in, Blue Marble Next Generation tiles from [NASA GIBS](https://nasa-gibs.github.io/gibs-api-docs/).
 - **Coastlines and borders:** Natural Earth, via [world-atlas](https://github.com/topojson/world-atlas).
 - **Instruments:** recorded by the Sonific-8 multimedia team. All rights reserved by the team.
@@ -139,9 +140,9 @@ As NASA Space Apps asks, here is where SI tools were used:
 
 ## Every record has its own clock
 
-The NASA clips don't share a calendar: rain and NOx are 15 days of model forecast (30 Oct – 14 Nov 2026), lightning is January 2017 to July 2023, city lights are each year from 2012 to 2023, the ocean is one model year (2007–08), CO₂ is one month (December 2021). So the Key shows each record's own date, read live from the clip (`src/eic/timeline.ts`, dates in each record's `timeline` in `src/config/records.ts`), with a slider to scrub or hold it, and the sound follows the frame you're on.
+The NASA clips don't share a calendar: rain and NOx are 15 days of model forecast (30 Oct – 14 Nov 2026), lightning is January 2017 to July 2023, city lights are each year from 2012 to 2023, temperature is each year from 1880 to 2025, CO₂ is one month (December 2021). So the Key shows each record's own date, read live from the clip (`src/eic/timeline.ts`, dates in each record's `timeline` in `src/config/records.ts`), with a slider to scrub or hold it, and the sound follows the frame you're on.
 
-City lights also get **Then 2012 / Now 2023** buttons, and **What changed**: NASA's clip ends with a map of change, purple where there is new light and orange where lights went out. In that view the colors are read as change, not brightness, so new lights play high and lost lights play low, and the Key shows that scale.
+Temperature and city lights get **Then / Now** buttons (1880 / 2025 and 2012 / 2023), and city lights also **What changed**: NASA's clip ends with a map of change, purple where there is new light and orange where lights went out. In that view the colors are read as change, not brightness, so new lights play high and lost lights play low, and the Key shows that scale.
 
 ## Two screens
 
@@ -170,4 +171,11 @@ The site is static, and GitHub Pages hosts it.
    - A `CNAME` record for `www` pointing to `hanawahban.github.io`.
 3. **HTTPS:** after the DNS check passes (minutes to a few hours), tick **Enforce HTTPS** in Settings → Pages. HTTPS is needed for voice commands and the microphone.
 
-Each visitor downloads about 110 MB of NASA clips, and GitHub Pages allows about 100 GB a month. That is plenty for judging and demos.
+Visitors download only the clips of the records they play, starting with small 1024 × 512 versions (see below), so a visit downloads a fraction of the 110 MB it used to. GitHub Pages allows about 100 GB a month: plenty for judging and demos.
+
+### Load size and browsers
+
+- **Small clips first.** Rain, NOx and temperature come as `clip-lite.mp4` (1024 × 512, 15 frames a second) as well as the full `clip.mp4` (2048 × 1024). The small one loads first and is all the sound needs: every frame is read into a 720 × 360 grid. Zoom in on a record and its full clip downloads in the background and is swapped in at the same moment of the clip.
+- **Only what plays.** Clips load just their first frame until their record plays, and the "where is this record densest across the whole clip" pass runs only for records that play, one at a time.
+- Measured on the production build (Chrome, cold cache, counting every byte received): the first 6 seconds went from about 66 MB to 12 MB, and picking two records and listening for 15 seconds from about 110 MB to 37 MB.
+- **Safari and Firefox.** Tested in WebKit (Safari's engine) on Linux: the map, sound, dates, then/now, Probe and the full-clip swap work. Firefox couldn't be installed in our test machine, so it was checked by reading the code for features Firefox lacks: voice commands need the Web Speech API (Chrome, Edge, Safari; not Firefox), and controller vibration needs Chrome or Edge. Everything else uses standard WebGL2, Web Audio and H.264 video.

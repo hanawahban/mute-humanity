@@ -86,7 +86,11 @@ export function play(key: VoiceKey, note: string | number, duration: Tone.Unit.T
   const vel = Math.max(0.05, Math.min(1, velocity * (0.92 + Math.random() * 0.16)));
   // glide the pan instead of jumping it: a jump moves every note still ringing and clicks
   if (pan != null) ch.panner.pan.linearRampTo(Math.max(-1, Math.min(1, pan)), 0.04, t);
-  ch.sampler.triggerAttackRelease(note, duration, t, vel);
+  try {
+    ch.sampler.triggerAttackRelease(note, duration, t, vel);
+  } catch {
+    return; // the audio clock is stalled (a suspended or interrupted context, e.g. Safari): skip the note
+  }
   hapticNote(key, note, vel, t); // the controller feels the note when it sounds
   if (import.meta.env.DEV) notesPlayed[key] = (notesPlayed[key] ?? 0) + 1;
 }
@@ -122,7 +126,11 @@ export function releaseAll(key: VoiceKey) {
 
 /** The full-band chord the team recorded, as a welcome. */
 export function playIntro() {
-  if (intro?.loaded) intro.start();
+  try {
+    if (intro?.loaded) intro.start();
+  } catch {
+    /* already starting at this moment (the audio clock hasn't moved yet): once is enough */
+  }
 }
 
 /** More space when our footprint is lightened: the planet opens up. */
