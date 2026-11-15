@@ -56,7 +56,7 @@ export async function startAudio() {
   const echo = new Tone.PingPongDelay({ delayTime: '8n.', feedback: 0.22, wet: 0.16 });
   const earthBus = new Tone.Gain(1).chain(echo, reverb, master);
   // Humanity: dry, close and a little rough.
-  grit = new Tone.Distortion({ distortion: 0.15, wet: 0.2 });
+  const grit = new Tone.Distortion({ distortion: 0.15, wet: 0.2 });
   const humanBus = new Tone.Gain(1).chain(grit, new Tone.Reverb({ decay: 1.2, wet: 0.12 }), master);
 
   for (const rec of RECORDS) {
@@ -114,14 +114,6 @@ export function previewNote(key: VoiceKey, note: string | number, level: number)
   holdUntil.set(key, performance.now() + 2500);
   lastGain.delete(key); // so the mix takes the channel back afterwards
   play(key, note, '2n', now + 0.02, 0.8, 0);
-}
-
-let grit: Tone.Distortion | null = null;
-/** Make humanity harsher (the story's "hear us over everything" moment). 0 = normal. */
-export function setHarsh(amount: number) {
-  if (!grit) return;
-  grit.wet.rampTo(0.2 + 0.4 * amount, 2);
-  grit.distortion = 0.15 + 0.35 * amount;
 }
 
 export function releaseAll(key: VoiceKey) {

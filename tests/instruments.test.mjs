@@ -31,3 +31,10 @@ test('the harmony bed under the Earth uses no synths', () => {
     assert.ok(!/synth/.test(line), line.trim());
   }
 });
+
+test("the story's finale plays exactly what manual play-all does: no extra volume or distortion for humanity", () => {
+  for (const f of ['../src/state/story.ts', '../src/audio/conductor.ts', '../src/audio/engine.ts']) {
+    const src = readFileSync(new URL(f, import.meta.url), 'utf8');
+    assert.ok(!/setHarsh|setHumanBoost|humanBoost|harsh:/.test(src), `${f} still has a story-only boost`);
+  }
+});
