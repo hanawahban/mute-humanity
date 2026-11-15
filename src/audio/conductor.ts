@@ -120,7 +120,7 @@ function analyze() {
   for (const rec of RECORDS) {
     const layer = layers.get(rec.id);
     const v = layer?.el instanceof HTMLVideoElement ? layer.el : null;
-    const shouldPlay = s.audioOn && s.playing[rec.id] && s.mode !== 'scan';
+    const shouldPlay = s.audioOn && s.screen === 'map' && !s.paused && s.playing[rec.id] && s.mode !== 'scan';
     if (v && shouldPlay && v.paused) void v.play().catch(() => undefined);
     if (v && !shouldPlay && !v.paused) v.pause();
 
@@ -187,6 +187,7 @@ export const audioNow = () => Tone.getContext().currentTime - outputLatency();
 /** Every 16th note: decide what to play. */
 function tick(time: number) {
   const s = getState();
+  if (s.screen !== 'map' || s.paused) return; // the jukebox screen, or paused: silence
   const ids = audible(s);
   const st = step++ % 16;
   const b = viewBounds();

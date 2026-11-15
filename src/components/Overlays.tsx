@@ -6,7 +6,7 @@ import { Logo } from './Logo';
 import { setAlwaysListen } from '../input/voice';
 import { RECORDS, RECORD_BY_ID } from '../config/records';
 import { hapticPatternName } from '../input/haptics';
-import { describeValue } from '../state/actions';
+import { backToJukebox, describeValue } from '../state/actions';
 import { setState, useStore } from '../state/store';
 
 export function TopBar() {
@@ -18,10 +18,17 @@ export function TopBar() {
   const placeholders = RECORDS.filter((r) => sources[r.id] === 'placeholder').length;
   return (
     <header className="topbar">
-      <h1 className="brand">
-        <Logo live className="brand-logo" />
-        <span className="brand-name">Melodic Earth Jukebox</span>
-      </h1>
+      <div className="topbar-left">
+        <button type="button" className="back-button" onClick={backToJukebox} aria-label="Back to the jukebox" title="Back to the jukebox (J)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M16 5v14L5 12z" />
+          </svg>
+        </button>
+        <p className="brand">
+          <Logo live className="brand-logo" />
+          <span className="brand-name">Melodic Earth Jukebox</span>
+        </p>
+      </div>
       <div className="topbar-right">
         {placeholders > 0 && (
           <span className="pill warn" title="Run python3 scripts/download_eic.py to get the real NASA EIC clips.">
@@ -66,9 +73,9 @@ export function Legend() {
   if (!on.length) return null;
   const detail = on.find((r) => r.id === selected) ?? on[on.length - 1];
   return (
-    <div className="legend" aria-label="On the map">
+    <div className="legend" aria-label="Key: what's on the map">
       <button type="button" className="legend-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
-        On the map ({on.length}) <span aria-hidden="true">{open ? '▾' : '▸'}</span>
+        <span className="legend-title">Key</span> <span className="legend-count">{on.length} on the map</span> <span aria-hidden="true">{open ? '−' : '+'}</span>
       </button>
       {open && (
         <>
@@ -131,7 +138,6 @@ export function ProbeReadout() {
  */
 export function Captions() {
   const caption = useStore((s) => s.caption);
-  const announcement = useStore((s) => s.announcement);
   const listening = useStore((s) => s.listening);
   const on = useStore((s) => s.settings.captions);
   const story = useStore((s) => s.story.running);
@@ -144,10 +150,17 @@ export function Captions() {
           {listening ? <><strong className="listening">Listening… </strong>say a command</> : caption}
         </p>
       )}
-      <p className="visually-hidden" role="status" aria-live="polite">
-        {announcement}
-      </p>
     </>
+  );
+}
+
+/** Spoken feedback for screen readers. Outside the map, so it still works on the jukebox screen. */
+export function Announcer() {
+  const announcement = useStore((s) => s.announcement);
+  return (
+    <p className="visually-hidden" role="status" aria-live="polite">
+      {announcement}
+    </p>
   );
 }
 

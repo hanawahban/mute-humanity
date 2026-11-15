@@ -7,12 +7,14 @@
 //   T             play / stop the story       Shift + arrows  move the map
 //   + / - / 0     zoom in, out, whole planet  D           "what am I hearing?"
 //   V (hold)      talk: voice command         C captions, H help
+//   Space         pause / play                J  back to the jukebox
+//   (on the jukebox screen: 1-6 pick records, Enter plays, T plays the story)
 //
 // When a slider or text field has focus, it keeps its own arrow keys.
 
 import { RECORDS } from '../config/records';
 import {
-  announce, cycleMode, describe, moveProbe, nextHotspot, panBy, resetView, selectRecord, setHumanity, setMode,
+  announce, backToJukebox, cycleMode, describe, enterMap, togglePause, moveProbe, nextHotspot, panBy, resetView, selectRecord, setHumanity, setMode,
   toggleMuteHumanity, toggleRecord, toggleSolo, zoomBy,
 } from '../state/actions';
 import { startStory, stopStory } from '../state/story';
@@ -37,6 +39,18 @@ export function initKeyboard() {
 
     if (/^[1-6]$/.test(e.key)) {
       void toggleRecord(RECORDS[Number(e.key) - 1].id);
+      e.preventDefault();
+      return;
+    }
+    // On the jukebox screen only the jukebox keys apply; Enter plays when nothing else has focus.
+    if (s.screen === 'jukebox') {
+      const k = e.key.toLowerCase();
+      if (k === 'enter' && e.target === document.body) void enterMap();
+      else if (k === 't') void startStory();
+      else if (k === 'h' || k === '?') setState({ helpOpen: true });
+      else if (k === 'i') setState({ howOpen: true });
+      else if (k === 'v' && !e.repeat) startListening();
+      else return;
       e.preventDefault();
       return;
     }
@@ -73,6 +87,13 @@ export function initKeyboard() {
         break;
       case 'o':
         toggleSolo();
+        break;
+      case 'j':
+        backToJukebox();
+        break;
+      case ' ':
+        if (e.target !== document.body) return;
+        togglePause();
         break;
       case 't':
         if (s.story.running) stopStory();

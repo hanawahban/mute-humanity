@@ -13,8 +13,7 @@
 //   Start             play / stop the story
 
 import {
-  announce, cycleMode, describe, moveProbe, nextHotspot, panBy, selectRecord, setHumanity, toggleRecord, toggleSolo, zoomBy,
-} from '../state/actions';
+  announce, cycleMode, describe, moveProbe, nextHotspot, panBy, selectRecord, setHumanity, toggleRecord, toggleSolo, zoomBy, enterMap } from '../state/actions';
 import { startStory, stopStory } from '../state/story';
 import { getState, setState } from '../state/store';
 import { startListening, stopListening } from './voice';
@@ -68,7 +67,8 @@ function poll() {
   if (down(BTN.DOWN)) setHumanity(Math.round((s.humanity - 0.1) * 10) / 10);
   if (down(BTN.B)) describe('speech');
   if (down(BTN.START)) {
-    if (s.story.running) stopStory();
+    if (s.screen === 'jukebox') void enterMap();
+    else if (s.story.running) stopStory();
     else void startStory();
   }
   if (down(BTN.X)) startListening();
