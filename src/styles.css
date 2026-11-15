@@ -64,13 +64,43 @@ button { cursor: pointer; }
 }
 .jukebox-screen:not(.shown) .jb-arch { transform: translateY(105%); }
 .jb-inner {
+  --glow: calc(var(--count, 0) / 6);
+  position: relative; isolation: isolate;
+  box-shadow: 0 0 0 3px var(--gold); /* a thin gold inlay between the cream shell and the face */
   min-height: calc(95vh - 34px); display: flex; flex-direction: column; align-items: center;
   background: var(--mahogany);
   border-radius: 50% 50% 0 0 / clamp(140px, 23vh, 270px) clamp(140px, 23vh, 270px) 0 0;
   padding: clamp(44px, 9vh, 96px) clamp(18px, 4vw, 64px) 22px;
 }
+/* two light tubes down the sides: dim at first, brighter with every record picked */
+.jb-inner::before, .jb-inner::after {
+  content: ''; position: absolute; z-index: -1; top: 30%; bottom: 120px; width: 9px; border-radius: 6px;
+  background: linear-gradient(to bottom, var(--gold), #ff9a3c 50%, var(--gold));
+  opacity: calc(0.2 + 0.8 * var(--glow));
+  box-shadow: 0 0 calc(4px + 20px * var(--glow)) rgba(254, 215, 35, calc(0.2 + 0.6 * var(--glow)));
+  transition: opacity 0.45s, box-shadow 0.45s;
+}
+.jb-inner::before { left: clamp(8px, 1.6vw, 22px); }
+.jb-inner::after { right: clamp(8px, 1.6vw, 22px); }
 .jb-head { text-align: center; display: flex; flex-direction: column; align-items: center; }
-.jb-logo { width: clamp(110px, 12vw, 160px); color: var(--gold); margin-bottom: 0.6rem; }
+/* the round window: a record turns behind the logo while anything is picked */
+.jb-window {
+  position: relative; width: clamp(128px, 14vw, 176px); aspect-ratio: 1; margin-bottom: 0.7rem;
+  display: grid; place-items: center; border-radius: 50%; overflow: hidden;
+  border: 4px solid var(--gold); background: #170706;
+  box-shadow: inset 0 0 0 5px #2a0f0c, 0 0 calc(6px + 22px * var(--glow, 0)) rgba(254, 215, 35, calc(0.18 + 0.4 * var(--glow, 0)));
+}
+.jb-disc {
+  position: absolute; inset: 7px; border-radius: 50%;
+  background:
+    radial-gradient(circle, #2a0f0c 0 11%, rgba(254, 215, 35, 0.5) 11.5% 12.5%, transparent 13%),
+    conic-gradient(from 25deg, transparent 0 8%, rgba(255, 241, 210, 0.2) 14%, transparent 22% 55%, rgba(255, 241, 210, 0.2) 64%, transparent 72%),
+    repeating-radial-gradient(circle, #120505 0 2px, #1f0b09 2px 4px);
+  animation: jb-spin 3.6s linear infinite paused;
+}
+.jb-window.spin .jb-disc { animation-play-state: running; }
+@keyframes jb-spin { to { transform: rotate(360deg); } }
+.jb-logo { position: relative; width: 74%; color: var(--gold); }
 .jb-head h1 {
   margin: 0; font-family: var(--display); font-weight: 400; color: var(--gold);
   font-size: clamp(2.4rem, 5.6vw, 4.6rem); line-height: 1.02; letter-spacing: 0.005em;
@@ -85,7 +115,6 @@ button { cursor: pointer; }
   margin: 0 0 14px; padding-left: 64px; font-weight: 600; font-size: clamp(1.15rem, 1.6vw, 1.45rem); color: var(--papaya);
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
 }
-.jb-col h2 span { font-weight: 300; font-size: 0.8rem; color: var(--papaya-dim); letter-spacing: 0.02em; }
 .jb-col ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
 
 /* one record: indicator lamp + pill, the whole row is the switch */
@@ -97,6 +126,8 @@ button { cursor: pointer; }
   background: var(--lamp-off); box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.45);
   transition: background 0.2s, box-shadow 0.3s;
 }
+.pick .lamp { display: grid; place-items: center; font-family: var(--display); font-size: 1.3rem; color: rgba(255, 241, 210, 0.3); }
+.pick.on .lamp { color: var(--mahogany); }
 .pick.on .lamp, .factor.on .lamp {
   background: var(--gold);
   box-shadow: 0 0 0 6px rgba(254, 215, 35, 0.12), 0 0 26px 6px rgba(254, 215, 35, 0.45);
@@ -139,6 +170,11 @@ button { cursor: pointer; }
 .jb-story:hover { background: rgba(255, 241, 210, 0.1); }
 .jb-count { margin: 18px 0 0; font-size: 0.9rem; color: var(--papaya-dim); min-height: 1.3em; }
 .jb-count.warn { color: var(--gold); font-weight: 500; }
+.jb-grille {
+  width: 100%; max-width: 860px; height: 42px; margin-top: 20px; border-radius: 14px; border: 2px solid var(--gold);
+  background: radial-gradient(circle, rgba(254, 215, 35, 0.55) 1.4px, transparent 1.9px) 0 0 / 11px 11px, #170706;
+  opacity: 0.85;
+}
 .jb-foot {
   margin-top: auto; padding-top: 22px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; justify-content: center;
   font-size: 0.85rem; color: var(--papaya-dim);
@@ -147,6 +183,7 @@ button { cursor: pointer; }
 .jb-foot kbd { background: transparent; color: var(--papaya); border-color: var(--papaya-line); }
 
 @media (max-width: 760px) {
+  .jb-inner::before, .jb-inner::after { display: none; }
   .jb-columns { grid-template-columns: 1fr; }
   .jb-actions { grid-template-columns: 1fr; justify-items: center; }
   .jb-play, .jb-all, .jb-story { grid-column: auto; justify-self: center; }
@@ -416,13 +453,14 @@ kbd {
 .high-contrast .modes button[aria-pressed='true'] { background: #fff; color: #000; }
 .reduced-motion *, .reduced-motion *::before { animation: none !important; transition: none !important; }
 .reduced-motion .sweep { display: none; }
-@media (prefers-reduced-motion: reduce) { .vinyl.on .disc { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .vinyl.on .disc, .jb-disc { animation: none; } }
 
 @media (max-width: 1100px) {
   .dock { padding: 10px 14px; gap: 12px; }
   .mode-text span { display: none; }
   .legend { width: 250px; }
 }
+.reduced-motion .jb-disc { animation: none; }
 .reduced-motion .jb-arch, .reduced-motion .jukebox-screen { transition: opacity 0.3s !important; }
 .reduced-motion .jukebox-screen:not(.shown) { opacity: 0; }
 .reduced-motion .jukebox-screen:not(.shown) .jb-arch { transform: none; }
