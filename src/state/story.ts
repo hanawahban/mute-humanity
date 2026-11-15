@@ -77,7 +77,7 @@ async function run(i: number) {
 export async function startStory() {
   await ensureAudio();
   window.clearTimeout(timer);
-  setState({ story: { running: true, step: 0 } });
+  setState({ story: { running: true, step: 0 }, screen: 'map', paused: false });
   visited = [];
   await run(0);
 }

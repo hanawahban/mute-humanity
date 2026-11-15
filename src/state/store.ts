@@ -51,6 +51,9 @@ export interface AppState {
   controller: string | null;
   helpOpen: boolean;
   howOpen: boolean; // the How it works view
+  screen: 'jukebox' | 'map'; // the jukebox (pick records) or the map (listen and explore)
+  paused: boolean; // music paused on the map
+  factorsOpen: boolean; // the Factors drawer on the map
 }
 
 const each = <T,>(v: T) => Object.fromEntries(RECORDS.map((r) => [r.id, v])) as Record<RecordId, T>;
@@ -85,6 +88,9 @@ export const useStore = create<AppState>(() => ({
   controller: null,
   helpOpen: false,
   howOpen: false,
+  screen: 'jukebox',
+  paused: false,
+  factorsOpen: true,
 }));
 
 export const getState = useStore.getState;
