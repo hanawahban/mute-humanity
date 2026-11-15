@@ -1,7 +1,7 @@
 // Run: node --test tests/
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { bend, bendChance, detuneCents, dragSixteenths, settle } from '../src/audio/harmony.ts';
+import { bend, bendChance, detuneCents, dragSixteenths, settle, tension } from '../src/audio/harmony.ts';
 
 const IN_KEY = new Set([0, 2, 4, 5, 7, 9, 11]);
 const pc = (m) => (((m - 69) % 12) + 12) % 12;
@@ -15,10 +15,20 @@ test('tension 0 changes nothing: humanity blends into the Earth', () => {
   assert.equal(dragSixteenths(0), 0);
 });
 
-test('bend chance rises with tension but stays tiny: about 1 in 285 at the most', () => {
+test('bend chance rises with tension: rare in the middle, about 1 in 43 at the strongest spots', () => {
   const c = [0, 0.25, 0.5, 0.75, 1].map(bendChance);
   for (let i = 1; i < c.length; i++) assert.ok(c[i] > c[i - 1]);
-  assert.ok(c[4] > 0.0028 && c[4] < 0.0045 && c[2] > 0.001 && c[2] < 0.002, JSON.stringify(c));
+  assert.ok(c[1] < 0.001, `quarter ${c[1]}`);
+  assert.ok(c[2] > 0.003 && c[2] < 0.006, `half ${c[2]}`);
+  assert.ok(c[4] > 0.02 && c[4] < 0.027, `full ${c[4]}`);
+});
+
+test('tension comes from the data under the note, scaled by the lever', () => {
+  assert.equal(tension(1, 0), 0); // clean air, dark night, no warming: in tune
+  assert.equal(tension(0, 1), 0); // footprint lightened: in tune
+  assert.equal(tension(1, 1), 1);
+  assert.equal(tension(0.5, 0.5), 0.25);
+  assert.equal(tension(2, -1), 0); // clamped
 });
 
 const NOTES = [57, 59, 61, 64, 69, 71, 73, 76]; // A3 B3 C#4 E4 A4 B4 C#5 E5: the four notes Earth and humanity play
@@ -33,11 +43,11 @@ test('a bent note always ends outside the key, within three semitones', () => {
   }
 });
 
-test('at full tension only about one note in 285 is bent', () => {
-  const r = rng(3); let bent = 0; const N = 3000000;
+test('at full tension about one note in 43 is bent', () => {
+  const r = rng(3); let bent = 0; const N = 1000000;
   for (let i = 0; i < N; i++) { const b = NOTES[i % NOTES.length]; if (bend(b, 1, r) !== b) bent++; }
   const share = bent / N;
-  assert.ok(share > 0.0028 && share < 0.0043, `share ${share}`);
+  assert.ok(share > 0.02 && share < 0.027, `share ${share}`);
 });
 
 test('the bends that do happen are mostly the mild blue notes G and C, and the grating ones are rare', () => {
@@ -59,7 +69,11 @@ test('settling leans on A and E in the proportions of all.mp3 (65% anchors, 31% 
   for (const m of [59, 61]) assert.ok(Math.abs(settle(m, 1) - m) <= 3);
 });
 
-test('detune and drag stay tiny: at most 1.5 cents and a twenty-fifth of a 16th note', () => {
+test('detune and drag stay small: at most 6 cents (2 at half tension) and a twenty-fifth of a 16th note', () => {
   const r = rng(5);
-  for (let i = 0; i < 500; i++) { assert.ok(Math.abs(detuneCents(1, r)) <= 1.5); const d = dragSixteenths(1, r); assert.ok(d >= 0 && d <= 0.04); }
+  for (let i = 0; i < 500; i++) {
+    assert.ok(Math.abs(detuneCents(1, r)) <= 6);
+    assert.ok(Math.abs(detuneCents(0.5, r)) <= 2);
+    const d = dragSixteenths(1, r); assert.ok(d >= 0 && d <= 0.04);
+  }
 });

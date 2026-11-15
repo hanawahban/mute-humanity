@@ -5,7 +5,7 @@
 // loudest), because six patterns at once blur into one buzz. Each record has its own feel,
 // shaped like its sound:
 //
-//   Ocean      cello, long bowed notes     a slow swell in the big motor
+//   Temperature cello, long bowed notes    a slow swell in the big motor
 //   Rain       flute, falling drops        light taps in the small motor
 //   Lightning  violin, sharp strikes       a crisp crack in both motors, the firmest feel
 //   Lights     synth pad sparkles          a quick double flicker in the small motor
@@ -24,7 +24,7 @@ export interface Pulse {
 export interface TimedPulse extends Pulse {
   delay: number; // seconds after the note starts
 }
-export type FeelId = 'ocean' | 'rain' | 'lightning' | 'lights' | 'co2' | 'nox';
+export type FeelId = 'temperature' | 'rain' | 'lightning' | 'lights' | 'co2' | 'nox';
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
 
@@ -35,7 +35,7 @@ export const MAX_MAGNITUDE = 0.62;
 /** Shortest pulse the motors render. */
 export const MIN_MS = 30;
 /** Shortest time between two pulses of the same record, in seconds. */
-export const MIN_GAP: Record<FeelId, number> = { ocean: 0.35, rain: 0.11, lightning: 0.15, lights: 0.16, co2: 0.5, nox: 0.25 };
+export const MIN_GAP: Record<FeelId, number> = { temperature: 0.35, rain: 0.11, lightning: 0.15, lights: 0.16, co2: 0.5, nox: 0.25 };
 
 /** A 0-1 strength as the motor gets it: lifted so it is felt, capped so it is never harsh. */
 export function shape(m: number): number {
@@ -55,7 +55,7 @@ const p = (delay: number, ms: number, strong: number, weak: number): TimedPulse 
 /** Each record's feel at full strength, before velocity and pitch. */
 const FEEL: Record<FeelId, TimedPulse[]> = {
   // rises and falls, like a bow stroke
-  ocean: [p(0, 70, 0.35, 0.05), p(0.08, 80, 0.6, 0.08), p(0.17, 80, 0.45, 0.06), p(0.27, 90, 0.22, 0.03)],
+  temperature: [p(0, 70, 0.35, 0.05), p(0.08, 80, 0.6, 0.08), p(0.17, 80, 0.45, 0.06), p(0.27, 90, 0.22, 0.03)],
   // one light tap per drop
   rain: [p(0, 32, 0, 0.42)],
   // a single crisp crack, the firmest feel
@@ -69,7 +69,7 @@ const FEEL: Record<FeelId, TimedPulse[]> = {
 };
 
 export const FEEL_NAME: Record<FeelId, string> = {
-  ocean: 'a slow swell',
+  temperature: 'a slow swell',
   rain: 'light taps',
   lightning: 'a sharp crack',
   lights: 'a flicker',

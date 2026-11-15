@@ -1,7 +1,7 @@
 // Time inside each NASA clip: which real date a frame shows, scrubbing, and "then vs now".
 //
 // Every record keeps its own clock. Rain and NOx cover 15 days of NASA model output, lightning
-// six and a half years, city lights 2012 to 2023, the ocean one model year, CO2 one month. So
+// six and a half years, city lights 2012 to 2023, temperature 1880 to 2025, CO2 one month. So
 // there is no single shared year: each record gets its own timeline, labelled in its own dates.
 
 import { RECORD_BY_ID, type RecordId } from '../config/records';
@@ -135,7 +135,9 @@ export function thenNowPoints(id: RecordId): { then: number; now: number } | nul
   const lastDate = a[a.length - 1][1];
   const reached = a.find(([, d]) => d === lastDate)![0]; // the clip reaches its last year here, then holds it
   const at = (t: number) => (t - seg[0]) / (seg[1] - seg[0]);
-  return { then: at(seg[0] + 0.5), now: at(Math.min(seg[1] - 0.2, reached + 1)) };
+  // a little into the first year (temperature moves 0.4 s a year, city lights about 1 s)
+  const perYear = (a[1][0] - a[0][0]) / Math.max(1, new Date(a[1][1]).getUTCFullYear() - new Date(a[0][1]).getUTCFullYear());
+  return { then: at(seg[0] + Math.min(0.5, perYear * 0.4)), now: at(Math.min(seg[1] - 0.2, reached + 1)) };
 }
 
 /** Hold the record on its first ("then") or last ("now") year, or let it play again. Returns what to say. */

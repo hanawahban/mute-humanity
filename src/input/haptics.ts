@@ -2,7 +2,7 @@
 //
 // 1. The controller feels ONE record at a time: the one chosen with the D-pad (or arrow keys),
 //    or, if that one isn't playing, the loudest one you can hear. Each note it plays is felt
-//    the moment it sounds, in that record's own feel (ocean swells, rain taps, lightning
+//    the moment it sounds, in that record's own feel (temperature swells, rain taps, lightning
 //    cracks, lights flicker, CO2 hums, NOx stutters). Choosing a record plays its feel once,
 //    so you learn which is which.
 // 2. Humanity's records follow the lever: softer as it goes down, nothing when our footprint

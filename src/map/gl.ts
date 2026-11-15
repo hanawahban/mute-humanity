@@ -4,11 +4,9 @@
 // rain, light green "clean air") is made transparent in the shader, so all six layers can be
 // stacked on one map while the data stays visible.
 
-export type KeyMode = 'bright' | 'saturated' | 'precip' | 'darkgreen' | 'warm' | 'opaque' | 'ocean';
-const MODE_ID: Record<KeyMode, number> = { bright: 0, saturated: 1, precip: 2, darkgreen: 3, warm: 4, opaque: 5, ocean: 6 };
+export type KeyMode = 'bright' | 'saturated' | 'precip' | 'darkgreen' | 'warm' | 'opaque' | 'anomaly';
+const MODE_ID: Record<KeyMode, number> = { bright: 0, saturated: 1, precip: 2, darkgreen: 3, warm: 4, opaque: 5, anomaly: 6 };
 
-/** The calmer ocean palette (cold to warm). The map key uses the same colors. */
-export const OCEAN_RAMP: Array<[number, string]> = [[0, '#1d3557'], [0.3, '#2a6f97'], [0.55, '#61a5c2'], [0.75, '#d9cba0'], [0.9, '#cf9a68'], [1, '#b9745a']];
 /** NOx is drawn as dark smog, not green. */
 export const SMOG = { light: '#5a4636', dark: '#0d0907' };
 
@@ -58,21 +56,6 @@ float hue(vec3 c) {
   return h * 60.0;
 }
 
-// cold to warm, muted: the rainbow of the original is re-colored so land stays readable
-vec3 oceanRamp(float t) {
-  vec3 c0 = vec3(0.114, 0.208, 0.341);
-  vec3 c1 = vec3(0.165, 0.435, 0.592);
-  vec3 c2 = vec3(0.380, 0.647, 0.761);
-  vec3 c3 = vec3(0.851, 0.796, 0.627);
-  vec3 c4 = vec3(0.812, 0.604, 0.408);
-  vec3 c5 = vec3(0.725, 0.455, 0.353);
-  if (t < 0.3) return mix(c0, c1, t / 0.3);
-  if (t < 0.55) return mix(c1, c2, (t - 0.3) / 0.25);
-  if (t < 0.75) return mix(c2, c3, (t - 0.55) / 0.2);
-  if (t < 0.9) return mix(c3, c4, (t - 0.75) / 0.15);
-  return mix(c4, c5, (t - 0.9) / 0.1);
-}
-
 void main() {
   vec2 frag = vec2(gl_FragCoord.x, uSize.y - gl_FragCoord.y);
   float lon = uView.x + (frag.x - uSize.x * 0.5) / uView.z;
@@ -118,11 +101,10 @@ void main() {
     // a see-through haze, not a black blanket: CO₂ and city lights are drawn above it and show through
     c = mix(vec3(0.42, 0.37, 0.33), vec3(0.11, 0.09, 0.08), t);
     a = smoothstep(0.05, 0.6, t) * 0.75;
-  } else if (uMode == 6) {                                                         // ocean: hue -> temperature -> calm palette
-    float h = hue(c);
-    float t = clamp(1.0 - h / 240.0, 0.0, 1.0);
-    a = smoothstep(0.18, 0.42, sat) * smoothstep(0.06, 0.22, mx) * 0.9;
-    c = oceanRamp(t) * (0.55 + 0.4 * mx);
+  } else if (uMode == 6) {                                                         // temperature: NASA's own blue-to-brown colors
+    // near 0 °C (white), no data (gray), relief shading and burned-in borders fade out, so the
+    // map shows through where nothing changed and the strongest warming and cooling stand out
+    a = smoothstep(0.06, 0.4, sat) * smoothstep(0.12, 0.3, mx) * 0.85;
   }
   c = min(vec3(1.0), c * uBoost);
   a *= uAlpha;
@@ -247,6 +229,13 @@ export class MapRenderer {
       gl.uniform1f(this.u.uFloor, l.floor);
       gl.uniform1f(this.u.uGrow, l.grow ?? 0);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    // a clip swapped for its sharper version leaves its old video behind, emptied: free its texture
+    for (const [src, e] of this.textures) {
+      if (src instanceof HTMLVideoElement && !src.getAttribute('src')) {
+        gl.deleteTexture(e.tex);
+        this.textures.delete(src);
+      }
     }
   }
 }

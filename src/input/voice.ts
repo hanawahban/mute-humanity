@@ -5,11 +5,11 @@
 // hears is ignored, so it can't trigger its own commands. Headphones help in this mode.
 // Chrome sends speech to a server by default, so this needs internet.
 
-import { showChange, showYear } from '../eic/timeline';
+import { showChange } from '../eic/timeline';
 import { RECORDS, type RecordId } from '../config/records';
 import { duck } from '../audio/engine';
 import {
-  announce, describe, goToPlace, muteHumanity, setHumanity, setMode, speak, toggleRecord, toggleSolo, unmuteHumanity, zoomBy,
+  announce, describe, goToPlace, showYears, muteHumanity, setHumanity, setMode, speak, toggleRecord, toggleSolo, unmuteHumanity, zoomBy,
 } from '../state/actions';
 import { startStory, stopStory } from '../state/story';
 import { nameRegion } from '../config/places';
@@ -132,7 +132,7 @@ export function stopListening() {
 }
 
 const RECORD_WORDS: Array<[RegExp, RecordId]> = [
-  [/\bocean(s)?\b|\bsea\b|\bcello\b|\bcurrents?\b/, 'ocean'],
+  [/\btemperatures?\b|\btemp\b|\bheat\b|\bwarm(ing)?\b|\bclimate\b|\bcello\b/, 'temperature'],
   [/\brain\b|\bclouds?\b|\bflute\b|\bweather\b/, 'rain'],
   [/\blightning\b|\bstorms?\b|\bviolin\b/, 'lightning'],
   [/\b(city |night )?lights\b|\bcities\b|\bclarinet\b/, 'lights'],
@@ -147,7 +147,7 @@ function findRecords(t: string): RecordId[] {
 const NUMBER_WORDS: Record<string, number> = { zero: 0, ten: 10, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100 };
 
 const HELP =
-  'Say: play ocean, add lightning, stop rain, solo NOx, scan, probe, listen, lighten our footprint, full footprint, ' +
+  'Say: play temperature, add lightning, stop rain, solo NOx, scan, probe, listen, lighten our footprint, full footprint, ' +
   'humanity to 50 percent, then, now, what changed, go to Bahrain, zoom in, zoom out, play the story, what am I hearing, or where am I.';
 
 export async function runCommand(raw: string, openMic = false) {
@@ -173,18 +173,16 @@ export async function runCommand(raw: string, openMic = false) {
     if (n != null) return setHumanity(n / 100);
   }
 
-  // city lights through time: "then", "now", "what changed"
+  // through time: "then", "now" (temperature and city lights), "what changed" (city lights)
   if (/\bwhat changed\b|\bshow (me )?(the )?change\b|\bthe difference\b/.test(t)) {
     if (!getState().playing.lights) await toggleRecord('lights', true);
     return speak(showChange('lights', true) ?? '');
   }
-  if (/^(show (me )?|go )?(back )?then$|\b(in |back in )?2012\b|\bback then\b/.test(t)) {
-    if (!getState().playing.lights) await toggleRecord('lights', true);
-    return speak(showYear('lights', 'then') ?? '');
+  if (/^(show (me )?|go )?(back )?then$|\b(in |back in )?(1880|2012)\b|\bback then\b/.test(t)) {
+    return speak(await showYears('then', /2012/.test(t) ? 'lights' : /1880/.test(t) ? 'temperature' : findRecords(t)[0]));
   }
-  if (/^(show (me )?)?(now|today)$|\b(in )?2023\b|\bright now\b/.test(t)) {
-    if (!getState().playing.lights) await toggleRecord('lights', true);
-    return speak(showYear('lights', 'now') ?? '');
+  if (/^(show (me )?)?(now|today)$|\b(in )?(2023|2025)\b|\bright now\b/.test(t)) {
+    return speak(await showYears('now', /2023/.test(t) ? 'lights' : /2025/.test(t) ? 'temperature' : findRecords(t)[0]));
   }
 
   if (/\b(story|tour)\b/.test(t)) return /\bstop\b/.test(t) ? stopStory() : void startStory();

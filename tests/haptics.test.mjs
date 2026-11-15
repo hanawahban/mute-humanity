@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { FEEL_NAME, MAX_MAGNITUDE, MIN_GAP, binOf, humanityScale, mergePulse, notePulses, pitchPosition, shape } from '../src/input/hapticRhythm.ts';
 
-const IDS = ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'];
+const IDS = ['temperature', 'rain', 'lightning', 'lights', 'co2', 'nox'];
 const peak = (ps) => Math.max(...ps.map((p) => Math.max(p.strong, p.weak)));
 const total = (ps) => ps.reduce((t, p) => t + p.ms * (p.strong + p.weak), 0);
 const motor = (ps) => ps.reduce((t, p) => t + p.strong, 0) / (ps.reduce((t, p) => t + p.strong + p.weak, 0) || 1); // 1 = all big motor
@@ -21,7 +21,7 @@ test('every record has its own feel: no two share the same shape', () => {
 
 test('the feels match the sounds', () => {
   const at = (id) => notePulses(id, 440, 0.8);
-  assert.ok(motor(at('ocean')) > 0.7 && at('ocean').length >= 3, 'ocean swells in the big motor');
+  assert.ok(motor(at('temperature')) > 0.7 && at('temperature').length >= 3, 'temperature swells in the big motor');
   assert.ok(motor(at('co2')) > 0.9 && length(at('co2')) >= 300, 'CO2 is a long low hum');
   assert.ok(motor(at('rain')) < 0.1 && at('rain').length === 1, 'rain is a single light tap');
   assert.ok(motor(at('lights')) < 0.1 && at('lights').length === 2, 'lights flicker twice');

@@ -1,5 +1,5 @@
 // "Play the story": a guided listen of about a minute and a half, with very few words.
-// Each Earth record plays alone first, zoomed into wherever NASA's map is densest right now,
+// Temperature is heard in 1880, then 2025. Each Earth record plays alone first, zoomed into wherever NASA's map is densest right now,
 // then joins the others. Then humanity, one record at a time, then all of us at once, exactly as
 // it sounds when you play everything yourself (no extra volume, no extra distortion). Then the
 // lever: our footprint is lightened and the Earth is left, in tune.
@@ -10,6 +10,7 @@ import type { Mode } from './store';
 import { getState, setState } from './store';
 import { announce, ensureAudio, fadeHumanity, focusDensest, resetView, setMode, toggleRecord } from './actions';
 import { LINES, say, stopSpeaking } from '../audio/speech';
+import { hold, showYear } from '../eic/timeline';
 
 interface Step {
   line: string; // narration id; its text is also the caption
@@ -20,23 +21,25 @@ interface Step {
   zoom?: number;
   mode?: Mode;
   humanity?: number;
+  year?: 'then' | 'now'; // hold temperature on 1880 or 2025
   ms: number; // at least this long, so the music can be heard
 }
 
-const EARTH: RecordId[] = ['ocean', 'rain', 'lightning'];
-const ALL: RecordId[] = ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'];
+const EARTH: RecordId[] = ['temperature', 'rain', 'lightning'];
+const ALL: RecordId[] = ['temperature', 'rain', 'lightning', 'lights', 'co2', 'nox'];
 
 const STEPS: Step[] = [
-  { line: 'story-0', records: ['ocean'], planet: true, mode: 'listen', humanity: 1, ms: 8000 },
-  { line: 'story-1', records: ['ocean'], densest: 'ocean', zoom: 4, ms: 8000 },
+  { line: 'story-0', records: ['temperature'], planet: true, mode: 'listen', humanity: 1, year: 'then', ms: 8000 },
+  { line: 'story-1', records: ['temperature'], year: 'then', ms: 7500 },
+  { line: 'story-12', records: ['temperature'], year: 'now', ms: 7000 },
   { line: 'story-2', records: ['rain'], densest: 'rain', zoom: 4.5, ms: 8000 },
-  { line: 'story-3', records: ['ocean', 'rain'], ms: 6500 },
+  { line: 'story-3', records: ['temperature', 'rain'], year: 'then', ms: 6500 },
   { line: 'story-4', records: ['lightning'], densest: 'lightning', zoom: 3.2, ms: 8000 },
-  { line: 'story-5', records: EARTH, planet: true, ms: 8500 },
+  { line: 'story-5', records: EARTH, planet: true, year: 'then', ms: 8500 },
   { line: 'story-6', records: ['lights'], densest: 'lights', zoom: 4, ms: 8500 },
   { line: 'story-7', records: ['co2'], densest: 'co2', zoom: 4, ms: 7000 },
   { line: 'story-8', records: ['nox'], densest: 'nox', zoom: 4, ms: 6500 },
-  { line: 'story-9', records: ALL, planet: true, ms: 10000 },
+  { line: 'story-9', records: ALL, planet: true, year: 'now', ms: 10000 },
   { line: 'story-10', records: ALL, humanity: 0, ms: 7000 },
   { line: 'story-11', records: ALL, ms: 9000 },
 ];
@@ -62,6 +65,7 @@ async function run(i: number) {
     if (!spot) resetView();
     else if (human) visited.push(spot);
   }
+  if (step.year) showYear('temperature', step.year);
   if (step.humanity != null) fadeHumanity(step.humanity, step.humanity === 0 ? 4500 : 800);
   announce(text);
   const began = performance.now(); // time the step from its start, not from when the voice loaded
@@ -82,6 +86,7 @@ export function stopStory(finished = false) {
   window.clearTimeout(timer);
   stopSpeaking();
   setState({ story: { running: false, step: 0 } });
+  hold('temperature', null); // the years play on again
   if (!finished) announce('Story stopped');
 }
 

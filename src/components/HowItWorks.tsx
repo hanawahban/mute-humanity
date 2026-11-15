@@ -51,7 +51,7 @@ function Thumb({ id }: { id: RecordId }) {
 export function HowItWorks() {
   const open = useStore((s) => s.howOpen);
   const ref = useRef<HTMLDialogElement>(null);
-  const [id, setId] = useState<RecordId>('ocean');
+  const [id, setId] = useState<RecordId>('temperature');
   const [v, setV] = useState(0.7);
   const rec = RECORD_BY_ID[id];
   const notes = notesFor(id);
@@ -152,8 +152,8 @@ export function HowItWorks() {
             ))}
           </div>
           <p>
-            Higher numbers play higher notes. {earth ? 'Everything plays these four notes, over a held A' : "Humanity plays the same notes, and now and then bends one to"} (
-            {(earth ? EARTH_SCALE : HUMAN_SCALE).join(' ')}), so {earth ? 'every Earth sound agrees.' : 'the more we press, the more friction you hear.'}
+            Higher numbers play higher notes. {earth ? 'Everything plays these four notes, over a held A' : "Humanity plays the same notes, and where its data is strongest bends some to"} (
+            {(earth ? EARTH_SCALE : HUMAN_SCALE).join(' ')}), so {earth ? (id === 'temperature' ? 'every Earth sound agrees, except where a place has warmed past +1 °C: there the cello slips off the key too.' : 'every Earth sound agrees.') : 'the dirtier the air or the brighter the night, the more friction you hear.'}
           </p>
         </li>
         <li>
@@ -187,11 +187,13 @@ export function HowItWorks() {
           <h3>Earth and humanity</h3>
           <p>
             The three Earth records share one key, so any mix of them sounds in tune. The three humanity records are synths that bend those
-            notes off the key and drift out of tune as the lever goes up. Lighten our footprint and the Earth's harmony swells back.
+            notes off the key and drift out of tune, and how much comes from the data: clean air and dark nights stay in tune, the most
+            polluted and brightest places grate. Temperature's cello slips the same way where a place has warmed past +1 °C. The lever
+            scales all of it; lighten our footprint and the Earth's harmony swells back.
           </p>
           <h3>Honest about the data</h3>
           <p>
-            We read NASA's published visualizations, not raw science values. They are about 19 km per pixel, and each keeps its real dates,
+            We read NASA's published visualizations, not raw science values. They are about 19 km per pixel (temperature is coarser: NASA builds it on a 2° grid), and each keeps its real dates,
             so layers line up in place, not in time. The zoomed-in base map is NASA Blue Marble from NASA GIBS.
           </p>
         </section>

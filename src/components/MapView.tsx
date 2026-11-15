@@ -59,10 +59,10 @@ function loadOutlines(onDone: () => void) {
 }
 
 /**
- * Draw order. Smog (NOx) goes low, straight after the ocean, so the red CO₂ glow and the city
+ * Draw order. Smog (NOx) goes low, straight after temperature, so the red CO₂ glow and the city
  * lights stay visible through it; lightning flashes on top of everything.
  */
-const ORDER: RecordId[] = ['ocean', 'nox', 'rain', 'lights', 'co2', 'lightning'];
+const ORDER: RecordId[] = ['temperature', 'nox', 'rain', 'lights', 'co2', 'lightning'];
 
 /** Changes that need the map layers redrawn (the mix changes 10 times a second and must not). */
 const pickMap = (s: AppState) => [s.focus, s.playing, s.solo, s.humanity, s.sources, s.settings.highContrast];
