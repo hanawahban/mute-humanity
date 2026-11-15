@@ -169,7 +169,7 @@ export function MapView() {
           mode: layer.placeholder ? rec.keyingPlaceholder ?? rec.keying : rec.keying,
           area: rec.area,
           masks: layer.placeholder ? [] : rec.masks ?? [],
-          alpha: rec.side === 'human' ? 0.15 + 0.85 * s.humanity : 1,
+          alpha: rec.side === 'human' ? 0.15 + 0.85 * s.humanity : id === 'temperature' && on.length > 1 ? 0.55 : 1, // temperature steps back under the others
           boost: id === 'lights' ? (night ? 1.9 : 1.5) : rec.boost ?? 1,
           floor: layer.placeholder || rec.decode.kind !== 'bright' ? 0.1 : Math.max(0.1, rec.decode.floor - (id === 'lights' ? 0.16 : 0.1)),
           grow: id === 'lightning' ? 1.5 : 0,
@@ -301,19 +301,26 @@ export function MapView() {
       }
     };
 
+    let settleFrames = 0;
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       const moving = stepCamera((now - last) / 1000);
       last = now;
       const s = getState();
       if (moving) mapDirty = true;
-      // a playing video only needs a redraw when it has shown a new frame (about 30 times a second)
+      // a video only needs a redraw when it has moved (playing, or a jump like Then / Now). After a
+      // jump the new frame can arrive a moment later, so keep redrawing for a few frames
       for (const id of audible(s)) {
         const el = layers.get(id)?.el;
-        if (el instanceof HTMLVideoElement && !el.paused && videoTimes.get(el) !== el.currentTime) {
+        if (el instanceof HTMLVideoElement && videoTimes.get(el) !== el.currentTime) {
           videoTimes.set(el, el.currentTime);
           mapDirty = true;
+          settleFrames = 12;
         }
+      }
+      if (settleFrames > 0) {
+        settleFrames--;
+        mapDirty = true;
       }
       const motion = moving || now - focusAt < 120;
       // sharper NASA tiles for where the map is now, once it settles
