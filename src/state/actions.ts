@@ -262,3 +262,29 @@ export function probeAt(lat: number, lon: number, speakIt: boolean) {
   announce(words.join(' '));
   if (speakIt && s.settings.narrate) void sayQueue(clips);
 }
+
+/** Leave the jukebox for the map: the chosen records start playing. */
+export async function enterMap() {
+  await ensureAudio();
+  const on = RECORDS.filter((r) => getState().playing[r.id]);
+  if (!on.length) {
+    announce('Pick at least one record first');
+    return;
+  }
+  setState({ screen: 'map', paused: false });
+  announce(`Playing ${on.map((r) => r.short).join(', ')}. Map view.`);
+}
+
+/** Back to the jukebox: the music stops, the picks stay. */
+export function backToJukebox() {
+  if (getState().story.running) void import('./story').then((m) => m.stopStory());
+  setState({ screen: 'jukebox' });
+  announce('Back at the jukebox');
+}
+
+export function togglePause() {
+  const paused = !getState().paused;
+  if (paused && getState().story.running) void import('./story').then((m) => m.stopStory());
+  setState({ paused });
+  announce(paused ? 'Paused' : 'Playing');
+}

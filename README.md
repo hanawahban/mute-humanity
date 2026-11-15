@@ -118,6 +118,13 @@ pipeline/                 the earlier gridded-data pipeline (shelved)
 
 Visualizations: NASA Earth Information Center and NASA's Scientific Visualization Studio. Base map: NASA Blue Marble. Instruments recorded by our multimedia team.
 
+## Two screens
+
+1. **The jukebox** (first page), based on the multimedia team's layout (`NASALayout.ai`): a cream arch with two columns of records, Natural and Human-made. Each record is a switch with an indicator lamp; picking one lights the lamp, plays a note on its instrument and shows its map faintly behind the jukebox. **Play** slides the jukebox away and the music starts; **Play the story** starts the guided listen.
+2. **The map**: a back button to the jukebox (or `J`), the Key on the left, the Factors drawer on the right (the six records and the humanity lever), and a bottom bar with Play/Pause (or Space), the three ways to listen, places and the story.
+
+Type: **Anton** for headings and **Alexandria** for everything else, served from `public/fonts/` (subset to Latin, WOFF2).
+
 ## Brand
 
 Logo artwork is in `public/brand/` (black and white PNGs from the team). `public/logo.svg` and the in-app logo (`src/components/logoPath.ts`) are vector traces of it, so it stays sharp and can take any color. The favicon is `public/favicon.svg`.
