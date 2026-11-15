@@ -1,13 +1,13 @@
 {
-  "ocean": {
-    "svs": 3912,
+  "temperature": {
+    "svs": 5603,
     "side": "earth",
-    "title": "Global Sea Surface Currents and Temperature",
-    "url": "https://svs.gsfc.nasa.gov/3912/",
-    "source_file": "flat_global_ecco2_2028x1024_comp_p30.mp4",
-    "alt_text": "Global sea surface currents colored by temperature.  These are the assembled (contiguous) versions of the animation.  There are several resolutions to choose from, some are cropped for various purposes.  The 6840x3420 version is the complete, full resolution visualization at the appropriate 2x1 aspect ratio and has not been cropped or resized.  The time range for these visualizations is from 2007-03-25T12:00Z to 2008-03-03T12:00Z.",
+    "title": "Global Temperature Anomalies from 1880 to 2025",
+    "url": "https://svs.gsfc.nasa.gov/5603/",
+    "source_file": "GISTEMP_2025_equirectangular_2048p.mp4",
+    "alt_text": "Global air surface temperature anomalies from 1880-2025 relative to a baseline period of 1951-1980 (GISTEMP v4), equirectangular, no spatial smoothing, 12 months of temporal averaging. Colormap \"vik\" (Crameri 2018), -4 to +4 C.",
     "kind": "movie",
-    "credit": "NASA's Scientific Visualization Studio"
+    "credit": "NASA's Scientific Visualization Studio; scientific consulting Gavin A. Schmidt, visualization Mark SubbaRao"
   },
   "rain": {
     "svs": 5149,
