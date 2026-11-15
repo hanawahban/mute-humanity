@@ -6,7 +6,7 @@ export interface Place {
   aliases?: string[];
 }
 
-// Used for "go to <place>" and for naming the region at the centre of the map.
+// Used for "go to <place>" and for naming the region at the center of the map.
 export const PLACES: Place[] = [
   { name: 'Bahrain', lat: 26.07, lon: 50.55, zoom: 5, aliases: ['manama'] },
   { name: 'the Arabian Gulf', lat: 26.5, lon: 52, zoom: 4, aliases: ['gulf', 'persian gulf', 'arabian gulf'] },

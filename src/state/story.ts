@@ -1,4 +1,4 @@
-// "Play the story": a guided listen of about two and a half minutes, with very few words.
+// "Play the story": a guided listen of about a minute and a half, with very few words.
 // Each Earth record plays alone first, zoomed into wherever NASA's map is densest right now,
 // then joins the others. Then humanity, one record at a time, then all of us at once, loud
 // and out of key. Then the lever: humanity is muted and the Earth is left, in tune.
@@ -29,20 +29,18 @@ const EARTH: RecordId[] = ['ocean', 'rain', 'lightning'];
 const ALL: RecordId[] = ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'];
 
 const STEPS: Step[] = [
-  { line: 'story-0', records: ['ocean'], planet: true, mode: 'listen', humanity: 1, ms: 7000 },
-  { line: 'story-1', records: ['ocean'], densest: 'ocean', zoom: 4, ms: 12000 },
-  { line: 'story-2', records: ['rain'], densest: 'rain', zoom: 4.5, ms: 12000 },
-  { line: 'story-3', records: ['ocean', 'rain'], ms: 10000 },
-  { line: 'story-4', records: ['lightning'], densest: 'lightning', zoom: 3.2, ms: 12000 },
-  { line: 'story-5', speak: false, records: EARTH, ms: 10000 },
-  { line: 'story-6', records: EARTH, planet: true, ms: 12000 },
-  { line: 'story-7', records: ['lights'], densest: 'lights', zoom: 4, ms: 11000 },
-  { line: 'story-8', records: ['co2'], densest: 'co2', zoom: 4, ms: 10000 },
-  { line: 'story-9', records: ['nox'], densest: 'nox', zoom: 4, ms: 10000 },
-  { line: 'story-10', records: ALL, planet: true, harsh: true, ms: 14000 },
-  { line: 'story-11', records: ALL, humanity: 0, ms: 8000 },
-  { line: 'story-12', records: ALL, ms: 14000 },
-  { line: 'story-13', records: ALL, ms: 6000 },
+  { line: 'story-0', records: ['ocean'], planet: true, mode: 'listen', humanity: 1, ms: 8000 },
+  { line: 'story-1', records: ['ocean'], densest: 'ocean', zoom: 4, ms: 8000 },
+  { line: 'story-2', records: ['rain'], densest: 'rain', zoom: 4.5, ms: 8000 },
+  { line: 'story-3', records: ['ocean', 'rain'], ms: 6500 },
+  { line: 'story-4', records: ['lightning'], densest: 'lightning', zoom: 3.2, ms: 8000 },
+  { line: 'story-5', records: EARTH, planet: true, ms: 8500 },
+  { line: 'story-6', records: ['lights'], densest: 'lights', zoom: 4, ms: 8500 },
+  { line: 'story-7', records: ['co2'], densest: 'co2', zoom: 4, ms: 7000 },
+  { line: 'story-8', records: ['nox'], densest: 'nox', zoom: 4, ms: 6500 },
+  { line: 'story-9', records: ALL, planet: true, harsh: true, ms: 10000 },
+  { line: 'story-10', records: ALL, humanity: 0, ms: 7000 },
+  { line: 'story-11', records: ALL, ms: 9000 },
 ];
 
 let timer = 0;
@@ -68,11 +66,12 @@ async function run(i: number) {
   }
   setHarsh(step.harsh ? 1 : 0);
   setHumanBoost(step.harsh ? 1.5 : 1);
-  if (step.humanity != null) fadeHumanity(step.humanity, step.humanity === 0 ? 6000 : 800);
+  if (step.humanity != null) fadeHumanity(step.humanity, step.humanity === 0 ? 4500 : 800);
   announce(text);
+  const began = performance.now(); // time the step from its start, not from when the voice loaded
   const seconds = getState().settings.narrate && step.speak !== false ? await say(step.line) : 0;
   if (!getState().story.running) return;
-  timer = window.setTimeout(() => void run(i + 1), Math.max(step.ms, seconds * 1000 + 2500));
+  timer = window.setTimeout(() => void run(i + 1), Math.max(step.ms, seconds * 1000 + 1200) - (performance.now() - began));
 }
 
 export async function startStory() {

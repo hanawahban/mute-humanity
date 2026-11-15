@@ -3,6 +3,8 @@ import { Jukebox } from './components/Jukebox';
 import { Logo } from './components/Logo';
 import { MapView } from './components/MapView';
 import { HelpDialog } from './components/Settings';
+import { HowItWorks } from './components/HowItWorks';
+import { setState } from './state/store';
 import { Captions, Feeling, Legend, ProbeReadout, TopBar } from './components/Overlays';
 import { loadLayers } from './eic/layers';
 import { startConductor } from './audio/conductor';
@@ -12,7 +14,7 @@ import { ensureAudio, toggleRecord } from './state/actions';
 import { startStory } from './state/story';
 import { useStore } from './state/store';
 
-let initialised = false;
+let initialized = false;
 
 export function App() {
   const audioOn = useStore((s) => s.audioOn);
@@ -25,8 +27,8 @@ export function App() {
   }, [audioOn]);
 
   useEffect(() => {
-    if (initialised) return;
-    initialised = true;
+    if (initialized) return;
+    initialized = true;
     void loadLayers();
     initKeyboard();
     initGamepad();
@@ -47,7 +49,7 @@ export function App() {
         <TopBar />
         <div className="map-bottom">
           <Legend />
-          <div className="map-bottom-centre">
+          <div className="map-bottom-center">
             <Captions />
             <Feeling />
           </div>
@@ -56,6 +58,7 @@ export function App() {
       </main>
       <Jukebox />
       <HelpDialog />
+      <HowItWorks />
 
       {!audioOn && (
         <div className="start">
@@ -77,7 +80,7 @@ export function App() {
               <li><strong>Choose how to listen.</strong> Hear the whole screen, sweep a needle across it, or point at one spot.</li>
               <li><strong>Mute humanity.</strong> Hear the planet without us.</li>
             </ol>
-            <p className="start-hint">The story is a short guided listen: each sound on its own, then all of them together. Works with a mouse, keyboard, screen reader, your voice (hold V) or an Xbox controller. Press H any time for help.</p>
+            <p className="start-hint">The story is a short guided listen: each sound on its own, then all of them together. Works with a mouse, keyboard, screen reader, your voice (hold V) or an Xbox controller. Press H any time for help, or I to see <button type="button" className="link-button" onClick={() => setState({ howOpen: true })}>how it works</button>.</p>
           </div>
         </div>
       )}

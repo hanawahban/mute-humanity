@@ -19,9 +19,9 @@ export interface Layer {
   el: HTMLVideoElement | HTMLImageElement | null;
   ready: boolean;
   placeholder: boolean;
-  colorbarUrl: string | null; // the NASA colour key image, if there is one
+  colorbarUrl: string | null; // the NASA color key image, if there is one
   decode: Decode;
-  lut: Float32Array | null; // 32x32x32 colour -> value, for colour-bar decoding
+  lut: Float32Array | null; // 32x32x32 color -> value, for color-bar decoding
   grid: Float32Array; // NaN = no data
   second: Float32Array | null; // clouds, for rain
   canvas: HTMLCanvasElement;
@@ -95,7 +95,7 @@ async function loadLayer(rec: RecordDef): Promise<Layer> {
   }
   const base = src.dir;
 
-  // A colour key from the pipeline beats the built-in guess.
+  // A color key from the pipeline beats the built-in guess.
   if (await exists(`${base}/colorbar.json`, 'json')) {
     try {
       const cb = (await (await fetch(`${base}/colorbar.json`)).json()) as { stops: Array<[number, number, number, number]> };
@@ -217,7 +217,7 @@ async function profileLayers(frames = 16) {
 
 // ---------- decoding ----------
 
-/** Colour key -> lookup table over a 32x32x32 colour cube. Colours far from the key are "no data". */
+/** Color key -> lookup table over a 32x32x32 color cube. Colors far from the key are "no data". */
 function buildLut(stops: Array<[number, number, number, number]>, maxDistance: number, hueOnly = false): Float32Array {
   const sorted = [...stops].sort((a, b) => a[3] - b[3]);
   const samples: Array<[number, number, number, number]> = [];
@@ -240,7 +240,7 @@ function buildLut(stops: Array<[number, number, number, number]>, maxDistance: n
         let B = b * 8 + 4;
         const m = Math.max(R, G, B);
         if (hueOnly) {
-          // compare colour, not brightness: a dim orange flow line is still orange
+          // compare color, not brightness: a dim orange flow line is still orange
           if (m < 40 || (m - Math.min(R, G, B)) / m < 0.25) {
             lut[(r << 10) | (g << 5) | b] = NaN;
             continue;
@@ -269,14 +269,14 @@ function buildLut(stops: Array<[number, number, number, number]>, maxDistance: n
   return lut;
 }
 
-/** One pixel's colour -> value (NaN = no data). `cloud` receives the cloud amount for rain. */
+/** One pixel's color -> value (NaN = no data). `cloud` receives the cloud amount for rain. */
 function decodePixel(layer: Layer, r: number, g: number, b: number, lat: number, cloud?: { v: number }): number {
   const d = layer.decode;
   const mx = Math.max(r, g, b);
   switch (d.kind) {
     case 'colorbar': {
-      // a key that runs through one tint (NOx: white to dark green): black borders, grey land
-      // and no-data areas are not on the key, even if their colour is closest to its dark end
+      // a key that runs through one tint (NOx: white to dark green): black borders, gray land
+      // and no-data areas are not on the key, even if their color is closest to its dark end
       if (layer.rec.tint === 'green' && g - Math.max(r, b) < 10) return 0;
       let v = layer.lut![((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)];
       const c = layer.rec.contrast;
@@ -285,7 +285,7 @@ function decodePixel(layer: Layer, r: number, g: number, b: number, lat: number,
     }
     case 'bright':
       return Math.max(0, (mx / 255 - d.floor) / (1 - d.floor));
-    case 'colourful': {
+    case 'colorful': {
       const sat = mx ? (mx - Math.min(r, g, b)) / mx : 0;
       return Math.min(1, Math.max(0, (sat - 0.35) / 0.5) * (mx / 255) * 1.6);
     }
@@ -296,9 +296,9 @@ function decodePixel(layer: Layer, r: number, g: number, b: number, lat: number,
     case 'precip': {
       const mn = Math.min(r, g, b);
       const sat = mx ? (mx - mn) / mx : 0;
-      // clouds: bright and grey (ice sheets look the same, so skip the polar caps)
+      // clouds: bright and gray (ice sheets look the same, so skip the polar caps)
       if (cloud) cloud.v = sat < 0.2 && mx > 140 && Math.abs(lat) < 66 ? (mx - 140) / 115 : 0;
-      // rain: the colour key if we have one, otherwise bright saturated blue-to-pink
+      // rain: the color key if we have one, otherwise bright saturated blue-to-pink
       const v = layer.lut ? layer.lut[((r >> 3) << 10) | ((g >> 3) << 5) | (b >> 3)] : NaN;
       return Number.isNaN(v) ? (sat > 0.35 && mx > 120 && b >= g ? Math.min(1, (mx - 120) / 135) : 0) : v;
     }
@@ -460,7 +460,7 @@ export function columnPeaks(grid: Float32Array, lon: number, b: Bounds, max = 3)
   return found.sort((a, b2) => b2.v - a.v).slice(0, max);
 }
 
-/** Value at a point (average of a small neighbourhood, so a single pixel doesn't decide). */
+/** Value at a point (average of a small neighborhood, so a single pixel doesn't decide). */
 export function valueAt(grid: Float32Array, lat: number, lon: number, radius = PER_DEG): number | null {
   let sum = 0;
   let n = 0;
@@ -480,7 +480,7 @@ export function valueAt(grid: Float32Array, lat: number, lon: number, radius = P
 }
 
 /**
- * Where on Earth this record is strongest right now: the centre of the window (lonSpan × latSpan
+ * Where on Earth this record is strongest right now: the center of the window (lonSpan × latSpan
  * degrees, the size of the zoomed-in view) with the highest average. For the ocean, which
  * covers everything, it looks for the most varied water instead (warm and cold side by side,
  * like the Gulf Stream), so you hear the widest range of notes. Used by the story, so it zooms

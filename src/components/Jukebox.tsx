@@ -19,7 +19,7 @@ function RecordButton({ rec, index }: { rec: RecordDef; index: number }) {
     <button
       type="button"
       className={`record ${isOn ? 'on' : ''} ${silenced && isOn ? 'silenced' : ''}`}
-      style={{ '--rec': rec.colour, '--level': `${Math.round(level * 100)}%` } as CSSProperties}
+      style={{ '--rec': rec.color, '--level': `${Math.round(level * 100)}%` } as CSSProperties}
       aria-pressed={isOn}
       aria-label={`${rec.name}. ${isOn ? 'Playing' : 'Off'}. ${rec.hear} ${rec.period}. Key ${index + 1}.`}
       title={`${rec.eicTitle} · NASA SVS ${rec.svs} · ${rec.period}${placeholder ? ' · placeholder picture' : ''}`}

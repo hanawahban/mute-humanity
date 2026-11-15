@@ -1,13 +1,13 @@
 // WebGL map renderer. Every EIC visualization is a flat world map, so one fragment shader
 // can place any of them: it turns each screen pixel into a longitude/latitude and reads that
-// spot from each layer. Each layer's background (black space, grey land, the base map under
+// spot from each layer. Each layer's background (black space, gray land, the base map under
 // rain, light green "clean air") is made transparent in the shader, so all six layers can be
 // stacked on one map while the data stays visible.
 
 export type KeyMode = 'bright' | 'saturated' | 'precip' | 'darkgreen' | 'warm' | 'opaque' | 'ocean';
 const MODE_ID: Record<KeyMode, number> = { bright: 0, saturated: 1, precip: 2, darkgreen: 3, warm: 4, opaque: 5, ocean: 6 };
 
-/** The calmer ocean palette (cold to warm). The map key uses the same colours. */
+/** The calmer ocean palette (cold to warm). The map key uses the same colors. */
 export const OCEAN_RAMP: Array<[number, string]> = [[0, '#1d3557'], [0.3, '#2a6f97'], [0.55, '#61a5c2'], [0.75, '#d9cba0'], [0.9, '#cf9a68'], [1, '#b9745a']];
 /** NOx is drawn as dark smog, not green. */
 export const SMOG = { light: '#5a4636', dark: '#0d0907' };
@@ -31,7 +31,7 @@ void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 const FRAG = `#version 300 es
 precision highp float;
 uniform vec2 uSize;      // canvas size in device pixels
-uniform vec3 uView;      // centre lon, centre lat, device pixels per degree
+uniform vec3 uView;      // center lon, center lat, device pixels per degree
 uniform sampler2D uTex;
 uniform int uMode;       // -1 = base map
 uniform vec4 uArea;
@@ -41,7 +41,8 @@ uniform float uAlpha;
 uniform float uBoost;
 uniform float uDim;
 uniform float uFloor;
-uniform float uGrow;     // >0: spread small bright points (lightning flashes) over this many texels
+uniform float uGrow;
+uniform vec4 uRect;      // mode -2 (detailed base map): its west, north, east, south in degrees     // >0: spread small bright points (lightning flashes) over this many texels
 out vec4 outColor;
 
 bool inRect(vec2 t, vec4 r) { return t.x >= r.x && t.x <= r.z && t.y >= r.y && t.y <= r.w; }
@@ -57,7 +58,7 @@ float hue(vec3 c) {
   return h * 60.0;
 }
 
-// cold to warm, muted: the rainbow of the original is re-coloured so land stays readable
+// cold to warm, muted: the rainbow of the original is re-colored so land stays readable
 vec3 oceanRamp(float t) {
   vec3 c0 = vec3(0.114, 0.208, 0.341);
   vec3 c1 = vec3(0.165, 0.435, 0.592);
@@ -77,12 +78,20 @@ void main() {
   float lon = uView.x + (frag.x - uSize.x * 0.5) / uView.z;
   float lat = uView.y - (frag.y - uSize.y * 0.5) / uView.z;
   if (lat > 90.0 || lat < -90.0) { outColor = uMode < 0 ? vec4(0.016, 0.027, 0.05, 1.0) : vec4(0.0); return; }
+  if (uMode == -2) {
+    float l = uRect.x + mod(lon - uRect.x, 360.0);
+    vec2 d = vec2((l - uRect.x) / (uRect.z - uRect.x), (uRect.y - lat) / (uRect.y - uRect.w));
+    if (d.x < 0.0 || d.x > 1.0 || d.y < 0.0 || d.y > 1.0) { outColor = vec4(0.0); return; }
+    vec4 dc = texture(uTex, d);
+    outColor = vec4(dc.rgb * uDim * dc.a, dc.a);
+    return;
+  }
   vec2 uv = vec2(fract((lon + 180.0) / 360.0), (90.0 - lat) / 180.0);
   vec2 t = vec2(mix(uArea.x, uArea.z, uv.x), mix(uArea.y, uArea.w, uv.y));
   vec3 c = texture(uTex, t).rgb;
   if (uMode < 0) { outColor = vec4(c * uDim, 1.0); return; }
   if (uGrow > 0.0) {
-    // a flash is a pixel or two in the NASA frame: take the brightest of a few neighbours so it reads
+    // a flash is a pixel or two in the NASA frame: take the brightest of a few neighbors so it reads
     vec2 px = uGrow / vec2(textureSize(uTex, 0));
     vec3 n[4] = vec3[4](texture(uTex, t + vec2(px.x, 0.0)).rgb, texture(uTex, t - vec2(px.x, 0.0)).rgb,
                         texture(uTex, t + vec2(0.0, px.y)).rgb, texture(uTex, t - vec2(0.0, px.y)).rgb);
@@ -95,7 +104,7 @@ void main() {
   float sat = mx > 0.0 ? (mx - mn) / mx : 0.0;
   float a = 1.0;
   if (uMode == 0) a = smoothstep(uFloor, uFloor + 0.3, mx);                       // light on a dark map
-  else if (uMode == 1) a = smoothstep(0.18, 0.42, sat) * smoothstep(0.06, 0.22, mx); // colour on grey/black
+  else if (uMode == 1) a = smoothstep(0.18, 0.42, sat) * smoothstep(0.06, 0.22, mx); // color on gray/black
   else if (uMode == 2) {                                                           // rain + clouds over a base map
     float rain = smoothstep(0.45, 0.65, sat) * smoothstep(0.4, 0.6, mx) * (1.0 - step(0.0, c.r - c.b) * step(0.0, c.g - c.b) * step(c.g, c.r * 1.15) * step(sat, 0.75));
     float cloud = (1.0 - smoothstep(0.1, 0.25, sat)) * smoothstep(0.55, 0.9, mx) * 0.75;
@@ -150,7 +159,7 @@ export class MapRenderer {
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog) ?? 'link');
     gl.useProgram(prog);
-    for (const n of ['uSize', 'uView', 'uTex', 'uMode', 'uArea', 'uMask0', 'uMask1', 'uAlpha', 'uBoost', 'uDim', 'uFloor', 'uGrow']) this.u[n] = gl.getUniformLocation(prog, n);
+    for (const n of ['uSize', 'uView', 'uTex', 'uMode', 'uArea', 'uMask0', 'uMask1', 'uAlpha', 'uBoost', 'uDim', 'uFloor', 'uGrow', 'uRect']) this.u[n] = gl.getUniformLocation(prog, n);
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
@@ -181,6 +190,21 @@ export class MapRenderer {
     this.base = this.upload(img, true);
   }
 
+  private detail: (TexEntry & { rect: [number, number, number, number]; version: number }) | null = null;
+  /** The detailed base map for the current area (see detail.ts), or null to use only the bundled one. */
+  setDetail(d: { canvas: HTMLCanvasElement; west: number; north: number; east: number; south: number; version: number } | null) {
+    if (!d) {
+      if (this.detail) this.gl.deleteTexture(this.detail.tex);
+      this.detail = null;
+      return;
+    }
+    if (this.detail?.version === d.version) return;
+    const e = this.upload(d.canvas, true, this.detail ?? undefined);
+    const gl = this.gl;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    this.detail = { ...e, rect: [d.west, d.north, d.east, d.south], version: d.version };
+  }
+
   draw(view: { lon: number; lat: number; k: number }, dim: number, list: GlLayer[]) {
     const gl = this.gl;
     const { width, height } = this.canvas;
@@ -196,6 +220,12 @@ export class MapRenderer {
       gl.uniform1i(this.u.uMode, -1);
       gl.uniform4f(this.u.uArea, 0, 0, 1, 1);
       gl.uniform1f(this.u.uDim, dim);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+    if (this.detail) {
+      gl.bindTexture(gl.TEXTURE_2D, this.detail.tex);
+      gl.uniform1i(this.u.uMode, -2);
+      gl.uniform4f(this.u.uRect, ...this.detail.rect);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
     const none = [-1, -1, -1, -1] as const;

@@ -5,7 +5,9 @@
 import { getState, setState, type Focus } from '../state/store';
 
 export const ZOOM_MIN = 1;
-export const ZOOM_MAX = 6; // the EIC frames are 2048-4096 px wide: further in is just blur
+// Up close the NASA data records are soft (about 19 km per pixel), but the base map keeps
+// sharpening with NASA GIBS Blue Marble tiles down to about 500 m per pixel (see detail.ts).
+export const ZOOM_MAX = 48;
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 const wrapLon = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
@@ -122,7 +124,7 @@ export function viewBounds() {
   };
 }
 
-/** Screen position (CSS pixels) of a latitude/longitude, picking the copy of the world nearest the centre. */
+/** Screen position (CSS pixels) of a latitude/longitude, picking the copy of the world nearest the center. */
 export function latLonToScreen(lat: number, lon: number) {
   const f = getState().focus;
   const k = baseScale() * f.zoom;

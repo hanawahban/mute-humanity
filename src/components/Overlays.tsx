@@ -3,12 +3,14 @@
 
 import { useState } from 'react';
 import { Logo } from './Logo';
+import { setAlwaysListen } from '../input/voice';
 import { RECORDS, RECORD_BY_ID } from '../config/records';
 import { hapticPatternName } from '../input/haptics';
 import { describeValue } from '../state/actions';
 import { setState, useStore } from '../state/store';
 
 export function TopBar() {
+  const micOn = useStore((s) => s.settings.alwaysListen);
   const sources = useStore((s) => s.sources);
   const controller = useStore((s) => s.controller);
   const captions = useStore((s) => s.settings.captions);
@@ -27,6 +29,11 @@ export function TopBar() {
           </span>
         )}
         {controller && <span className="pill" title={controller}>Controller connected</span>}
+        {micOn && (
+          <button type="button" className="pill mic-pill" onClick={() => setAlwaysListen(false)} title="The microphone is on: just say a command. Click to turn it off.">
+            <span className="mic-dot" aria-hidden="true" /> Mic on
+          </button>
+        )}
         <button
           type="button"
           className="icon-button"
@@ -37,6 +44,9 @@ export function TopBar() {
         >
           CC
         </button>
+        <button type="button" className="pill-button" title="How it works (I)" onClick={() => setState({ howOpen: true })}>
+          How it works
+        </button>
         <button type="button" className="icon-button" aria-label="Help and settings" title="Help and settings (H)" onClick={() => setState({ helpOpen: true })}>
           ?
         </button>
@@ -45,7 +55,7 @@ export function TopBar() {
   );
 }
 
-/** What's on the map: one compact row per layer (name, real period, NASA colour key). Details for the last one chosen. */
+/** What's on the map: one compact row per layer (name, real period, NASA color key). Details for the last one chosen. */
 export function Legend() {
   const playing = useStore((s) => s.playing);
   const solo = useStore((s) => s.solo);
@@ -68,11 +78,11 @@ export function Legend() {
               return (
                 <li key={r.id} className={muted ? 'muted' : ''}>
                   <div className="legend-row">
-                    <span className="dot" style={{ background: r.colour }} aria-hidden="true" />
+                    <span className="dot" style={{ background: r.color }} aria-hidden="true" />
                     <span className="legend-name">{r.short}</span>
                     <span className="legend-period">{r.period.replace(/\s*\(.*\)/, '')}</span>
                   </div>
-                  <div className={`legend-bar ${r.scale.lightBar ? 'light' : ''}`} style={{ background: `linear-gradient(to right, ${r.scale.colours.join(', ')})` }} aria-hidden="true" />
+                  <div className={`legend-bar ${r.scale.lightBar ? 'light' : ''}`} style={{ background: `linear-gradient(to right, ${r.scale.colors.join(', ')})` }} aria-hidden="true" />
                   <div className="legend-ends" aria-label={`${r.name}: from ${r.scale.low} to ${r.scale.high}`}>
                     <span>{r.scale.low}</span>
                     <span>{r.scale.high}</span>
@@ -104,9 +114,9 @@ export function ProbeReadout() {
         const v = values[r.id];
         return (
           <li key={r.id}>
-            <span className="dot" style={{ background: r.colour }} />
+            <span className="dot" style={{ background: r.color }} />
             {r.short}: <strong>{v == null ? 'no data' : describeValue(r.id, v)}</strong>
-            {v != null && <span className="bar" style={{ width: `${Math.round(v * 60)}px`, background: r.colour }} />}
+            {v != null && <span className="bar" style={{ width: `${Math.round(v * 60)}px`, background: r.color }} />}
           </li>
         );
       })}

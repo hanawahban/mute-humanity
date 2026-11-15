@@ -90,13 +90,27 @@ export function play(key: VoiceKey, note: string, duration: Tone.Unit.Time, time
 
 /** Channel volume (0-1), smoothed. */
 const lastGain = new Map<VoiceKey, number>();
+const holdUntil = new Map<VoiceKey, number>();
 export function setGain(key: VoiceKey, v: number, time?: number) {
+  if ((holdUntil.get(key) ?? 0) > performance.now()) return; // a preview note is sounding
   const ch = channels.get(key);
   const g = Math.max(0, Math.min(1.2, v));
   // only when it really changes: re-scheduling ramps ten times a second piles up automation
   if (!ch || Math.abs((lastGain.get(key) ?? -1) - g) < 0.01) return;
   lastGain.set(key, g);
   ch.gain.gain.rampTo(g, 0.25, time);
+}
+
+/** Play one note on a record's instrument even if the record is off (the How it works view). */
+export function previewNote(key: VoiceKey, note: string, level: number) {
+  const ch = channels.get(key);
+  if (!ch) return;
+  const now = Tone.now();
+  ch.gain.gain.cancelScheduledValues(now);
+  ch.gain.gain.setValueAtTime(level, now);
+  holdUntil.set(key, performance.now() + 2500);
+  lastGain.delete(key); // so the mix takes the channel back afterwards
+  play(key, note, '2n', now + 0.02, 0.8, 0);
 }
 
 let grit: Tone.Distortion | null = null;

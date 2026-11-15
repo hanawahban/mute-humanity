@@ -13,7 +13,7 @@ Output:
     eic-raw/<record>/<original file>          big originals (not committed)
     public/eic/<record>/clip.mp4               2048 px wide, H.264, no audio
     public/eic/<record>/still.png              for single-image records (CO2)
-    public/eic/<record>/colorbar.png           the NASA colour key, if SVS has one
+    public/eic/<record>/colorbar.png           the NASA color key, if SVS has one
     public/eic/eic.json                        titles, SVS ids, alt text, credits
 """
 
@@ -144,7 +144,7 @@ def main():
             if img.get("media_type") == "Image" and ("colorbar" in name or "cbar" in name) and "_thm" not in name \
                     and ("plain" in name or not any("plain" in i["filename"].lower() for i in items)):
                 curl(img["url"], OUT / rid / "colorbar.png")
-                print(f"  colour key: {img['filename']}")
+                print(f"  color key: {img['filename']}")
                 break
         if still:
             # one image: make a 4096 px wide web copy (the map reads its pixels directly)

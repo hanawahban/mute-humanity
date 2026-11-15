@@ -45,6 +45,12 @@ export async function sayQueue(ids: string[]) {
 
 export const hasLine = (id: string) => id in LINES;
 
+let quietUntil = 0;
+/** Is the narrator (or the system voice) talking, or did it just stop? Voice commands ignore that. */
+export const isSpeaking = () =>
+  (!!current && !current.paused && !current.ended) || (typeof window !== 'undefined' && !!window.speechSynthesis?.speaking) || performance.now() < quietUntil;
+export const markSpoke = () => (quietUntil = performance.now() + 800);
+
 export function stopSpeaking() {
   current?.pause();
   current = null;
@@ -74,7 +80,10 @@ export function speakText(text: string) {
   if (v) u.voice = v;
   u.rate = 0.98;
   u.pitch = 1;
-  u.onend = () => duck(false);
+  u.onend = () => {
+    duck(false);
+    markSpoke();
+  };
   duck(true, 0.28);
   window.speechSynthesis.speak(u);
 }

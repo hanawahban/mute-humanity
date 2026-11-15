@@ -80,7 +80,7 @@ def colorbar(rec, stops):
     (OUT / rec / "colorbar.json").write_text(json.dumps({"placeholder": True, "stops": [[s[1], s[2], s[3], s[0]] for s in stops]}))
 
 
-# Ocean: like 3912's key (blue 0 C, green 10-20 C, yellow ~25 C, red 32 C), land dark grey.
+# Ocean: like 3912's key (blue 0 C, green 10-20 C, yellow ~25 C, red 32 C), land dark gray.
 OCEAN = [(0.0, 20, 40, 160), (0.3, 30, 150, 90), (0.6, 140, 200, 60), (0.78, 250, 220, 40), (1.0, 220, 30, 20)]
 m = monthly("ocean", 2019)
 frames = []
