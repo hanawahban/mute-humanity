@@ -1,12 +1,14 @@
 // Pieces on top of the map: the top bar, the key for the layers on the map, the probe
 // readout and the caption line.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Logo } from './Logo';
 import { setAlwaysListen } from '../input/voice';
 import { RECORDS, RECORD_BY_ID } from '../config/records';
 import { hapticPatternName } from '../input/haptics';
-import { backToJukebox, describeValue } from '../state/actions';
+import { announce, backToJukebox, describeValue } from '../state/actions';
+import { hold, nowLabel, progress, seekTo, showChange, showYear, thenNow, thenNowPoints } from '../eic/timeline';
+import type { RecordId } from '../config/records';
 import { setState, useStore } from '../state/store';
 
 export function TopBar() {
@@ -65,12 +67,67 @@ export function TopBar() {
 }
 
 /** What's on the map: one compact row per layer (name, real period, NASA color key). Details for the last one chosen. */
+/**
+ * One record's timeline in the Key: a scrubber through its own dates, and for city lights
+ * "then", "now" and the change map. Every control is labelled for screen readers with the date.
+ */
+function TimeRow({ id }: { id: RecordId }) {
+  const held = useStore((s) => s.holds[id]);
+  const change = useStore((s) => !!s.changeView[id]);
+  const tn = thenNow(id);
+  const pts = thenNowPoints(id);
+  const rec = RECORD_BY_ID[id];
+  const label = nowLabel(id);
+  const p = progress(id);
+  return (
+    <div className="time-row">
+      <input
+        type="range"
+        min={0}
+        max={1000}
+        value={Math.round(p * 1000)}
+        aria-label={`${rec.short} timeline`}
+        aria-valuetext={label}
+        onChange={(e) => (held != null ? hold(id, Number(e.target.value) / 1000) : seekTo(id, Number(e.target.value) / 1000))}
+        style={{ ['--fill' as string]: `${p * 100}%` }}
+      />
+      {tn && (
+        <div className="time-buttons" role="group" aria-label={`${rec.short}: then and now`}>
+          <button type="button" aria-pressed={!change && held === pts?.then} onClick={() => announce(showYear(id, 'then', true) ?? '')}>
+            Then {tn.then}
+          </button>
+          <button type="button" aria-pressed={!change && held === pts?.now} onClick={() => announce(showYear(id, 'now', true) ?? '')}>
+            Now {tn.now}
+          </button>
+          {rec.timeline?.change && (
+            <button type="button" aria-pressed={change} onClick={() => announce(showChange(id, !change) ?? '')}>
+              What changed
+            </button>
+          )}
+        </div>
+      )}
+      {held != null && !tn && (
+        <button type="button" className="time-play" onClick={() => hold(id, null)}>
+          Play
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function Legend() {
   const playing = useStore((s) => s.playing);
   const solo = useStore((s) => s.solo);
   const selected = useStore((s) => s.selected);
   const humanity = useStore((s) => s.humanity);
   const [open, setOpen] = useState(true);
+  const changeView = useStore((s) => s.changeView);
+  // the dates move with the clips: refresh the labels and scrubbers a few times a second
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((n) => n + 1), 250);
+    return () => window.clearInterval(t);
+  }, []);
   const on = RECORDS.filter((r) => playing[r.id] && (!solo || solo === r.id));
   if (!on.length) return null;
   const detail = on.find((r) => r.id === selected) ?? on[on.length - 1];
@@ -84,18 +141,21 @@ export function Legend() {
           <ul>
             {on.map((r) => {
               const muted = r.side === 'human' && humanity === 0;
+              const change = r.timeline?.change && changeView[r.id] ? r.timeline.change : null;
+              const scale = change?.scale ?? r.scale;
               return (
                 <li key={r.id} className={muted ? 'muted' : ''}>
                   <div className="legend-row">
                     <span className="dot" style={{ background: r.color }} aria-hidden="true" />
                     <span className="legend-name">{r.short}</span>
-                    <span className="legend-period">{r.period.replace(/\s*\(.*\)/, '')}</span>
+                    <span className="legend-period">{nowLabel(r.id)}</span>
                   </div>
-                  <div className={`legend-bar ${r.scale.lightBar ? 'light' : ''}`} style={{ background: `linear-gradient(to right, ${r.scale.colors.join(', ')})` }} aria-hidden="true" />
-                  <div className="legend-ends" aria-label={`${r.name}: from ${r.scale.low} to ${r.scale.high}`}>
-                    <span>{r.scale.low}</span>
-                    <span>{r.scale.high}</span>
+                  <div className={`legend-bar ${scale === r.scale && r.scale.lightBar ? 'light' : ''}`} style={{ background: `linear-gradient(to right, ${scale.colors.join(', ')})` }} aria-hidden="true" />
+                  <div className="legend-ends" aria-label={`${r.name}: from ${scale.low} to ${scale.high}`}>
+                    <span>{scale.low}</span>
+                    <span>{scale.high}</span>
                   </div>
+                  {r.timeline && <TimeRow id={r.id} />}
                 </li>
               );
             })}

@@ -86,6 +86,7 @@ The bundled Blue Marble base map is 4096 px wide (about 10 km per pixel). Zoomed
 | Story | `T` | Start | "play the story" |
 | Map | Shift + arrows, `+` `-` `0`, mouse | left stick, right stick / bumpers zoom | "zoom in" |
 | What am I hearing? | `D` | `B` (spoken) | "what am I hearing?" |
+| Through time | `[` `]` step the chosen record, `\` play on; city lights `,` then, `.` now, `/` what changed | | "then", "now", "what changed" |
 | Captions, help | `C`, `H` | | "help" |
 
 **Controller vibration** (`src/input/haptics.ts`): you feel the chosen record. Ocean swells, rain patters, lightning strikes, city lights flicker, CO₂ rumbles, NOx clicks like a Geiger counter; faster and stronger means more. Chrome on Mac, USB cable, press a button once after loading. The controller's LEDs can't be set from a browser.
@@ -135,6 +136,12 @@ As NASA Space Apps asks, here is where SI tools were used:
 - **Code:** parts of the code were written and debugged with Claude (Anthropic), an AI coding assistant, then reviewed and tested by the team. Commits made with it carry a `Co-Authored-By: Claude` line in the git history, and `package.json` has an `aiDisclosure` field.
 - **Text:** parts of this README and the pitch and submission text were drafted with Claude and edited by the team.
 - **Not AI-generated:** the instrument recordings, the jukebox design, the logo, the slides and all NASA data. No AI-generated content uses NASA logos or branding.
+
+## Every record has its own clock
+
+The NASA clips don't share a calendar: rain and NOx are 15 days of model forecast (30 Oct – 14 Nov 2026), lightning is January 2017 to July 2023, city lights are each year from 2012 to 2023, the ocean is one model year (2007–08), CO₂ is one month (December 2021). So the Key shows each record's own date, read live from the clip (`src/eic/timeline.ts`, dates in each record's `timeline` in `src/config/records.ts`), with a slider to scrub or hold it, and the sound follows the frame you're on.
+
+City lights also get **Then 2012 / Now 2023** buttons, and **What changed**: NASA's clip ends with a map of change, purple where there is new light and orange where lights went out. In that view the colors are read as change, not brightness, so new lights play high and lost lights play low, and the Key shows that scale.
 
 ## Two screens
 

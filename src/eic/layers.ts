@@ -310,6 +310,19 @@ function decodeFrame(layer: Layer) {
   const { data } = layer.ctx.getImageData(0, 0, GRID_W, GRID_H);
   const grid = layer.grid;
   const d = layer.decode;
+  // City lights' change map (2012 → 2023): purple = new lights (high notes), white = no change
+  // (middle), orange = lights that went out (low notes), dark = no lights at all.
+  if (layer.rec.timeline?.change && getState().changeView[layer.rec.id]) {
+    for (let i = 0, o = 0; i < CELLS; i++, o += 4) {
+      const r = data[o], g = data[o + 1], b = data[o + 2];
+      const mx = Math.max(r, g, b);
+      if (mx < 64) grid[i] = 0;
+      else if (b > g + 15 && r > g) grid[i] = 0.62 + 0.38 * Math.min(1, (b - g) / 90); // new lights
+      else if (r > b + 25 && g > b) grid[i] = 0.08 + 0.17 * Math.min(1, (r - b) / 120); // lights went out
+      else grid[i] = 0.42; // lit in both years
+    }
+    return;
+  }
   // Fast paths for the common keys: one tight loop, no function call per pixel.
   if (d.kind === 'bright') {
     const f = d.floor;

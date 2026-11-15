@@ -62,6 +62,18 @@ export interface RecordDef {
   /** Match colors by hue only (for maps whose colors are dimmed, like the ocean flow lines). */
   matchHue?: boolean;
   boost?: number;
+  /**
+   * When the clip's frames happened: [clip second, ISO date] anchors, read from the date stamps
+   * in the frames (or NASA's page), joined by straight lines. `unit` is how a date is shown.
+   * `segment` is the part of the clip that is the record; playback loops inside it.
+   * `change` is a separate part of the clip showing change (city lights 2012 → 2023).
+   */
+  timeline?: {
+    anchors: Array<[number, string]>;
+    unit: 'year' | 'month' | 'hour';
+    segment?: [number, number];
+    change?: { segment: [number, number]; scale: { low: string; high: string; colors: string[] }; label: string };
+  };
   /** Part of the frame that is the map, as fractions [x0, y0, x1, y1]. Titles and color bars sit outside it. */
   area: [number, number, number, number];
   key: string; // keyboard number
@@ -90,6 +102,7 @@ export const RECORDS: RecordDef[] = [
     keyingPlaceholder: 'ocean',
     masks: [[0, 0.895, 0.175, 1]], // color bar burned into the frame
     matchHue: true,
+    timeline: { anchors: [[0, '2007-03-25T12:00Z'], [68.7, '2008-03-03T12:00Z']], unit: 'month' },
     area: [0, 0, 1, 1],
     key: '1',
   },
@@ -113,6 +126,8 @@ export const RECORDS: RecordDef[] = [
     empty: 'zero',
     keying: 'precip',
     masks: [[0, 0, 0.175, 0.078], [0, 0.895, 0.25, 1]], // NASA/GMAO logo and date stamp
+    // date stamps in the frames: 30 Oct 2026 05:00 EDT to 14 Nov 2026 15:00 EST
+    timeline: { anchors: [[0, '2026-10-30T09:00Z'], [31, '2026-11-14T20:00Z']], unit: 'hour' },
     area: [0, 0, 1, 1],
     key: '2',
   },
@@ -136,6 +151,17 @@ export const RECORDS: RecordDef[] = [
     keying: 'saturated', // yellow flashes over gray land
     keyingPlaceholder: 'bright',
     boost: 1.4,
+    // No date stamp: anchored on the seasons in the data itself (flashes peak south of the
+    // equator around January, north around August), detected in every year of the clip.
+    timeline: {
+      unit: 'month',
+      segment: [6.3, 99.3],
+      anchors: [
+        [6.3, '2017-01-01'], [9.2, '2017-01-15'], [16.0, '2017-08-01'], [22.6, '2018-01-15'], [28.5, '2018-08-01'],
+        [40.6, '2019-08-01'], [46.7, '2020-01-15'], [52.0, '2020-08-01'], [57.8, '2021-01-15'], [63.1, '2021-08-01'],
+        [69.5, '2022-01-15'], [75.5, '2022-08-01'], [84.3, '2023-01-15'], [99.3, '2023-07-31'],
+      ],
+    },
     area: [0, 0, 1, 1],
     key: '3',
   },
@@ -159,6 +185,17 @@ export const RECORDS: RecordDef[] = [
     keying: 'bright',
     masks: [[0, 0.486, 1, 0.524]], // year labels across the middle of the frame
     boost: 1.2,
+    // one year a second, 2012 to 2023, then (from 17 s) a map of the change between them
+    timeline: {
+      unit: 'year',
+      segment: [0, 15.5],
+      anchors: [[0, '2012-01-01'], [12, '2023-12-31'], [15.5, '2023-12-31']],
+      change: {
+        segment: [18, 41],
+        label: 'Change 2012 → 2023',
+        scale: { low: 'lights went out', high: 'new lights', colors: ['#e8a25c', '#fff4ea', '#a98be0'] },
+      },
+    },
     area: [0, 0, 1, 1],
     key: '4',
   },
@@ -205,6 +242,7 @@ export const RECORDS: RecordDef[] = [
     keying: 'darkgreen',
     keyingPlaceholder: 'warm',
     masks: [[0, 0, 0.175, 0.078], [0, 0.895, 0.25, 1]], // NASA/GMAO logo and date stamp
+    timeline: { anchors: [[0, '2026-10-30T09:00Z'], [31, '2026-11-14T20:00Z']], unit: 'hour' },
     area: [0, 0, 1, 1],
     key: '6',
   },

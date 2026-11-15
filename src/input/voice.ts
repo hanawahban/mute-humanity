@@ -5,6 +5,7 @@
 // hears is ignored, so it can't trigger its own commands. Headphones help in this mode.
 // Chrome sends speech to a server by default, so this needs internet.
 
+import { showChange, showYear } from '../eic/timeline';
 import { RECORDS, type RecordId } from '../config/records';
 import { duck } from '../audio/engine';
 import {
@@ -48,7 +49,7 @@ function getRecognition(): RecognitionLike | null {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (!e.results[i].isFinal) continue;
         const text = e.results[i][0].transcript.trim();
-        if (text && !isSpeaking()) runCommand(text, true);
+        if (text && !isSpeaking()) void runCommand(text, true);
       }
       return;
     }
@@ -77,7 +78,7 @@ function getRecognition(): RecognitionLike | null {
     duck(false);
     const text = heard.trim();
     heard = '';
-    if (text) runCommand(text);
+    if (text) void runCommand(text);
   };
   return recognition;
 }
@@ -147,9 +148,9 @@ const NUMBER_WORDS: Record<string, number> = { zero: 0, ten: 10, twenty: 20, thi
 
 const HELP =
   'Say: play ocean, add lightning, stop rain, solo NOx, scan, probe, listen, lighten our footprint, full footprint, ' +
-  'humanity to 50 percent, go to Bahrain, zoom in, zoom out, play the story, what am I hearing, or where am I.';
+  'humanity to 50 percent, then, now, what changed, go to Bahrain, zoom in, zoom out, play the story, what am I hearing, or where am I.';
 
-export function runCommand(raw: string, openMic = false) {
+export async function runCommand(raw: string, openMic = false) {
   const t = raw.toLowerCase().replace(/[.,!?]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!openMic) announce(`Heard: ${raw}`);
 
@@ -170,6 +171,20 @@ export function runCommand(raw: string, openMic = false) {
   if (hum) {
     const n = Number.isNaN(Number(hum[1])) ? NUMBER_WORDS[hum[1]] : Number(hum[1]);
     if (n != null) return setHumanity(n / 100);
+  }
+
+  // city lights through time: "then", "now", "what changed"
+  if (/\bwhat changed\b|\bshow (me )?(the )?change\b|\bthe difference\b/.test(t)) {
+    if (!getState().playing.lights) await toggleRecord('lights', true);
+    return speak(showChange('lights', true) ?? '');
+  }
+  if (/^(show (me )?|go )?(back )?then$|\b(in |back in )?2012\b|\bback then\b/.test(t)) {
+    if (!getState().playing.lights) await toggleRecord('lights', true);
+    return speak(showYear('lights', 'then') ?? '');
+  }
+  if (/^(show (me )?)?(now|today)$|\b(in )?2023\b|\bright now\b/.test(t)) {
+    if (!getState().playing.lights) await toggleRecord('lights', true);
+    return speak(showYear('lights', 'now') ?? '');
   }
 
   if (/\b(story|tour)\b/.test(t)) return /\bstop\b/.test(t) ? stopStory() : void startStory();
