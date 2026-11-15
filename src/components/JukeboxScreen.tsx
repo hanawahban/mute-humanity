@@ -40,7 +40,7 @@ function Pick({ rec, index }: { rec: RecordDef; index: number }) {
         onClick={() => void pick()}
         aria-label={`${LABEL[rec.id]}, on ${INSTRUMENT_NAMES[rec.instrument]}. Key ${index + 1}.`}
       >
-        <span className="lamp" aria-hidden="true">{index + 1}</span>
+        <span className="lamp" aria-hidden="true" />
         <span className="pick-pill" aria-hidden="true">
           <span className="pick-name">{LABEL[rec.id]}</span>
           <span className="pick-inst">{INSTRUMENT_NAMES[rec.instrument]}</span>
