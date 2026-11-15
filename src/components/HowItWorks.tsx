@@ -152,8 +152,8 @@ export function HowItWorks() {
             ))}
           </div>
           <p>
-            Higher numbers play higher notes. {earth ? 'Earth uses A major pentatonic' : "Humanity starts on Earth's notes, then bends them toward"} (
-            {(earth ? EARTH_SCALE : HUMAN_SCALE).join(' ')}), so {earth ? 'every Earth sound agrees.' : 'the more we press, the more they disturb the harmony.'}
+            Higher numbers play higher notes. {earth ? 'Everything plays these four notes, over a held A' : "Humanity plays the same notes, and now and then bends one to"} (
+            {(earth ? EARTH_SCALE : HUMAN_SCALE).join(' ')}), so {earth ? 'every Earth sound agrees.' : 'the more we press, the more friction you hear.'}
           </p>
         </li>
         <li>

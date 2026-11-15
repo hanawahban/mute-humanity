@@ -1,8 +1,8 @@
 // The six records. Each one is a NASA Earth Information Center (EIC) visualization that is a
 // flat map of the whole Earth, so they all line up on one shared map. Earth records play in
-// tune (A major pentatonic, the key of the team's instruments). Humanity records play the same
-// notes bent off the key (see audio/harmony.ts), so they disturb the harmony without becoming
-// noise. Earth records use only the traditional instruments, humanity records only the synths.
+// tune (A, B, C# and E over a held A, like the team's all.mp3). Humanity records play the same
+// notes and now and then bend one off the key (see audio/harmony.ts), a hint of friction
+// without becoming noise. Earth records use only the traditional instruments, humanity records only the synths.
 // Each record keeps its own time period: they line up in place, not in date.
 
 import type { KeyMode } from '../map/gl';
@@ -222,7 +222,7 @@ export const INSTRUMENT_NAMES: Record<InstrumentId, string> = {
 };
 
 export const BPM = 80;
-/** Earth: A major pentatonic, the key the instruments were recorded in. */
-export const EARTH_SCALE = ['A', 'B', 'C#', 'E', 'F#'];
-/** The notes humanity bends toward: out of A major, from mild blue notes (C, G) to harsh ones (A#, D#, F). */
-export const HUMAN_SCALE = ['A#', 'C', 'D#', 'F', 'G'];
+/** Both sides: A, B, C# and E, the four notes that carry 96% of the team's arrangement (all.mp3). */
+export const EARTH_SCALE = ['A', 'B', 'C#', 'E'];
+/** The out-of-key notes humanity very rarely bends to, mildest and most common first (G and C are blue notes). */
+export const HUMAN_SCALE = ['G', 'C', 'F', 'A#', 'D#'];

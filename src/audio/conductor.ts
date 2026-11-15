@@ -8,9 +8,11 @@
 //           left/right = stereo.
 //   Probe   the value under the probe (mouse, arrow keys, controller stick) plays on every beat.
 //
-// Earth records play A major pentatonic (the key of the team's recordings) on traditional
-// instruments. Humanity records are the same notes on synths, bent off the key and drifting out
-// of tune as the humanity lever goes up (rules in harmony.ts).
+// Everything plays A, B, C# and E, leaning on A and E, over a held A: the sound of the team's
+// full arrangement (all.mp3, measured in pipeline/audio_tools/analyze_all.py). Earth records
+// use traditional instruments. Humanity records are the same notes on synths that very rarely
+// bend slightly off the key (nearly always a mild G or C) and drift a few cents out of tune as
+// the humanity lever goes up (harmony.ts).
 
 import * as Tone from 'tone';
 import { RECORDS, RECORD_BY_ID, type RecordDef, type RecordId } from '../config/records';
@@ -18,20 +20,20 @@ import { audible, getState, setState, type Level } from '../state/store';
 import { columnPeaks, layers, sample, valueAt, viewStats } from '../eic/layers';
 import { viewBounds, latLonToScreen } from '../map/camera';
 import { outputLatency, play, previewNote, setGain, setSpace, type VoiceKey } from './engine';
-import { bend, clamp01, detuneCents, dragSixteenths } from './harmony';
+import { bend, clamp01, detuneCents, dragSixteenths, settle } from './harmony';
 import { hapticStep } from '../input/haptics';
 import { describeNow } from '../state/actions';
 
-const EARTH = [0, 2, 4, 7, 9]; // A B C# E F#: both sides start from these notes
+const EARTH = [0, 2, 4, 7]; // A B C# E: the notes that carry 96% of all.mp3. Both sides start from these
 
 /** Lowest note (MIDI) and how many scale steps each instrument uses, kept near its recorded pitch. */
 const RANGE: Record<RecordId, { root: number; steps: number; from?: number }> = {
-  ocean: { root: 45, steps: 10 }, // cello, A2 up two octaves
-  rain: { root: 69, steps: 8 }, // flute, around A4-A5
-  lightning: { root: 69, steps: 8, from: 3 }, // violin, from E5
-  lights: { root: 69, steps: 6 }, // bright synth (synth1, recorded C#4), around A4
-  co2: { root: 33, steps: 3 }, // deep synth drone (synth2, recorded A1): sits on the low A
-  nox: { root: 45, steps: 8 }, // gritty synth (synth3, recorded A2), A2 up
+  ocean: { root: 45, steps: 8 }, // cello, A2 up two octaves
+  rain: { root: 69, steps: 6 }, // flute, A4 to B5
+  lightning: { root: 69, steps: 6, from: 3 }, // violin, from E5
+  lights: { root: 69, steps: 5 }, // bright synth (synth1, recorded C#4), A4 to A5
+  co2: { root: 33, steps: 4 }, // deep synth drone (synth2, recorded A1): the low A, and the E above it
+  nox: { root: 45, steps: 6 }, // gritty synth (synth3, recorded A2), A2 to B3
 };
 // Levels matched to how loud each recording is on its own (the synths are quieter than the winds).
 const BASE_GAIN: Record<RecordId, number> = { ocean: 0.75, rain: 0.6, lightning: 0.55, lights: 0.45, co2: 0.45, nox: 0.6 };
@@ -46,14 +48,16 @@ export function setHumanBoost(v: number) {
 const humanTension = () => clamp01(getState().humanity * humanBoost);
 
 /**
- * The note for a value. Earth notes are always in key. Human notes start on the same scale, then
- * (live) get bent off the key and detuned in proportion to the humanity lever, so humanity
- * disturbs the Earth's harmony without ever becoming noise. Not live = the clean note.
+ * The note for a value. Both sides use A, B, C# and E and lean toward A and E, as the team's
+ * arrangement (all.mp3) does. Human notes are then (live) now and then bent to one of the
+ * arrangement's own out-of-key notes and detuned a few cents, in proportion to the humanity
+ * lever. Not live = the clean note.
  */
 function noteOf(rec: RecordDef, degree: number, live = true): string | number {
   const { root, steps, from = 0 } = RANGE[rec.id];
   const d = Math.max(0, Math.min(steps - 1, Math.round(degree))) + from;
   let midi = root + 12 * Math.floor(d / EARTH.length) + EARTH[d % EARTH.length];
+  if (live) midi = settle(midi);
   if (rec.side === 'human' && live) {
     const t = humanTension();
     midi = bend(midi, t);
@@ -271,8 +275,8 @@ function tick(time: number) {
         break;
       case 'drone':
         if (st === 0 && level > 0.02) {
-          play(id, noteOf(rec, 0), '1m', late(rec, time), 0.3 + 0.6 * level);
-          if (level > 0.45) play(id, noteOf(rec, 1), '1m', late(rec, time), 0.2 + 0.5 * level);
+          play(id, noteOf(rec, 0), '1m', late(rec, time), 0.3 + 0.6 * level); // the low A
+          if (level > 0.45) play(id, noteOf(rec, steps - 1), '1m', late(rec, time), 0.2 + 0.5 * level); // and the E above it: an open fifth
         }
         break;
     }
@@ -285,14 +289,15 @@ function tick(time: number) {
 }
 
 // ---------- the harmony bed ----------
-// A slow chord progression in A major under the Earth records (viola chords, cello root; no
-// synths here, they are humanity's), changing every two bars. It swells as humanity is turned
-// down: the planet opens up.
-const CHORDS: Array<{ root: string; notes: string[] }> = [
-  { root: 'A2', notes: ['A3', 'C#4', 'E4'] }, // the cello was recorded on A2: roots stay near it
-  { root: 'F#2', notes: ['F#3', 'A3', 'C#4'] },
-  { root: 'D2', notes: ['D3', 'F#3', 'A3'] },
-  { root: 'E2', notes: ['E3', 'G#3', 'B3'] },
+// The team's full arrangement (all.mp3) does not change chords: it stays on one A major sound
+// for its whole length, with A held in the bass. The bed does the same: a cello A underneath
+// and viola voicings of that one chord (Asus2, A, A add9, A maj7) that change every two bars.
+// It swells as humanity is turned down: the planet opens up. No synths: they are humanity's.
+const VOICINGS = [
+  ['A3', 'E4', 'B4'], // Asus2
+  ['A3', 'C#4', 'E4'], // A
+  ['A3', 'C#4', 'E4', 'B4'], // A add9
+  ['A3', 'C#4', 'E4', 'G#4'], // A maj7
 ];
 let barCount = 0;
 function bed(time: number, st: number, ids: RecordId[], humanity: number) {
@@ -304,9 +309,8 @@ function bed(time: number, st: number, ids: RecordId[], humanity: number) {
   setGain('sub', earth ? 0.3 + 0.35 * (1 - humanity) : 0, time);
   setSpace(1 - humanity, time);
   if (!earth || bar % 2 !== 0) return;
-  const chord = CHORDS[(bar / 2) % CHORDS.length];
-  for (const n of chord.notes) play('bed', n, '2m', time, 0.35);
-  play('sub', chord.root, '2m', time, 0.5);
+  for (const n of VOICINGS[(bar / 2) % VOICINGS.length]) play('bed', n, '2m', time, 0.35);
+  play('sub', 'A2', '2m', time, 0.5); // the held A
 }
 
 let startedConductor = false;
