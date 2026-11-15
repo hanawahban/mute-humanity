@@ -16,6 +16,7 @@ import { baseScale, latLonToScreen, screenToLatLon, setViewport, stepCamera, vie
 import { getDetail, onDetailChange, updateDetail } from '../map/detail';
 import { MapRenderer, type GlLayer } from '../map/gl';
 import { audioNow, hits, scanNeedle } from '../audio/conductor';
+import { asset } from '../config/asset';
 
 const degrees = geoEquirectangular().scale(180 / Math.PI).translate([0, 0]).precision(0.05);
 // Outlines in two levels of detail: the light 1:110m set when zoomed out, 1:50m when zoomed in.
@@ -108,7 +109,7 @@ export function MapView() {
     const videoTimes = new Map<HTMLVideoElement, number>();
 
     const base = new Image();
-    base.src = '/basemap/blue-marble.jpg';
+    base.src = asset('/basemap/blue-marble.jpg');
     base.onload = () => {
       renderer?.setBase(base);
       mapDirty = true;

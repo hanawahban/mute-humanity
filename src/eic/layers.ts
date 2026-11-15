@@ -7,6 +7,7 @@
 
 import { RECORDS, type Decode, type RecordDef, type RecordId } from '../config/records';
 import { setState, getState } from '../state/store';
+import { asset } from '../config/asset';
 
 /** Cells per degree: 2 = half-degree grid, fine enough to catch single cities and lightning flashes. */
 export const PER_DEG = 2;
@@ -51,7 +52,7 @@ interface ManifestRecord {
 let manifest: Promise<ManifestRecord[]> | null = null;
 /** The pipeline's list of what it downloaded: public/eic/manifest.json, files in public/eic/<SVS id>/. */
 function pipelineFiles(): Promise<ManifestRecord[]> {
-  manifest ??= fetch('/eic/manifest.json')
+  manifest ??= fetch(asset('/eic/manifest.json'))
     .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('json') ? r.json() : { records: [] }))
     .then((m: { records?: ManifestRecord[] }) => m.records ?? [])
     .catch(() => []);
@@ -61,21 +62,21 @@ function pipelineFiles(): Promise<ManifestRecord[]> {
 /** Where this record's picture is: our web clip, the pipeline's download, or the placeholder. */
 async function findSource(rec: RecordDef) {
   const type = rec.kind === 'movie' ? 'video' : 'image';
-  const ours = `/eic/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`;
-  if (await exists(ours, type)) return { url: ours, dir: `/eic/${rec.id}`, placeholder: false };
+  const ours = asset(`/eic/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`);
+  if (await exists(ours, type)) return { url: ours, dir: asset(`/eic/${rec.id}`), placeholder: false };
   const entry = (await pipelineFiles()).find((m) => m.id === String(rec.svs));
   if (entry) {
     const files = entry.localFiles.map((f) => f.name);
     const pick = rec.kind === 'movie'
       ? files.find((f) => /\.(mp4|webm)$/i.test(f))
       : files.find((f) => /\.(png|jpe?g)$/i.test(f) && !/(colorbar|cbar|_print|_thm|thumb|searchweb)/i.test(f));
-    if (pick && (await exists(`/eic/${entry.id}/${pick}`, type))) {
+    if (pick && (await exists(asset(`/eic/${entry.id}/${pick}`), type))) {
       const cb = files.find((f) => /(colorbar|cbar).*plain/i.test(f)) ?? files.find((f) => /(colorbar|cbar)/i.test(f));
-      return { url: `/eic/${entry.id}/${pick}`, dir: `/eic/${entry.id}`, placeholder: false, colorbarPng: cb ? `/eic/${entry.id}/${cb}` : undefined };
+      return { url: asset(`/eic/${entry.id}/${pick}`), dir: asset(`/eic/${entry.id}`), placeholder: false, colorbarPng: cb ? asset(`/eic/${entry.id}/${cb}`) : undefined };
     }
   }
-  const ph = `/eic-placeholder/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`;
-  if (await exists(ph, type)) return { url: ph, dir: `/eic-placeholder/${rec.id}`, placeholder: true };
+  const ph = asset(`/eic-placeholder/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`);
+  if (await exists(ph, type)) return { url: ph, dir: asset(`/eic-placeholder/${rec.id}`), placeholder: true };
   return null;
 }
 
@@ -139,8 +140,8 @@ async function loadLayer(rec: RecordDef): Promise<Layer> {
   const ratio = opened.h ? opened.w / opened.h : 0;
   if (opened.ok && !src.placeholder && (ratio < 1.9 || ratio > 2.1)) {
     console.warn(`${rec.name}: ${src.url} is ${opened.w}x${opened.h}, not a flat 2:1 world map, so it can't line up. Using the placeholder. See README.`);
-    const ph = `/eic-placeholder/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`;
-    src = { url: ph, dir: `/eic-placeholder/${rec.id}`, placeholder: true };
+    const ph = asset(`/eic-placeholder/${rec.id}/${rec.kind === 'movie' ? 'clip.mp4' : 'still.png'}`);
+    src = { url: ph, dir: asset(`/eic-placeholder/${rec.id}`), placeholder: true };
     layer.colorbarUrl = null;
     opened = await open(ph);
   }
