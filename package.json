@@ -2,6 +2,9 @@
   "name": "sonific-8",
   "private": true,
   "version": "0.1.0",
+  "description": "Melodic Earth Jukebox by Sonific-8: six NASA Earth Information Center maps played as music. NASA Space Apps 2026.",
+  "license": "MIT",
+  "homepage": "https://hanawahban.github.io/sonific-8/",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -30,5 +33,6 @@
     "jpeg-js": "^0.4.4",
     "typescript": "^5.9.0",
     "vite": "^8.0.0"
-  }
+  },
+  "aiDisclosure": "Parts of the code were written with Claude (Anthropic), an AI coding assistant, and reviewed by the team; the narration voice in public/voice is generated with the Kokoro text-to-speech model. See README, \"Use of AI (Super Intelligence)\"."
 }

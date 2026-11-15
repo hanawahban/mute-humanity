@@ -437,7 +437,7 @@ export function MapView() {
           <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><ellipse cx="12" cy="12" rx="3.6" ry="8.5" /><path d="M3.5 12h17" /></svg>
         </button>
       </div>
-      <p className="attribution">Visualizations: NASA Earth Information Center / Scientific Visualization Studio · Base map: NASA Blue Marble (zoomed in: NASA GIBS)</p>
+      <p className="attribution">Visualizations: NASA Earth Information Center / Scientific Visualization Studio · Base map: NASA Blue Marble (zoomed in: NASA GIBS) · Narrator voice: AI-generated (Kokoro)</p>
     </div>
   );
 }

@@ -101,7 +101,8 @@ export function HelpDialog() {
           <h3>Voice (hold V or X, or turn the microphone on above)</h3>
           <p>"Play ocean", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "lighten our footprint", "full footprint", "humanity to 50 percent", "go to Bahrain", "zoom in", "play the story", "how does it work?", "what am I hearing?", "microphone on", "help".</p>
           <h3>Credits</h3>
-          <p className="small">Visualizations: NASA Earth Information Center and Scientific Visualization Studio (SVS 3912, 5149, 5011, 5475, 5121, 5154). Base map: NASA Blue Marble; zoomed in, NASA Blue Marble tiles from NASA GIBS. Instruments recorded by our multimedia team.</p>
+          <p className="small">Visualizations: NASA Earth Information Center and Scientific Visualization Studio (SVS 3912, 5149, 5011, 5475, 5121, 5154). Base map: NASA Blue Marble; zoomed in, NASA Blue Marble tiles from NASA GIBS. Instruments recorded by our multimedia team. Fonts: Anton and Alexandria (SIL Open Font License).</p>
+          <p className="small"><strong>Use of AI:</strong> the narrator's voice is AI-generated with Kokoro, an open text-to-speech model. Parts of the code and text were written with Claude (Anthropic), an AI assistant, and reviewed by the team. The instruments, design, logo and NASA data are not AI-generated.</p>
         </section>
       </div>
     </dialog>
