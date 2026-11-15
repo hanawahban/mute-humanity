@@ -193,7 +193,7 @@ export const RECORDS: RecordDef[] = [
     eicTitle: 'Nitrogen Oxides (NOx)',
     period: 'Recent days (NASA air-quality model)',
     shows: 'Nitrogen oxides near the ground, from traffic, industry and power plants (NASA GEOS-CF model). Shown here as dark smog: darker is more pollution.',
-    hear: 'A gritty synth. More pollution is louder, harsher and further off the key.',
+    hear: 'A gritty synth. More pollution is louder and rougher.',
     kind: 'movie',
     decode: { kind: 'warm' },
     tint: 'green',

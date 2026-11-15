@@ -38,14 +38,8 @@ const RANGE: Record<RecordId, { root: number; steps: number; from?: number }> = 
 // Levels matched to how loud each recording is on its own (the synths are quieter than the winds).
 const BASE_GAIN: Record<RecordId, number> = { ocean: 0.75, rain: 0.6, lightning: 0.55, lights: 0.45, co2: 0.45, nox: 0.6 };
 const CLOUD_GAIN = 0.35;
-/** The story turns humanity up for one moment, so you feel how much it clashes. */
-let humanBoost = 1;
-export function setHumanBoost(v: number) {
-  humanBoost = v;
-}
-
 /** How far humanity pulls the music off course: 0 = in tune, 1 = at its most disruptive. */
-const humanTension = () => clamp01(getState().humanity * humanBoost);
+const humanTension = () => clamp01(getState().humanity);
 
 /**
  * The note for a value. Both sides use A, B, C# and E and lean toward A and E, as the team's
@@ -129,7 +123,7 @@ function analyze() {
     if (v && !shouldPlay && !v.paused) v.pause();
 
     const on = ids.includes(rec.id);
-    const scale = rec.side === 'human' ? s.humanity * humanBoost : 1;
+    const scale = rec.side === 'human' ? s.humanity : 1;
     setGain(rec.id, on ? BASE_GAIN[rec.id] * scale : 0);
     if (rec.second) setGain(`${rec.id}:2`, on ? CLOUD_GAIN * scale : 0);
     if (!on) continue;

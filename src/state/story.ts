@@ -1,7 +1,8 @@
 // "Play the story": a guided listen of about a minute and a half, with very few words.
 // Each Earth record plays alone first, zoomed into wherever NASA's map is densest right now,
-// then joins the others. Then humanity, one record at a time, then all of us at once, loud
-// and bent off key. Then the lever: our footprint is lightened and the Earth is left, in tune.
+// then joins the others. Then humanity, one record at a time, then all of us at once, exactly as
+// it sounds when you play everything yourself (no extra volume, no extra distortion). Then the
+// lever: our footprint is lightened and the Earth is left, in tune.
 // The music ducks under the narrator. It is also the hands-free way in for screen-reader users.
 
 import type { RecordId } from '../config/records';
@@ -9,8 +10,6 @@ import type { Mode } from './store';
 import { getState, setState } from './store';
 import { announce, ensureAudio, fadeHumanity, focusDensest, resetView, setMode, toggleRecord } from './actions';
 import { LINES, say, stopSpeaking } from '../audio/speech';
-import { setHarsh } from '../audio/engine';
-import { setHumanBoost } from '../audio/conductor';
 
 interface Step {
   line: string; // narration id; its text is also the caption
@@ -21,7 +20,6 @@ interface Step {
   zoom?: number;
   mode?: Mode;
   humanity?: number;
-  harsh?: boolean; // humanity louder and rougher
   ms: number; // at least this long, so the music can be heard
 }
 
@@ -38,7 +36,7 @@ const STEPS: Step[] = [
   { line: 'story-6', records: ['lights'], densest: 'lights', zoom: 4, ms: 8500 },
   { line: 'story-7', records: ['co2'], densest: 'co2', zoom: 4, ms: 7000 },
   { line: 'story-8', records: ['nox'], densest: 'nox', zoom: 4, ms: 6500 },
-  { line: 'story-9', records: ALL, planet: true, harsh: true, ms: 10000 },
+  { line: 'story-9', records: ALL, planet: true, ms: 10000 },
   { line: 'story-10', records: ALL, humanity: 0, ms: 7000 },
   { line: 'story-11', records: ALL, ms: 9000 },
 ];
@@ -64,8 +62,6 @@ async function run(i: number) {
     if (!spot) resetView();
     else if (human) visited.push(spot);
   }
-  setHarsh(step.harsh ? 1 : 0);
-  setHumanBoost(step.harsh ? 1.5 : 1);
   if (step.humanity != null) fadeHumanity(step.humanity, step.humanity === 0 ? 4500 : 800);
   announce(text);
   const began = performance.now(); // time the step from its start, not from when the voice loaded
@@ -85,8 +81,6 @@ export async function startStory() {
 export function stopStory(finished = false) {
   window.clearTimeout(timer);
   stopSpeaking();
-  setHarsh(0);
-  setHumanBoost(1);
   setState({ story: { running: false, step: 0 } });
   if (!finished) announce('Story stopped');
 }
