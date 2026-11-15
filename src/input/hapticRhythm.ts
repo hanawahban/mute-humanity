@@ -3,12 +3,17 @@
 // Vibration now follows the music instead of rolling dice. Two things drive it, both on the
 // same 16th-note clock the notes use (80 BPM, 16 steps to a bar):
 //
-//   notes   every note of the record you are feeling pulses the pad at the moment it sounds.
-//           Low notes go to the big (strong) motor, high notes to the small (weak) motor,
-//           harder notes pulse harder, held notes get a short fading tail.
-//   beats   each record also has a rhythm locked to the beat grid, so it is felt even
-//           between notes: ocean swells on beats 1 and 3, CO2 thumps like a kick drum,
-//           NOx clicks on the 16ths, city lights sparkle on the off-beats.
+//   beat    always on while anything plays: a pulse on every beat, heaviest on beat 1, stronger
+//           the more is going on (intensity), with off-beat ticks when it gets busy.
+//   notes   every note of every record pulses the pad at the moment it sounds. Low notes go to
+//           the big (strong) motor, high notes to the small (weak) motor, harder notes pulse
+//           harder, held notes get a short fading tail. The record you are feeling counts most.
+//   texture the record you are feeling also has its own pattern on the grid: ocean swells on
+//           beats 1 and 3, CO2 thumps like a kick drum, NOx clicks on the 16ths, city lights
+//           sparkle on the off-beats.
+//
+// Controller motors do not respond to tiny or very short pulses, so every pulse is lifted to a
+// strength and length the pad can actually produce (see lift and MIN_MS).
 
 export interface Pulse {
   ms: number;
@@ -21,6 +26,39 @@ export interface TimedPulse extends Pulse {
 export type Voice = 'sustain' | 'drops' | 'strikes' | 'drone';
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v));
+
+/** Controller motors barely move below about a quarter strength, or for under about 50 ms. */
+export const MIN_MAGNITUDE = 0.24;
+export const MIN_MS = 50;
+/** Lift a 0-1 strength so any pulse we ask for is strong enough to be felt. Zero stays zero. */
+export function lift(m: number): number {
+  const x = clamp01(m);
+  return x < 0.02 ? 0 : MIN_MAGNITUDE + (1 - MIN_MAGNITUDE) * x;
+}
+
+/** One number for how much is going on: more records and louder records give more, never above 1. */
+export function intensityOf(values: number[]): number {
+  let rest = 1;
+  for (const v of values) rest *= 1 - clamp01(v);
+  return 1 - rest;
+}
+
+const BEAT_WEIGHT = [1, 0.55, 0.8, 0.55]; // beat 1 is heaviest
+/**
+ * The pulse that is always there: every beat, stronger with intensity. When it is busy, a lighter
+ * tick joins on the off-beat 8ths. `step` is the 16th note of the bar (0-15).
+ */
+export function beatPulse(step: number, intensity: number): Pulse | null {
+  const i = clamp01(intensity);
+  const sub = step % 4;
+  if (sub === 0) {
+    const w = BEAT_WEIGHT[Math.floor(step / 4) % 4];
+    return { ms: 70, strong: (0.25 + 0.6 * i) * w, weak: (0.08 + 0.25 * i) * w };
+  }
+  if (sub === 2 && i > 0.45) return { ms: 50, strong: 0, weak: 0.2 + 0.45 * i };
+  return null;
+}
+
 const LOW = Math.log2(55); // A1
 const HIGH = Math.log2(1760); // A6
 
