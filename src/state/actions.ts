@@ -8,7 +8,7 @@ import { playIntro, startAudio } from '../audio/engine';
 import { hasLine, say, sayQueue, speakText } from '../audio/speech';
 import { densest, layers, sample, valueAt } from '../eic/layers';
 import { flyTo, moveBy, viewSpan, zoomAt } from '../map/camera';
-import { cue } from '../input/haptics';
+import { cue, feelSample } from '../input/haptics';
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
@@ -47,7 +47,9 @@ export function selectRecord(delta: number) {
   const i = ids.indexOf(getState().selected);
   const next = ids[(i + delta + ids.length) % ids.length];
   setState({ selected: next });
-  cue('select');
+  // the controller now feels this record: play its feel once so you learn it
+  if (getState().playing[next]) feelSample(next);
+  else cue('select');
   announce(`${RECORD_BY_ID[next].name}, ${getState().playing[next] ? 'playing' : 'stopped'}`);
 }
 

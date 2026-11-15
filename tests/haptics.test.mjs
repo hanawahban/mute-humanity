@@ -1,98 +1,74 @@
 // Run: node --test tests/
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { MIN_MAGNITUDE, beatPulse, binOf, intensityOf, lift, mergePulse, noteMotors, notePulses, pitchPosition, stepPulse } from '../src/input/hapticRhythm.ts';
+import { FEEL_NAME, MAX_MAGNITUDE, MIN_GAP, binOf, humanityScale, mergePulse, notePulses, pitchPosition, shape } from '../src/input/hapticRhythm.ts';
 
-const rng = (seed) => { let s = seed; return () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296); };
+const IDS = ['ocean', 'rain', 'lightning', 'lights', 'co2', 'nox'];
+const peak = (ps) => Math.max(...ps.map((p) => Math.max(p.strong, p.weak)));
+const total = (ps) => ps.reduce((t, p) => t + p.ms * (p.strong + p.weak), 0);
+const motor = (ps) => ps.reduce((t, p) => t + p.strong, 0) / (ps.reduce((t, p) => t + p.strong + p.weak, 0) || 1); // 1 = all big motor
+const length = (ps) => Math.max(...ps.map((p) => p.delay * 1000 + p.ms));
 
-test('low notes use the big motor, high notes the small one', () => {
-  const low = noteMotors(110, 0.8), high = noteMotors(1318, 0.8);
-  assert.ok(low.strong > low.weak, 'A2 should rumble');
-  assert.ok(high.weak > high.strong, 'E6 should buzz');
-  assert.ok(pitchPosition(55) < pitchPosition(440) && pitchPosition(440) < pitchPosition(1760));
+test('every record has its own feel: no two share the same shape', () => {
+  const sig = (id) => {
+    const ps = notePulses(id, 440, 0.8);
+    return `${ps.length}|${Math.round(motor(ps) * 10)}|${Math.round(length(ps) / 40)}`;
+  };
+  const seen = new Set(IDS.map(sig));
+  assert.equal(seen.size, IDS.length, [...IDS.map((id) => `${id}:${sig(id)}`)].join(' '));
+  for (const id of IDS) assert.ok(FEEL_NAME[id]);
 });
 
-test('harder notes pulse harder, and everything stays within 0-1', () => {
-  for (const f of [55, 110, 220, 440, 880, 1760, 2400]) {
-    const soft = noteMotors(f, 0.1), hard = noteMotors(f, 1);
-    assert.ok(hard.strong >= soft.strong && hard.weak >= soft.weak);
-    for (const v of [...Object.values(hard), ...Object.values(soft)]) assert.ok(v >= 0 && v <= 1);
+test('the feels match the sounds', () => {
+  const at = (id) => notePulses(id, 440, 0.8);
+  assert.ok(motor(at('ocean')) > 0.7 && at('ocean').length >= 3, 'ocean swells in the big motor');
+  assert.ok(motor(at('co2')) > 0.9 && length(at('co2')) >= 300, 'CO2 is a long low hum');
+  assert.ok(motor(at('rain')) < 0.1 && at('rain').length === 1, 'rain is a single light tap');
+  assert.ok(motor(at('lights')) < 0.1 && at('lights').length === 2, 'lights flicker twice');
+  assert.ok(at('nox').length === 3 && at('nox').every((p) => p.ms <= 30), 'NOx stutters');
+  assert.equal(at('lightning').length, 1, 'lightning is one crack');
+  for (const id of IDS) if (id !== 'lightning') assert.ok(peak(at('lightning')) > peak(at(id)), `lightning is firmer than ${id}`);
+});
+
+test('never harsh: shaped strength stays under the ceiling, zero stays zero', () => {
+  assert.equal(shape(0), 0);
+  assert.ok(shape(0.05) > 0, 'a faint pulse is still felt');
+  assert.ok(Math.abs(shape(1) - MAX_MAGNITUDE) < 1e-9);
+  assert.ok(MAX_MAGNITUDE <= 0.65);
+  for (const id of IDS) for (const f of [55, 220, 880, 1760]) for (const p of notePulses(id, f, 1)) {
+    assert.ok(shape(p.strong) <= MAX_MAGNITUDE && shape(p.weak) <= MAX_MAGNITUDE);
   }
 });
 
-test('held notes get a fading tail, strikes are single and sharp', () => {
-  const held = notePulses('sustain', 220, 0.9);
-  assert.ok(held.length >= 2 && held[1].strong < held[0].strong && held[2].strong < held[1].strong);
-  assert.ok(held.every((p, i) => i === 0 || p.delay > held[i - 1].delay));
-  const strike = notePulses('strikes', 880, 0.9);
-  assert.equal(strike.length, 1);
-  assert.ok(strike[0].ms <= 35 && strike[0].strong > 0 && strike[0].weak > 0);
+test('louder notes are felt more, soft ones still a little', () => {
+  for (const id of IDS) {
+    const soft = total(notePulses(id, 440, 0.2)), loud = total(notePulses(id, 440, 1));
+    assert.ok(loud > soft && soft > 0, id);
+  }
 });
 
-test('ocean swells on the beats, heaviest on beat 1, and nothing in between', () => {
-  const beats = [0, 4, 8, 12].map((s) => stepPulse('ocean', s, 0.8));
-  assert.ok(beats.every(Boolean));
-  assert.ok(beats[0].strong > beats[2].strong && beats[2].strong > beats[1].strong && beats[1].strong > beats[3].strong);
-  for (let s = 0; s < 16; s++) if (s % 4) assert.equal(stepPulse('ocean', s, 0.8), null);
+test('high notes lean to the small motor, low notes to the big one', () => {
+  assert.ok(pitchPosition(55) < pitchPosition(440) && pitchPosition(440) < pitchPosition(1760));
+  const low = notePulses('lightning', 110, 0.8)[0], high = notePulses('lightning', 1760, 0.8)[0];
+  assert.ok(low.strong > high.strong && high.weak > low.weak);
 });
 
-test('CO2 thumps like a kick drum on the beats', () => {
-  for (let s = 0; s < 16; s++) assert.equal(stepPulse('co2', s, 0.7) !== null, s % 4 === 0);
-  assert.ok(stepPulse('co2', 0, 0.7).strong > stepPulse('co2', 4, 0.7).strong);
+test("humanity's records go quiet when our footprint is lightened, and follow the lever", () => {
+  assert.equal(humanityScale('earth', 0), 1, 'Earth is never muted by the lever');
+  assert.equal(humanityScale('human', 0), 0);
+  for (const id of ['lights', 'co2', 'nox']) {
+    assert.equal(notePulses(id, 440, 0.9, humanityScale('human', 0)).length, 0, `${id} muted`);
+    assert.ok(total(notePulses(id, 440, 0.9, humanityScale('human', 0.5))) < total(notePulses(id, 440, 0.9, 1)), `${id} at 50%`);
+  }
 });
 
-test('NOx clicks fall on the 16th-note grid and get denser with pollution', () => {
-  const count = (level) => { const r = rng(9); let n = 0; for (let i = 0; i < 4000; i++) if (stepPulse('nox', i % 16, level, r)) n++; return n; };
-  assert.ok(count(0.9) > 2 * count(0.1));
+test('every record has a minimum gap, fast ones shorter', () => {
+  for (const id of IDS) assert.ok(MIN_GAP[id] >= 0.1, id);
+  assert.ok(MIN_GAP.rain < MIN_GAP.co2);
 });
 
-test('city lights sparkle only on the off-beats; rain and lightning leave the beat to their notes', () => {
-  const r = rng(4);
-  for (let i = 0; i < 2000; i++) { const s = i % 16; if (stepPulse('lights', s, 1, r)) assert.equal(s % 4, 2); }
-  for (const id of ['rain', 'lightning']) for (let s = 0; s < 16; s++) assert.equal(stepPulse(id, s, 1), null);
-});
-
-test('silence below the threshold', () => {
-  for (const id of ['ocean', 'co2', 'nox', 'lights']) for (let s = 0; s < 16; s++) assert.equal(stepPulse(id, s, 0.01), null);
-});
-
-test('a beat and a note in the same 20 ms merge into one pulse', () => {
+test('a chord in the same 20 ms merges into one pulse', () => {
   assert.equal(binOf(1.001), binOf(1.009));
   assert.notEqual(binOf(1.0), binOf(1.05));
   assert.deepEqual(mergePulse({ ms: 30, strong: 0.2, weak: 0.9 }, { ms: 90, strong: 0.7, weak: 0.1 }), { ms: 90, strong: 0.7, weak: 0.9 });
-});
-
-test('the beat never goes quiet: every beat pulses, even at the lowest intensity, and is strong enough to feel', () => {
-  for (const intensity of [0, 0.15, 0.5, 1]) {
-    for (const s of [0, 4, 8, 12]) {
-      const p = beatPulse(s, intensity);
-      assert.ok(p && p.ms >= 50, `step ${s} intensity ${intensity}`);
-      assert.ok(lift(p.strong) >= 0.3, `lifted strong ${lift(p.strong)} at step ${s}, intensity ${intensity}`);
-    }
-  }
-});
-
-test('beat 1 is the heaviest and intensity makes every beat stronger', () => {
-  const at = (s, i) => beatPulse(s, i).strong;
-  assert.ok(at(0, 0.5) > at(8, 0.5) && at(8, 0.5) > at(4, 0.5));
-  for (const s of [0, 4, 8, 12]) assert.ok(at(s, 1) > at(s, 0.1));
-});
-
-test('off-beat ticks only join when it is busy, and never on the 16ths between', () => {
-  assert.equal(beatPulse(2, 0.2), null);
-  assert.ok(beatPulse(2, 0.8) !== null);
-  for (const s of [1, 3, 5, 7, 9, 11, 13, 15]) assert.equal(beatPulse(s, 1), null);
-});
-
-test('intensity: more records or louder records give more, never above 1, silence gives 0', () => {
-  assert.equal(intensityOf([]), 0);
-  assert.ok(intensityOf([0.4, 0.4]) > intensityOf([0.4]) && intensityOf([0.9, 0.9, 0.9]) <= 1);
-  assert.ok(intensityOf([0.8]) > intensityOf([0.3]));
-});
-
-test('lift makes every requested pulse strong enough for the motors, keeps zero at zero, stays within 0-1', () => {
-  assert.equal(lift(0), 0);
-  assert.equal(lift(0.01), 0);
-  for (const m of [0.03, 0.1, 0.5, 1, 2]) { const l = lift(m); assert.ok(l >= MIN_MAGNITUDE && l <= 1, `${m} -> ${l}`); }
-  assert.ok(lift(0.9) > lift(0.3) && lift(0.3) > lift(0.05)); // still louder when asked for more
 });
