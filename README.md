@@ -2,11 +2,13 @@
 
 # Melodic Earth Jukebox
 
-NASA Space Apps 2026, challenge "Earth Information Jukebox". By team Sonific-8, from Bahrain.
+NASA Space Apps 2026, challenge "Earth Information Jukebox". By team **Sonific-8** from Bahrain: Hamza Alkhaldi, Sama Abdou, Safiya Ebrahim and Hana Wahban. Winner of **Best Use of Technology** at the Riffa (Kingdom University) local event.
 
-Six NASA Earth Information Center (EIC) visualizations, all flat maps of the whole Earth, are the six records of a jukebox. Turn records on and they stack on one shared map and play together; zoom anywhere to hear just that place. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.
+**Try it: [hanawahban.github.io/sonific-8](https://hanawahban.github.io/sonific-8/)** (Chrome or Edge on a laptop, sound on; an Xbox controller is optional).
 
-Every sound comes from the pixels of the EIC frames, read through each visualization's color key.
+Six NASA Earth Information Center (EIC) visualizations, all flat maps of the whole Earth, are the six records of a jukebox. Pick records, press Play, and they stack on one shared map and play together; zoom anywhere to hear just that place. Nature plays acoustic instruments the team recorded; human activity plays synths. One lever, **Lighten our footprint**, fades humanity out so you can hear the planet with a lighter touch.
+
+Every sound comes from the pixels of the EIC frames, read through each visualization's own color key. It is built to work without seeing the screen: screen-reader labels, keyboard, voice commands, a narrated story and controller vibration.
 
 ## Quick start
 
@@ -116,7 +118,23 @@ pipeline/                 the earlier gridded-data pipeline (shelved)
 
 ## Credits
 
-Visualizations: NASA Earth Information Center and NASA's Scientific Visualization Studio. Base map: NASA Blue Marble. Instruments recorded by our multimedia team.
+- **Visualizations:** NASA Earth Information Center and NASA's Scientific Visualization Studio: SVS [3912](https://svs.gsfc.nasa.gov/3912/), [5149](https://svs.gsfc.nasa.gov/5149/), [5011](https://svs.gsfc.nasa.gov/5011/), [5475](https://svs.gsfc.nasa.gov/5475/), [5121](https://svs.gsfc.nasa.gov/5121/), [5154](https://svs.gsfc.nasa.gov/5154/). NASA, public domain.
+- **Base map:** NASA Blue Marble (NASA Earth Observatory); zoomed in, Blue Marble Next Generation tiles from [NASA GIBS](https://nasa-gibs.github.io/gibs-api-docs/).
+- **Coastlines and borders:** Natural Earth, via [world-atlas](https://github.com/topojson/world-atlas).
+- **Instruments:** recorded by the Sonific-8 multimedia team. All rights reserved by the team.
+- **Narration voice:** [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) (Apache-2.0), AI-generated (see below).
+- **Fonts:** Anton and Alexandria, SIL Open Font License 1.1 (`public/fonts/OFL.txt`).
+- **Libraries:** React, Vite, TypeScript, Tone.js, d3-geo, topojson-client, zustand.
+- **License:** the source code is MIT (`LICENSE`). NASA data is public domain; other assets keep the licenses above.
+
+## Use of AI (Super Intelligence)
+
+As NASA Space Apps asks, here is where SI tools were used:
+
+- **Audio:** every narration file in `public/voice/` is AI-generated with the Kokoro-82M text-to-speech model. Each file says so in its own metadata (artist and comment tags), and the app's credits and Help say so too. The narration text was drafted with Claude (Anthropic) and edited by the team.
+- **Code:** parts of the code were written and debugged with Claude (Anthropic), an AI coding assistant, then reviewed and tested by the team. Commits made with it carry a `Co-Authored-By: Claude` line in the git history, and `package.json` has an `aiDisclosure` field.
+- **Text:** parts of this README and the pitch and submission text were drafted with Claude and edited by the team.
+- **Not AI-generated:** the instrument recordings, the jukebox design, the logo, the slides and all NASA data. No AI-generated content uses NASA logos or branding.
 
 ## Two screens
 

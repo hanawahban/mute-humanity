@@ -12,6 +12,14 @@ Output: public/voice/<id>.mp3
 """
 import json
 import subprocess
+
+# Every file says it is AI-generated, in its own metadata (NASA Space Apps SI disclosure rules).
+AI_TAGS = [
+    "-metadata", "artist=AI-generated voice (Kokoro-82M text-to-speech)",
+    "-metadata", "album=Melodic Earth Jukebox narration (Sonific-8)",
+    "-metadata", "comment=AI-generated audio: synthesized with the Kokoro-82M open text-to-speech model, voice af_heart. Text by the Sonific-8 team, drafted with Claude (Anthropic).",
+    "-metadata", "copyright=Sonific-8, NASA Space Apps 2026",
+]
 import sys
 import tempfile
 from pathlib import Path
@@ -34,5 +42,5 @@ for key, text in cfg["lines"].items():
     samples, sr = k.create(text, voice=cfg["voice"], speed=speed, lang="en-us")
     with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
         sf.write(tmp.name, samples, sr)
-        subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp.name, "-af", "apad=pad_dur=0.2", "-b:a", "96k", str(out / f"{key}.mp3")])
+        subprocess.check_call(["ffmpeg", "-y", "-loglevel", "error", "-i", tmp.name, "-af", "apad=pad_dur=0.2", "-b:a", "96k", *AI_TAGS, str(out / f"{key}.mp3")])
     print(key, f"{len(samples) / sr:.1f}s")
