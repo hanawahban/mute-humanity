@@ -22,14 +22,14 @@ export function HelpDialog() {
     <dialog ref={ref} className="help" aria-labelledby="help-title" onClose={() => setState({ helpOpen: false })}>
       <div className="help-head">
         <Logo className="help-logo" />
-        <h2 id="help-title">How to play Sonific-8</h2>
+        <h2 id="help-title">How to play Melodic Earth Jukebox</h2>
         <button type="button" className="icon-button" aria-label="Close" onClick={() => setState({ helpOpen: false })}>×</button>
       </div>
 
       <div className="help-grid">
         <section>
           <h3>The idea</h3>
-          <p>Six records, each a NASA Earth Information Center map of the whole Earth, each with its own instrument. Turn records on and they stack on one map and play together. Earth plays in tune; humanity plays out of key. Then mute humanity and listen to the planet without us.</p>
+          <p>Six records, each a NASA Earth Information Center map of the whole Earth, each with its own instrument. Turn records on and they stack on one map and play together. Earth plays in tune; humanity bends it off key. Then lighten our footprint and listen to the planet when we tread lightly.</p>
           <p>Every layer keeps its real dates: they line up in place, not in time. The sound comes from the pixels, read through each visualization's color key.</p>
           <h3>Three ways to listen</h3>
           <p><strong>Listen</strong>: you hear everything on screen. Zoom in to hear one place. <strong>Scan</strong>: a needle slowly sweeps the map (about 9 seconds a sweep); every bright point it crosses flashes and plays a note, higher on screen is higher in pitch. <strong>Probe</strong>: click a spot and the narrator says where it is and what each record shows there.</p>
@@ -64,7 +64,7 @@ export function HelpDialog() {
             <dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>play or stop a record</dd>
             <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>choose a record</dd>
             <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>humanity lever</dd>
-            <dt><kbd>M</kbd></dt><dd>mute humanity</dd>
+            <dt><kbd>M</kbd></dt><dd>lighten our footprint / full footprint</dd>
             <dt><kbd>L</kbd> <kbd>S</kbd> <kbd>P</kbd></dt><dd>Listen, Scan, Probe</dd>
             <dt>arrows in Probe</dt><dd>move the probe</dd>
             <dt><kbd>G</kbd></dt><dd>next place for the chosen record</dd>
@@ -99,7 +99,7 @@ export function HelpDialog() {
 
         <section className="wide">
           <h3>Voice (hold V or X, or turn the microphone on above)</h3>
-          <p>"Play ocean", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "mute humanity", "humanity to 50 percent", "go to Bahrain", "zoom in", "play the story", "how does it work?", "what am I hearing?", "microphone on", "help".</p>
+          <p>"Play ocean", "add lightning", "stop rain", "solo NOx", "scan", "probe", "listen", "lighten our footprint", "full footprint", "humanity to 50 percent", "go to Bahrain", "zoom in", "play the story", "how does it work?", "what am I hearing?", "microphone on", "help".</p>
           <h3>Credits</h3>
           <p className="small">Visualizations: NASA Earth Information Center and Scientific Visualization Studio (SVS 3912, 5149, 5011, 5475, 5121, 5154). Base map: NASA Blue Marble; zoomed in, NASA Blue Marble tiles from NASA GIBS. Instruments recorded by our multimedia team.</p>
         </section>

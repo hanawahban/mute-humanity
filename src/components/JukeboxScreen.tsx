@@ -97,8 +97,8 @@ export function JukeboxScreen() {
       <div className="jb-arch">
         <div className="jb-inner">
           <header className="jb-head">
-            <Logo className="jb-logo" title="Sonific-8" />
-            <h1 id="jb-title">Earth Information Jukebox</h1>
+            <Logo className="jb-logo" title="Melodic Earth Jukebox logo" />
+            <h1 id="jb-title">Melodic Earth Jukebox</h1>
             <p className="jb-sub">Six NASA maps, each played by its own instrument. Pick your records.</p>
           </header>
 

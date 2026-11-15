@@ -1,6 +1,6 @@
-<p align="center"><img src="public/logo.svg" width="320" alt="Sonific-8 logo: a sound wave that loops into an 8"></p>
+<p align="center"><img src="public/logo.svg" width="320" alt="Melodic Earth Jukebox logo: a sound wave that loops into an 8"></p>
 
-# Sonific-8: The Earth Jukebox
+# Melodic Earth Jukebox
 
 NASA Space Apps 2026, challenge "Earth Information Jukebox". By team Sonific-8, from Bahrain.
 
@@ -23,13 +23,13 @@ Without the clips, the site uses placeholder layers from `public/eic-placeholder
 | # | Record | Side | EIC visualization | Period | Instrument | What you hear |
 |---|---|---|---|---|---|---|
 | 1 | Ocean | Earth | [SVS 3912](https://svs.gsfc.nasa.gov/3912/) Sea Surface Currents and Temperature | Mar 2007 – Mar 2008 | Cello | warmer water = higher notes |
-| 2 | Rain and clouds | Earth | [SVS 5149](https://svs.gsfc.nasa.gov/5149/) GEOS-FP Precipitation and Clouds | recent days | Flute + Synth 1 pad | more rain = more notes; thicker cloud = louder pad |
+| 2 | Rain and clouds | Earth | [SVS 5149](https://svs.gsfc.nasa.gov/5149/) GEOS-FP Precipitation and Clouds | recent days | Flute + clarinet pad | more rain = more notes; thicker cloud = louder pad |
 | 3 | Lightning | Earth | [SVS 5011](https://svs.gsfc.nasa.gov/5011/) Lightning from the ISS | 2017 – 2023 | Violin | every flash = a sharp note |
-| 4 | City lights | Humanity | [SVS 5475](https://svs.gsfc.nasa.gov/5475/) Night Lights 2012–2023 (flat version of 5313) | 2012 – 2023 | Clarinet | brighter = more and higher notes |
-| 5 | Carbon emissions | Humanity | [SVS 5121](https://svs.gsfc.nasa.gov/5121/) ODIAC (one still image) | Dec 2021 | Synth 3 drone | more emissions = thicker, louder drone |
-| 6 | Traffic and industry | Humanity | [SVS 5154](https://svs.gsfc.nasa.gov/5154/) Nitrogen Oxides (NOx) | recent days | Oboe | more pollution = louder, harsher |
+| 4 | City lights | Humanity | [SVS 5475](https://svs.gsfc.nasa.gov/5475/) Night Lights 2012–2023 (flat version of 5313) | 2012 – 2023 | Synth 1 | brighter = more and higher notes |
+| 5 | Carbon emissions | Humanity | [SVS 5121](https://svs.gsfc.nasa.gov/5121/) ODIAC (one still image) | Dec 2021 | Synth 2 (deep drone) | more emissions = thicker, louder drone |
+| 6 | Traffic and industry | Humanity | [SVS 5154](https://svs.gsfc.nasa.gov/5154/) Nitrogen Oxides (NOx) | recent days | Synth 3 | more pollution = louder, harsher |
 
-The layers line up in place, not in time: each keeps its real dates, shown on the map. The team's other instruments: `all.mp3` is the welcome chord; Viola and Synth 2 are spares.
+The layers line up in place, not in time: each keeps its real dates, shown on the map. The team's other instruments: `all.mp3` is the welcome chord; Oboe is a spare. Rule: traditional instruments are for nature, synths are for human-made things.
 
 ## How the map stacks six visualizations
 
@@ -42,8 +42,8 @@ The map is drawn with WebGL (`src/map/gl.ts`). Every EIC visualization is an equ
    - **Listen**: the view's average, hotspot strength and coverage drive each instrument while its video plays.
    - **Scan**: the videos pause and a needle sweeps the view in three bars (about 9 seconds), driven by the audio clock so it moves smoothly. Each strong point plays exactly when the needle reaches it, and flashes on the map: higher on screen = higher pitch, stronger = louder, left/right = stereo.
    - **Probe**: the value under the probe plays on every beat. Clicking a spot makes the narrator say where it is and what each playing record shows there.
-3. **Harmony.** Under the Earth records, a slow A major progression (A, F#m, D, E) on viola with a deep synth root changes every two bars. When humanity is muted, it swells and the hall opens up.
-4. **Mix rules.** Earth records use A major pentatonic, the key the instruments were recorded in, with reverb. Humanity records use notes that clash with it (A#, D#, F, G), dry with a little grit. The humanity lever scales their volume; Mute Humanity fades them out.
+3. **Harmony.** Under the Earth records, a slow A major progression (A, F#m, D, E) on viola with a cello root (no synths) changes every two bars. When our footprint is lightened, it swells and the hall opens up.
+4. **Mix rules.** Earth records use A major pentatonic, the key the instruments were recorded in, with reverb. Humanity records are synths that play the same notes, bent off the key (toward C, G, then A#, D#, F) as the humanity lever rises: about 1 note in 5 at 50%, about half at 100%, plus up to 34 cents of drift and a slight drag behind the beat. So it disturbs the Earth's harmony without turning into noise. The lever also scales their volume; Lighten our footprint fades them down.
 
 ## For the pipeline: what the app expects
 
@@ -76,7 +76,7 @@ The bundled Blue Marble base map is 4096 px wide (about 10 km per pixel). Zoomed
 | | Keyboard | Xbox controller | Voice (hold V or X, or mic always on) |
 |---|---|---|---|
 | Play / stop a record | `1`–`6` | D-pad ← → to choose, `A` | "play ocean", "stop rain" |
-| Humanity | `↑` `↓`, `M` to mute | D-pad ↑ ↓ | "mute humanity", "humanity to 50 percent" |
+| Humanity | `↑` `↓`, `M` lighten / full footprint | D-pad ↑ ↓ | "lighten our footprint", "full footprint", "humanity to 50 percent" |
 | Listen / Scan / Probe | `L` `S` `P` | `Y` cycles | "scan", "probe", "listen" |
 | Move probe | arrows (Probe mode) or mouse | left stick (Probe mode) | |
 | Places | `G` next place; Go to list | triggers | "go to Bahrain" |
@@ -91,7 +91,7 @@ The bundled Blue Marble base map is 4096 px wide (about 10 km per pixel). Zoomed
 ## Accessibility
 
 - Every control is a real button or slider with a label; the screen reader hears what each record sounds like.
-- "Play the story" is a hands-free guided listen of about a minute and a half, with very few words that explain how each map becomes sound. Each Earth record plays alone first, zoomed into wherever its NASA map is densest at that moment (found from the data by `densest()` in `src/eic/layers.ts`), then joins the others. Then each humanity record alone, then all six at once, louder and rougher, then humanity is muted. The music ducks while the narrator speaks.
+- "Play the story" is a hands-free guided listen of about a minute and a half, with very few words that explain how each map becomes sound. Each Earth record plays alone first, zoomed into wherever its NASA map is densest at that moment (found from the data by `densest()` in `src/eic/layers.ts`), then joins the others. Then each humanity record alone, then all six at once, louder and rougher, then our footprint is lightened. The music ducks while the narrator speaks.
 - `D` describes what you're hearing; captions describe the music for deaf and hard-of-hearing users.
 - Keyboard and switch access for everything, controller vibration, voice commands.
 - High contrast and reduced motion (also follows the system setting).

@@ -1,7 +1,9 @@
 // The six records. Each one is a NASA Earth Information Center (EIC) visualization that is a
 // flat map of the whole Earth, so they all line up on one shared map. Earth records play in
-// tune (A major pentatonic, the key of the team's instruments); humanity records play out of
-// key. Each record keeps its own time period: they line up in place, not in date.
+// tune (A major pentatonic, the key of the team's instruments). Humanity records play the same
+// notes bent off the key (see audio/harmony.ts), so they disturb the harmony without becoming
+// noise. Earth records use only the traditional instruments, humanity records only the synths.
+// Each record keeps its own time period: they line up in place, not in date.
 
 import type { KeyMode } from '../map/gl';
 
@@ -101,12 +103,12 @@ export const RECORDS: RecordDef[] = [
     eicTitle: 'GEOS-FP Precipitation and Clouds',
     period: 'Recent days (NASA weather model)',
     shows: "Rain and snow over clouds, from NASA's GEOS-FP weather model: green is light rain, then blue, purple, red and yellow for very heavy rain. Thicker clouds are whiter.",
-    hear: 'A flute for rain, more rain is more notes. A soft synth pad for clouds.',
+    hear: 'A flute for rain, more rain is more notes. A soft clarinet pad for clouds.',
     kind: 'movie',
     decode: { kind: 'precip' },
     instrument: 'flute',
     voice: 'drops',
-    second: { instrument: 'synth1', voice: 'sustain', label: 'clouds' },
+    second: { instrument: 'clarinet', voice: 'sustain', label: 'clouds' },
     scale: { low: 'light rain', high: 'very heavy', colors: ['#22c55e', '#3b82f6', '#22d3ee', '#a855f7', '#991b1b', '#ef4444', '#f97316', '#facc15'] },
     empty: 'zero',
     keying: 'precip',
@@ -147,10 +149,10 @@ export const RECORDS: RecordDef[] = [
     eicTitle: 'Change in Night Lights between 2012 and 2023',
     period: '2012 – 2023',
     shows: 'Night lights seen from space each year, then the change: purple where there is more light, orange where there is less.',
-    hear: 'A clarinet, out of key. Brighter places play more notes.',
+    hear: 'A bright synth. Brighter places play more notes, and some drift off the key.',
     kind: 'movie',
     decode: { kind: 'bright', floor: 0.33 },
-    instrument: 'clarinet',
+    instrument: 'synth1',
     voice: 'drops',
     scale: { low: 'dark', high: 'bright', colors: ['#1a1a1a', '#8a6a2a', '#ffe9a8'] },
     empty: 'zero',
@@ -170,10 +172,10 @@ export const RECORDS: RecordDef[] = [
     eicTitle: 'ODIAC: a map of human made carbon dioxide emissions',
     period: 'December 2021',
     shows: 'Carbon dioxide released by people, mostly from burning fossil fuels, in December 2021 (ODIAC).',
-    hear: 'A low synth drone, out of key. More emissions make it thicker and louder.',
+    hear: 'A deep synth drone. More emissions make it thicker and louder, and it grinds against the Earth.',
     kind: 'still',
     decode: { kind: 'bright', floor: 0.12 },
-    instrument: 'synth3',
+    instrument: 'synth2',
     voice: 'drone',
     scale: { low: 'low', high: 'high', colors: ['#2b0a00', '#b33a00', '#ff7a1a', '#fff2a0'] },
     empty: 'zero',
@@ -191,12 +193,12 @@ export const RECORDS: RecordDef[] = [
     eicTitle: 'Nitrogen Oxides (NOx)',
     period: 'Recent days (NASA air-quality model)',
     shows: 'Nitrogen oxides near the ground, from traffic, industry and power plants (NASA GEOS-CF model). Shown here as dark smog: darker is more pollution.',
-    hear: 'An oboe, out of key. More pollution is louder and harsher.',
+    hear: 'A gritty synth. More pollution is louder, harsher and further off the key.',
     kind: 'movie',
     decode: { kind: 'warm' },
     tint: 'green',
     contrast: [0.6, 0.95],
-    instrument: 'oboe',
+    instrument: 'synth3',
     voice: 'sustain',
     scale: { low: 'clean', high: 'polluted', colors: ['rgba(107,94,84,0)', '#6b5e54', '#1c1714'], lightBar: true },
     empty: 'zero',
@@ -222,5 +224,5 @@ export const INSTRUMENT_NAMES: Record<InstrumentId, string> = {
 export const BPM = 80;
 /** Earth: A major pentatonic, the key the instruments were recorded in. */
 export const EARTH_SCALE = ['A', 'B', 'C#', 'E', 'F#'];
-/** Humanity: notes that clash with A major. */
-export const HUMAN_SCALE = ['A#', 'D#', 'F', 'G'];
+/** The notes humanity bends toward: out of A major, from mild blue notes (C, G) to harsh ones (A#, D#, F). */
+export const HUMAN_SCALE = ['A#', 'C', 'D#', 'F', 'G'];

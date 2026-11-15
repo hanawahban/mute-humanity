@@ -24,7 +24,7 @@ function Factor({ rec, index }: { rec: RecordDef; index: number }) {
         aria-checked={on}
         className={`factor ${on ? 'on' : ''} ${on && silenced ? 'silenced' : ''}`}
         style={{ '--rec': rec.color, '--level': level } as CSSProperties}
-        aria-label={`${rec.name}, ${INSTRUMENT_NAMES[rec.instrument]}${on && silenced ? ', muted' : ''}. Key ${index + 1}.`}
+        aria-label={`${rec.name}, ${INSTRUMENT_NAMES[rec.instrument]}${on && silenced ? ', quiet' : ''}. Key ${index + 1}.`}
         title={`${rec.eicTitle} · NASA SVS ${rec.svs} · ${rec.period}`}
         onClick={() => void toggleRecord(rec.id)}
       >
@@ -86,7 +86,7 @@ export function FactorsDrawer() {
             onChange={(e) => setHumanity(Number(e.target.value) / 100, true)}
           />
           <button type="button" className="mute" aria-pressed={humanity === 0} onClick={() => (humanity === 0 ? unmuteHumanity() : muteHumanity())}>
-            {humanity === 0 ? 'Bring humanity back' : 'Mute humanity'}
+            {humanity === 0 ? 'Full footprint' : 'Lighten our footprint'}
           </button>
         </div>
       </div>

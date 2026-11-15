@@ -63,20 +63,20 @@ export async function startAudio() {
       : rec.voice === 'drops' ? { attack: 0.01, release: 0.8 }
         : rec.voice === 'drone' ? { attack: 1, release: 3.5 }
           : { attack: 0.3, release: 2.2 };
-    // the oboe is bright and nasal: take the edge off so pollution sounds rough, not piercing
-    channels.set(rec.id, makeChannel(rec.instrument, bus, rec.id === 'nox' ? { ...env, lowpass: 1500 } : env));
+    channels.set(rec.id, makeChannel(rec.instrument, bus, env));
     if (rec.second) channels.set(`${rec.id}:2`, makeChannel(rec.second.instrument, bus, { attack: 1.5, release: 4 }));
   }
-  // The harmony under everything: viola chords and a deep synth root, changing every two bars.
+  // The harmony under everything: viola chords and a deep cello root, changing every two bars.
+  // Only traditional instruments live on the Earth bus: the synths belong to humanity.
   channels.set('bed', makeChannel('viola', earthBus, { attack: 2, release: 5 }));
-  channels.set('sub', makeChannel('synth2', earthBus, { attack: 2, release: 5 }));
+  channels.set('sub', makeChannel('cello', earthBus, { attack: 2, release: 5 }));
   intro = new Tone.Player({ url: url('all'), volume: -10 }).connect(reverb);
   await Tone.loaded();
   Tone.getTransport().start('+0.05');
 }
 
 /** Play one note on a record's instrument. */
-export function play(key: VoiceKey, note: string, duration: Tone.Unit.Time, time: number, velocity: number, pan?: number) {
+export function play(key: VoiceKey, note: string | number, duration: Tone.Unit.Time, time: number, velocity: number, pan?: number) {
   const ch = channels.get(key);
   if (!ch || !ch.sampler.loaded) return;
   // a touch of human timing and touch, so it doesn't sound mechanical
@@ -102,7 +102,7 @@ export function setGain(key: VoiceKey, v: number, time?: number) {
 }
 
 /** Play one note on a record's instrument even if the record is off (the How it works view). */
-export function previewNote(key: VoiceKey, note: string, level: number) {
+export function previewNote(key: VoiceKey, note: string | number, level: number) {
   const ch = channels.get(key);
   if (!ch) return;
   const now = Tone.now();
@@ -130,7 +130,7 @@ export function playIntro() {
   if (intro?.loaded) intro.start();
 }
 
-/** More space when humanity is muted: the planet opens up. */
+/** More space when our footprint is lightened: the planet opens up. */
 export function setSpace(amount: number, time?: number) {
   if (reverb) reverb.wet.rampTo(0.42 + 0.25 * amount, 1.5, time);
 }

@@ -152,8 +152,8 @@ export function HowItWorks() {
             ))}
           </div>
           <p>
-            Higher numbers play higher notes. {earth ? 'Earth uses A major pentatonic' : "Humanity's notes sit between Earth's"} (
-            {(earth ? EARTH_SCALE : HUMAN_SCALE).join(' ')}), so {earth ? 'every Earth sound agrees.' : 'they clash, on purpose.'}
+            Higher numbers play higher notes. {earth ? 'Earth uses A major pentatonic' : "Humanity starts on Earth's notes, then bends them toward"} (
+            {(earth ? EARTH_SCALE : HUMAN_SCALE).join(' ')}), so {earth ? 'every Earth sound agrees.' : 'the more we press, the more they disturb the harmony.'}
           </p>
         </li>
         <li>
@@ -186,8 +186,8 @@ export function HowItWorks() {
         <section>
           <h3>Earth and humanity</h3>
           <p>
-            The three Earth records share one key, so any mix of them sounds in tune. The three humanity records play notes outside that
-            key. The Humanity lever fades them; mute it and the Earth's harmony swells back.
+            The three Earth records share one key, so any mix of them sounds in tune. The three humanity records are synths that bend those
+            notes off the key and drift out of tune as the lever goes up. Lighten our footprint and the Earth's harmony swells back.
           </p>
           <h3>Honest about the data</h3>
           <p>
