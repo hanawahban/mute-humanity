@@ -130,7 +130,7 @@ export function playIntro() {
   if (intro?.loaded) intro.start();
 }
 
-/** More space when humanity is muted: the planet opens up. */
+/** More space when our footprint is lightened: the planet opens up. */
 export function setSpace(amount: number, time?: number) {
   if (reverb) reverb.wet.rampTo(0.42 + 0.25 * amount, 1.5, time);
 }

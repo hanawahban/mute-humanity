@@ -28,7 +28,7 @@ function RecordButton({ rec, index }: { rec: RecordDef; index: number }) {
       <span className="record-icon" aria-hidden="true"><RecordIcon id={rec.id} /></span>
       <span className="record-text" aria-hidden="true">
         <span className="record-name">{rec.short}</span>
-        <span className="record-sub">{INSTRUMENT_NAMES[rec.instrument]} · {isOn ? (silenced ? 'muted' : 'on') : 'off'}</span>
+        <span className="record-sub">{INSTRUMENT_NAMES[rec.instrument]} · {isOn ? (silenced ? 'quiet' : 'on') : 'off'}</span>
       </span>
       <span className="record-meter" aria-hidden="true" />
     </button>
@@ -78,7 +78,7 @@ export function Jukebox() {
             onChange={(e) => setHumanity(Number(e.target.value) / 100, true)}
           />
           <button type="button" className="mute" aria-pressed={humanity === 0} onClick={() => (humanity === 0 ? unmuteHumanity() : muteHumanity())}>
-            {humanity === 0 ? 'Bring humanity back' : 'Mute humanity'}
+            {humanity === 0 ? 'Full footprint' : 'Lighten our footprint'}
           </button>
         </div>
       </div>

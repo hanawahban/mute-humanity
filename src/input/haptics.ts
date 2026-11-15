@@ -14,7 +14,7 @@
 //    Strength and speed follow what's in view, under the probe, or under the scan needle,
 //    so moving over a city or a storm makes the controller react.
 // 3. Short cues confirm actions: two taps = record on, one soft tap = off, a long fade when
-//    humanity is muted.
+//    our footprint is lightened.
 
 import { RECORDS, BPM, type RecordId } from '../config/records';
 import { getState, type Level } from '../state/store';

@@ -98,7 +98,7 @@ export function setAlwaysListen(on: boolean) {
     if (on) {
       r!.interimResults = false;
       r!.start();
-      announce('Microphone on. Just say a command, like "play rain" or "mute humanity".');
+      announce('Microphone on. Just say a command, like "play rain" or "lighten our footprint".');
     } else {
       r?.stop();
       announce('Microphone off. Hold V to talk.');
@@ -146,7 +146,7 @@ function findRecords(t: string): RecordId[] {
 const NUMBER_WORDS: Record<string, number> = { zero: 0, ten: 10, twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90, hundred: 100 };
 
 const HELP =
-  'Say: play ocean, add lightning, stop rain, solo NOx, scan, probe, listen, mute humanity, bring humanity back, ' +
+  'Say: play ocean, add lightning, stop rain, solo NOx, scan, probe, listen, lighten our footprint, full footprint, ' +
   'humanity to 50 percent, go to Bahrain, zoom in, zoom out, play the story, what am I hearing, or where am I.';
 
 export function runCommand(raw: string, openMic = false) {
@@ -162,8 +162,9 @@ export function runCommand(raw: string, openMic = false) {
     const { focus } = getState();
     return speak(`You are listening to ${nameRegion(focus.lat, focus.lon, focus.zoom)}.`);
   }
-  if (/\b(un ?mute|bring) (humanity|us|people)( back)?\b|\bunmute\b/.test(t)) return unmuteHumanity();
-  if (/\bmute (humanity|us|people)\b|\bmute\b/.test(t)) return muteHumanity();
+  // "full footprint" first: it must not be read as "lighten"
+  if (/\bfull footprint\b|\b(restore|bring back|heavy|heavier) (our |the )?footprint\b|\b(un ?mute|bring) (humanity|us|people)( back)?\b|\bunmute\b/.test(t)) return unmuteHumanity();
+  if (/\blight(en)? (our |the )?footprint\b|\btread lightly\b|\bmute (humanity|us|people)\b|\bmute\b/.test(t)) return muteHumanity();
 
   const hum = t.match(/humanity (?:to |at )?(\d+|[a-z]+)\s*(?:percent|%)?/);
   if (hum) {

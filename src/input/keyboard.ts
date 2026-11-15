@@ -1,7 +1,7 @@
 // Keyboard control for the whole app. Switch devices send key presses too, so they work here.
 //
 //   1-6           play/stop a record          Left/Right  choose a record
-//   Up/Down       humanity lever              M           mute / unmute humanity
+//   Up/Down       humanity lever              M           lighten / full footprint
 //   L / S / P     Listen, Scan, Probe         arrows in Probe mode move the probe
 //   G             next place for the record   O           solo the chosen record
 //   T             play / stop the story       Shift + arrows  move the map

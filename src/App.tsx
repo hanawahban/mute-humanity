@@ -66,7 +66,7 @@ export function App() {
             <Logo reveal className="start-logo" title="Sonific-8 logo" />
             <p className="start-kicker">NASA Space Apps 2026 · Earth Information Jukebox</p>
             <h1>Sonific-8</h1>
-            <p className="start-sub">Six NASA Earth Information Center maps, played as music. Earth plays in tune. Humanity plays out of key. Then you get to mute humanity.</p>
+            <p className="start-sub">Six NASA Earth Information Center maps, played as music. Earth plays in tune. Humanity bends it off key. Then you lighten our footprint, and hear the difference.</p>
             <div className="start-buttons">
               <button type="button" className="start-button" onClick={() => void start(true)} disabled={starting} autoFocus>
                 Play the story
@@ -78,7 +78,7 @@ export function App() {
             <ol className="start-steps">
               <li><strong>Turn on records.</strong> Each one is a NASA map with its own instrument.</li>
               <li><strong>Choose how to listen.</strong> Hear the whole screen, sweep a needle across it, or point at one spot.</li>
-              <li><strong>Mute humanity.</strong> Hear the planet without us.</li>
+              <li><strong>Lighten our footprint.</strong> Hear the planet when we tread lightly.</li>
             </ol>
             <p className="start-hint">The story is a short guided listen: each sound on its own, then all of them together. Works with a mouse, keyboard, screen reader, your voice (hold V) or an Xbox controller. Press H any time for help, or I to see <button type="button" className="link-button" onClick={() => setState({ howOpen: true })}>how it works</button>.</p>
           </div>

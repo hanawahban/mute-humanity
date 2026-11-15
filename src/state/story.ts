@@ -1,7 +1,7 @@
 // "Play the story": a guided listen of about a minute and a half, with very few words.
 // Each Earth record plays alone first, zoomed into wherever NASA's map is densest right now,
 // then joins the others. Then humanity, one record at a time, then all of us at once, loud
-// and out of key. Then the lever: humanity is muted and the Earth is left, in tune.
+// and bent off key. Then the lever: our footprint is lightened and the Earth is left, in tune.
 // The music ducks under the narrator. It is also the hands-free way in for screen-reader users.
 
 import type { RecordId } from '../config/records';

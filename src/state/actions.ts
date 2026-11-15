@@ -112,7 +112,7 @@ export function fadeHumanity(to: number, ms = 3000) {
 
 export function muteHumanity() {
   fadeHumanity(0, 2500);
-  announce('Humanity muted. Listen to the planet without us.');
+  announce('Lightening our footprint. Listen to the planet with a light touch.');
   cue('mute');
   if (getState().settings.narrate && !getState().story.running) void say('mute');
 }
@@ -120,7 +120,7 @@ export function muteHumanity() {
 export function unmuteHumanity() {
   // the lever glides all the way back up
   fadeHumanity(1, 3000);
-  announce('Humanity is back.');
+  announce('Full footprint.');
   cue('unmute');
   if (getState().settings.narrate && !getState().story.running) void say('unmute');
 }
@@ -209,7 +209,7 @@ export function describeNow(): string {
   const parts = on.map((r) => {
     const l = s.levels[r.id];
     const v = s.mode === 'probe' ? s.probeValues[r.id] ?? null : l?.raw ?? null;
-    const muted = r.side === 'human' && s.humanity === 0 ? ' (muted)' : '';
+    const muted = r.side === 'human' && s.humanity === 0 ? ' (silent)' : '';
     if (v == null) return `${r.short}: no data here${muted}`;
     const clouds = r.id === 'rain' && (l?.second ?? 0) > 0.08 ? ', cloudy' : '';
     return `${r.short}: ${describeValue(r.id, v)}${clouds}${muted}`;
